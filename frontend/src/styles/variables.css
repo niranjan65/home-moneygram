@@ -1,0 +1,32 @@
+:root {
+
+  /* ===== COLORS (YELLOW-GOLD THEME) ===== */
+
+  --primary-color: #260442;          /* deep golden brown (navbar / hero bg) */
+  --secondary-color: #914276;        /* rich amber (buttons, highlights) */
+  --accent-color: #72034d;           /* soft golden highlight */
+  --background-color: #fffdf7;       /* very light warm background */
+  --card-bg: #ffffff;
+
+  --text-dark: #2e2608;              /* warm dark */
+  --text-medium: #6d5f2e;            /* muted brown */
+  --text-light: #ffffff;
+  --border-color: #f1e4b8;           /* soft warm border */
+
+  /* ===== FONT FAMILY ===== */
+  --font-primary: "Inter", sans-serif;
+
+  /* ===== FONT SIZES ===== */
+  --font-xl: 48px;
+  --font-lg: 32px;
+  --font-md: 20px;
+  --font-base: 16px;
+  --font-sm: 14px;
+
+  /* ===== SPACING ===== */
+  --container-width: 1200px;
+  --section-padding: 80px 20px;
+
+  /* ===== SHADOW ===== */
+  --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+}

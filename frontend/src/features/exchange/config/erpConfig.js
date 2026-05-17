@@ -18,7 +18,7 @@ export const getERPEnv = () => CURRENT_ENV;
 // ✅ Base URLs
 const CONFIG = {
   [ERP_ENV.DEMO]: {
-    baseURL: "http://192.168.101.182:81",
+    baseURL: "http://182.71.135.110:82/",
     getAuthHeaders: () => ({
       "Content-Type": "application/json",
       Authorization: `token ab5bd602e5f2950:47a1752c33990d9`,

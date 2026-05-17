@@ -630,7 +630,7 @@ export const TransferSuccess = ({
 
   const getInvoiceData = async (invoice_id) => {
     try {
-      const response = await axios.get(`/api/resource/Sales%20Invoice/${invoice_id}`, {
+      const response = await axios.get(`http://182.71.135.110:82/api/resource/Sales%20Invoice/${invoice_id}`, {
         headers: {
           Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
         },
@@ -700,10 +700,6 @@ export const TransferSuccess = ({
   // ── Data Mapping ──────────────────────────────────────────────────────────
   const finalData = invoiceData || apiDoc || data;
 
-
-
-  console.log('Final data used for display:', finalData);
-
   const fmt = (val, decimals = 2) =>
     Number(val).toLocaleString(undefined, {
       minimumFractionDigits: decimals,
@@ -724,7 +720,7 @@ export const TransferSuccess = ({
   // const txnStatus     = finalData?.status ?? 'Unpaid';
   const txnStatus = 'Paid';
   const exchangeRate = finalData?.exchange_rate ?? data?.exchangeRate ?? null;
-  const senderCurrency = finalData?.you_send_currency_type ?? data?.senderCurrency ?? null;
+  const senderCurrency = finalData?.you_send_currency_type ?? data?.senderCurrency ?? data?.foreignCurrency ?? null;
   const receiverCurrency = finalData?.they_receive_currency_type ?? data?.receiverCurrency ?? 'FJD';
 
   const rows = (finalData?.items ?? []).map(item => ({
@@ -792,7 +788,7 @@ export const TransferSuccess = ({
                 <div className="md:text-right col-span-2 md:col-span-1">
                   <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Exchange Rate</p>
                   <p className="font-bold text-white text-sm tracking-wide">
-                    1 {senderCurrency ?? ''} = {fmt(exchangeRate, 4)} FJD
+                    1 {senderCurrency ?? '—'} = {fmt(exchangeRate, 4)} FJD
                   </p>
                 </div>
               )}
@@ -850,7 +846,7 @@ export const TransferSuccess = ({
                 <div className="flex justify-between w-full max-w-[260px]">
                   <span className="text-sm font-medium text-white/70">Exchange Rate:</span>
                   <span className="text-sm font-bold text-[#b5f000]">
-                    1 {senderCurrency ?? ''} = {fmt(exchangeRate, 4)} FJD
+                    1 {senderCurrency ?? '—'} = {fmt(exchangeRate, 4)} FJD
                   </span>
                 </div>
               )}

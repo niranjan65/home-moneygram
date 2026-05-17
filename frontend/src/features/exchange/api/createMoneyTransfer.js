@@ -1,49 +1,80 @@
 //createMoneyTransfer.js
 import { getBaseURL, getHeaders, ERP_ENV } from "../config/erpConfig";
 
-// 👉 Always use DEMO for Money Transfer (as per your setup)
-const MONEY_TRANSFER_ENV = ERP_ENV.DEMO;
+// Always use DEMO base URL, but authenticate using loginUser credentials
+const MONEY_TRANSFER_BASE_ENV = ERP_ENV.DEMO;
 
 export const createMoneyTransfer = async (
   form,
   customerId,
-  transferType, // SEND / RECEIVE
   loginUser,
-  documentUrl
+  documentUrl,
+  currencyDenominationRows = []
 ) => {
   try {
-    const baseURL = getBaseURL(MONEY_TRANSFER_ENV);
-    const headers = getHeaders(loginUser, MONEY_TRANSFER_ENV);
+    const baseURL = getBaseURL(MONEY_TRANSFER_BASE_ENV);
+    const headers = getHeaders(loginUser, ERP_ENV.PROD);
 
-   const payload = {
-  doctype: "Money Transfer for Customer",
+    console.log("Creating Money Transfer using loginUser:", {
+      api_key: loginUser?.api_key,
+      api_secret: loginUser?.api_secret,
+      headers,
+    });
 
-  customer: customerId,
+    // Prepare child table rows
+    const currencyDenomination = currencyDenominationRows
+      .filter((row) => (row.qty || row.quantity || 0) > 0)
+      .map((row, idx) => {
+        const itemValue = String(
+          row.denomination || row.item_name || row.name || ""
+        ).trim();
+
+        return {
+          doctype: "Currency Denomination", // REQUIRED for child table rows
+          denomination: itemValue,
+          qty: Number(row.qty || row.quantity || 0),
+          amount: Number(row.amount ?? row.rate ?? 0),
+          idx: idx + 1,
+        };
+      });
+
+    const enableCurrencyDenomination =
+      form.enable_currency_denomination === 1 ||
+      form.enable_currency_denomination === "1" ||
+      form.enable_currency_denomination === true
+        ? 1
+        : 0;
+console.log(
+  "Enable Currency Denomination:",
+  form.enable_currency_denomination,
+  "=> Sent as:",
+  enableCurrencyDenomination
+);
+    // Main payload
+    const payload = {
+  doctype: "Money Transfer",
+  enable_currency_denomination: enableCurrencyDenomination,
+
   customer_id: customerId,
+  full_name: form.full_name,
+  dob: form.dob,
 
-  customer_full_name: form.full_name,
+  government_id_type: form.government_id_type,
+  government_id_number: form.government_id_number,
 
-  date_of_birth: form.date_of_birth,
-  id_type: form.id_type,
-  government_id: form.government_id,
-  passport_number: form.passport_number,
-  id_number: form.id_number,
+  document_upload: documentUrl || form.document_upload,
   transaction_id: form.transaction_id,
-  transaction_type: transferType,
+
+  amount: form.amount ? Number(form.amount) : 0,
+  currency_denomination: enableCurrencyDenomination ? currencyDenomination : [],
 };
 
-// ✅ Attach correct file field
-if (form.id_type === "PASSPORT") {
-  payload.passport_photo_file = documentUrl;
-}
+    console.log(
+      "Creating Money Transfer Payload:",
+      JSON.stringify(payload, null, 2)
+    );
 
-if (form.id_type === "GOVERNMENT_ID") {
-  payload.government_id_file = documentUrl;
-}
-
-    console.log("Creating Money Transfer:", payload);
-
-    const res = await fetch(`${baseURL}/api/resource/Money Transfer for Customer`, {
+    const res = await fetch(`${baseURL}/api/resource/Money Transfer`, {
       method: "POST",
       headers,
       body: JSON.stringify(payload),
@@ -51,9 +82,41 @@ if (form.id_type === "GOVERNMENT_ID") {
 
     const data = await res.json();
 
+    console.log("Money Transfer Response:", {
+      status: res.status,
+      ok: res.ok,
+      data,
+    });
+
     if (!res.ok) {
-      console.error("Money Transfer failed:", data);
-      throw new Error(data?.message || "Money Transfer creation failed");
+      // ERPNext returns detailed validation errors in _server_messages or exception
+      let errorMessage = "Creation failed";
+
+      if (data?._server_messages) {
+        try {
+          const messages = JSON.parse(data._server_messages);
+          errorMessage = messages
+            .map((msg) => {
+              try {
+                return JSON.parse(msg).message;
+              } catch {
+                return msg;
+              }
+            })
+            .join("\n");
+        } catch {
+          errorMessage = data._server_messages;
+        }
+      } else if (data?.exception) {
+        errorMessage = data.exception;
+      } else if (data?.message) {
+        errorMessage =
+          typeof data.message === "string"
+            ? data.message
+            : JSON.stringify(data.message);
+      }
+
+      throw new Error(errorMessage);
     }
 
     return data.data;

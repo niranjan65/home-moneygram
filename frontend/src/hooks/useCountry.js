@@ -12,7 +12,7 @@ export function useCountries() {
         setError(null);
 
         const response = await fetch(
-          "https://mhmoneyexpress.anantdv.com/api/resource/Country?fields=[\"name\",\"country_name\",\"code\"]&limit_page_length=300",
+          "/api/resource/Country?fields=[\"name\",\"country_name\",\"code\"]&limit_page_length=300",
           {
             method: "GET",
             headers: {

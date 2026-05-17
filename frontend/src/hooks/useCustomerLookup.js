@@ -11,7 +11,7 @@ export const useCustomerLookup = (setValue) => {
       setLoading(true);
 
       const res = await fetch(
-        `https://mhmoneyexpress.anantdv.com/api/resource/Customer/${idNumber}`,
+        `/api/resource/Customer/${idNumber}`,
         {
           headers: {
             "Content-Type": "application/json",
@@ -32,7 +32,7 @@ export const useCustomerLookup = (setValue) => {
       if (data.image) {
         const url = data.image.startsWith("http")
           ? data.image
-          : `https://mhmoneyexpress.anantdv.com${data.image}`;
+          : `/${data.image}`;
 
         setValue("docFile", url);
       }

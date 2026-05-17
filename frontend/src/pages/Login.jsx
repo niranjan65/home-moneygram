@@ -5,7 +5,7 @@ import mhlogo from "../assets/mhlogo.png";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 
-const ERPNEXT_BASE_URL = "https://mhmoneyexpress.anantdv.com";
+const ERPNEXT_BASE_URL = "/";
 
 import { useUser } from "../context/UserContext";
 
@@ -33,7 +33,7 @@ export default function Login() {
     try {
       const response = await fetch(
         // `${ERPNEXT_BASE_URL}/api/method/login`,
-        `${ERPNEXT_BASE_URL}/api/method/moneygram.moneygram.api.allow_login.login`,
+        `/api/method/moneygram.moneygram.api.allow_login.login`,
         {
           method: "POST",
           headers: {
@@ -104,7 +104,7 @@ export default function Login() {
 
         if (loginResult?.data?.message?.user_type === "Admin") {
           // navigate("/app")
-          window.location.href = `https://mhmoneyexpress.anantdv.com/app`;
+          window.location.href = `/app`;
         } else {
           navigate("/home");
         }

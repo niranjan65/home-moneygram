@@ -443,6 +443,11 @@
   resolved "https://registry.npmjs.org/@tailwindcss/oxide-linux-x64-gnu/-/oxide-linux-x64-gnu-4.2.2.tgz"
   integrity sha512-rTAGAkDgqbXHNp/xW0iugLVmX62wOp2PoE39BTCGKjv3Iocf6AFbRP/wZT/kuCxC9QBh9Pu8XPkv/zCZB2mcMg==
 
+"@tailwindcss/oxide-linux-x64-musl@4.2.2":
+  version "4.2.2"
+  resolved "https://registry.npmjs.org/@tailwindcss/oxide-linux-x64-musl/-/oxide-linux-x64-musl-4.2.2.tgz"
+  integrity sha512-XW3t3qwbIwiSyRCggeO2zxe3KWaEbM0/kW9e8+0XpBgyKU4ATYzcVSMKteZJ1iukJ3HgHBjbg9P5YPRCVUxlnQ==
+
 "@tailwindcss/oxide@4.2.2":
   version "4.2.2"
   resolved "https://registry.npmjs.org/@tailwindcss/oxide/-/oxide-4.2.2.tgz"
@@ -469,6 +474,13 @@
     "@tailwindcss/node" "4.2.2"
     "@tailwindcss/oxide" "4.2.2"
     tailwindcss "4.2.2"
+
+"@tybys/wasm-util@^0.10.1":
+  version "0.10.1"
+  resolved "https://registry.npmjs.org/@tybys/wasm-util/-/wasm-util-0.10.1.tgz"
+  integrity sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg==
+  dependencies:
+    tslib "^2.4.0"
 
 "@types/estree@^1.0.6":
   version "1.0.8"
@@ -1479,8 +1491,10 @@ react-datepicker@^9.1.0:
     clsx "^2.1.1"
     date-fns "^4.1.0"
 
-react-dom@*, "react-dom@^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react-dom@^16.9.0 || ^17 || ^18 || ^19 || ^19.0.0-rc", react-dom@^19.2.0, react-dom@>=16.6.0, react-dom@>=16.8.0, react-dom@>=17.0.0, react-dom@>=18:
-  version "19.2.4"
+react-dom@*, "react-dom@^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react-dom@^16.9.0 || ^17 || ^18 || ^19 || ^19.0.0-rc", react-dom@^19.2.5, react-dom@>=16.6.0, react-dom@>=16.8.0, react-dom@>=17.0.0, react-dom@>=18:
+  version "19.2.5"
+  resolved "https://registry.npmjs.org/react-dom/-/react-dom-19.2.5.tgz"
+  integrity sha512-J5bAZz+DXMMwW/wV3xzKke59Af6CHY7G4uYLN1OvBcKEsWOs4pQExj86BBKamxl/Ik5bx9whOrvBlSDfWzgSag==
   dependencies:
     scheduler "^0.27.0"
 
@@ -1546,10 +1560,10 @@ react-transition-group@^4.3.0:
     loose-envify "^1.4.0"
     prop-types "^15.6.2"
 
-react@*, "react@^16.11.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react@^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react@^16.8.0 || ^17 || ^18 || ^19", "react@^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react@^16.9.0 || ^17 || ^18 || ^19 || ^19.0.0-rc", react@^19.2.0, react@^19.2.4, react@>=16.6.0, react@>=16.8.0, react@>=17.0.0, react@>=17.x, react@>=18:
-  version "19.2.4"
-  resolved "https://registry.npmjs.org/react/-/react-19.2.4.tgz"
-  integrity sha512-9nfp2hYpCwOjAN+8TZFGhtWEwgvWHXqESH8qT89AT/lWklpLON22Lc8pEtnpsZz7VmawabSU0gCjnj8aC0euHQ==
+react@*, "react@^16.11.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react@^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react@^16.8.0 || ^17 || ^18 || ^19", "react@^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0", "react@^16.9.0 || ^17 || ^18 || ^19 || ^19.0.0-rc", react@^19.2.5, react@>=16.6.0, react@>=16.8.0, react@>=17.0.0, react@>=17.x, react@>=18:
+  version "19.2.5"
+  resolved "https://registry.npmjs.org/react/-/react-19.2.5.tgz"
+  integrity sha512-llUJLzz1zTUBrskt2pwZgLq59AemifIftw4aB7JxOqf1HY2FDaGDxgwpAPVzHU1kdWabH7FauP4i1oEeer2WCA==
 
 resolve-from@^4.0.0:
   version "4.0.0"
@@ -1707,6 +1721,11 @@ tinyglobby@^0.2.15:
     fdir "^6.5.0"
     picomatch "^4.0.3"
 
+tslib@^2.4.0:
+  version "2.8.1"
+  resolved "https://registry.npmjs.org/tslib/-/tslib-2.8.1.tgz"
+  integrity sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==
+
 type-check@^0.4.0, type-check@~0.4.0:
   version "0.4.0"
   resolved "https://registry.npmjs.org/type-check/-/type-check-0.4.0.tgz"
@@ -1793,11 +1812,6 @@ yaml@^1.10.0:
   version "1.10.3"
   resolved "https://registry.npmjs.org/yaml/-/yaml-1.10.3.tgz"
   integrity sha512-vIYeF1u3CjlhAFekPPAk2h/Kv4T3mAkMox5OymRiJQB0spDP10LHvt+K7G9Ny6NuuMAb25/6n1qyUjAcGNf/AA==
-
-yaml@^2.4.2:
-  version "2.8.3"
-  resolved "https://registry.npmjs.org/yaml/-/yaml-2.8.3.tgz"
-  integrity sha512-AvbaCLOO2Otw/lW5bmh9d/WEdcDFdQp2Z2ZUH3pX9U2ihyUY0nvLv7J6TrWowklRGPYbB/IuIMfYgxaCPg5Bpg==
 
 yocto-queue@^0.1.0:
   version "0.1.0"

@@ -30,7 +30,7 @@ function App() {
   // }, []);
   useEffect(() => {
     if (location.pathname === "/") {
-      window.location.href = `https://mhmoneyexpress.anantdv.com/home`;
+      window.location.href = `/home`;
     }
   }, [])
 

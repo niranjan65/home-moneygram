@@ -1,22 +1,22 @@
 import { useUser } from "../context/UserContext";
 
 const API_URL =
-  "https://mhmoneyexpress.anantdv.com/api/method/moneygram.moneygram.api.stock_validation.validate_stock_availability";
+  "/api/method/moneygram.moneygram.api.stock_validation.validate_stock_availability";
 
 /**
- * Validates whether a list of denomination item_codes are in stock.
+ * Validates whether a list of denomination items have enough stock.
  *
- * @param {string[]} itemNames   - Array of ERPNext item_code strings (notes_name / coins_name)
+ * @param {Array<{item_code: string, requested_qty: number}>} items - Array of requested items and quantities
  * @param {string}   warehouse   - Warehouse name from useSettings().selectedWarehouse.warehouse
  * @param {object}   loginUser   - From useUser()
  *
  * @returns {Promise<{ outOfStock: string[] }>}
- *   outOfStock: item_codes whose actual_qty === 0 or were not found in Bin
+ *   outOfStock: item_codes whose actual_qty < requested_qty or were not found in Bin
  */
-export async function validateStockAvailability(itemNames, warehouse, loginUser) {
-  if (!itemNames?.length || !warehouse) return { outOfStock: [] };
+export async function validateStockAvailability(items, warehouse, loginUser) {
+  if (!items?.length || !warehouse) return { outOfStock: [] };
 
-  const payload = itemNames.map((item_code) => ({ item_code, warehouse }));
+  const payload = items.map((item) => ({ item_code: item.item_code, warehouse }));
 
   const res = await fetch(API_URL, {
     method: "POST",
@@ -38,10 +38,10 @@ export async function validateStockAvailability(itemNames, warehouse, loginUser)
     qtyMap[item_code] = (qtyMap[item_code] ?? 0) + actual_qty;
   });
 
-  // Any item_code that was requested but has qty <= 0 (or wasn't in Bin at all) is out of stock
-  const outOfStock = itemNames.filter(
-    (code) => !Object.prototype.hasOwnProperty.call(qtyMap, code) || qtyMap[code] <= 0
-  );
+  // Any item that was requested but has qtyMap[code] < requested_qty is out of stock
+  const outOfStock = items.filter(
+    (item) => !Object.prototype.hasOwnProperty.call(qtyMap, item.item_code) || qtyMap[item.item_code] < item.requested_qty
+  ).map((item) => item.item_code);
 
   return { outOfStock, qtyMap };
 }

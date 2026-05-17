@@ -14,7 +14,7 @@ const B = {
 
 
 // ─── API Config ───────────────────────────────────────────────────────────────
-const API_BASE = 'https://mhmoneyexpress.anantdv.com';
+const API_BASE = '/';
 
 const REPORT_URL = `${API_BASE}/api/method/frappe.desk.query_report.run`;
 

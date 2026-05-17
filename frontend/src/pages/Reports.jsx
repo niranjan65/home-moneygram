@@ -3,6 +3,8 @@ import Navbar from "../components/layout/Navbar";
 import axios from "axios";
 import { useUser } from "../context/UserContext";
 import { useSettings } from "../context/SettingsContext";
+import { useAppConfiguration } from "../hooks/useAppConfiguration";
+import { ChevronDown } from "lucide-react";
 
 // ── Stock tab constants ─────────────────────────────────────────────────────
 const CURRENCY_CODE = {
@@ -114,7 +116,7 @@ function TransactionsTab({ warehouse, loginUser }) {
     setLoading(true);
     try {
       const res = await axios.post(
-        "https://mhmoneyexpress.anantdv.com/api/method/moneygram.moneygram.api.get_transactions.get_all_transactions",
+        "/api/method/moneygram.moneygram.api.get_transactions.get_all_transactions",
         { 
             //  from_date: "2026-04-01",
 //   to_date: "2026-04-08",
@@ -191,7 +193,7 @@ function TransactionsTab({ warehouse, loginUser }) {
           <table className="w-full text-sm border-collapse min-w-[900px]">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                {["#", "Name", "Date", "Customer", "Grand Total", "Outstanding", "Currency", "Status", "Company", "Warehouse", "Owner"].map((h) => (
+                {["#", "Name", "Date", "OET Code", "Customer", "Grand Total", "Outstanding", "Currency", "Status", "Company", "Warehouse", "Owner"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">
                     {h}
                   </th>
@@ -216,6 +218,11 @@ function TransactionsTab({ warehouse, loginUser }) {
                       </span>
                     </td>
                     <td className="px-4 py-3.5 text-xs text-gray-500 whitespace-nowrap">{row.posting_date}</td>
+                    <td className="px-4 py-3.5">
+                      <span className="font-mono text-xs border border-gray-200 rounded-lg px-2.5 py-1 bg-gray-50 text-gray-700 truncate inline-block">
+                        {row.oet_code}
+                      </span>
+                    </td>
                     <td className="px-4 py-3.5 font-medium text-gray-800 whitespace-nowrap">{row.party ?? "—"}</td>
                     <td className="px-4 py-3.5 text-right"><AmtCell value={row.grand_total} /></td>
                     {/* <td className="px-4 py-3.5 text-right"><AmtCell value={row.paid_amount} /></td> */}
@@ -258,14 +265,20 @@ function DayEndClosingTab({ warehouse, loginUser }) {
   const [report, setReport]   = useState(null);
   const [loading, setLoading] = useState(false);
   const [date, setDate]       = useState(() => new Date().toISOString().slice(0, 10));
+  const [oetCode, setOetCode] = useState("")
+  const { potOptions, loading: potLoading, error: potError } = useAppConfiguration();
 
   const fetchReport = useCallback(async () => {
+    
     if (!loginUser?.user) return;
     setLoading(true);
     try {
       const res = await axios.post(
-        "https://mhmoneyexpress.anantdv.com/api/method/moneygram.moneygram.api.get_day_end.get_report",
-        { warehouse: warehouse?.warehouse, date },
+        "/api/method/frappe.desk.query_report.run",
+        { report_name: "MH Day End Report",
+          filters: {"company":"MH Money Express","from_date":date,"to_date":date, "oet_code": oetCode}
+
+         },
         {
           headers: {
             "Content-Type": "application/json",
@@ -279,7 +292,7 @@ function DayEndClosingTab({ warehouse, loginUser }) {
     } finally {
       setLoading(false);
     }
-  }, [warehouse, loginUser, date]);
+  }, [warehouse, loginUser, date, oetCode]);
 
   useEffect(() => { fetchReport(); }, [fetchReport]);
 
@@ -307,6 +320,25 @@ function DayEndClosingTab({ warehouse, loginUser }) {
           </svg>
           Generate
         </button>
+
+        <div className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 bg-gray-50 text-sm font-semibold text-gray-600 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50 transition-all cursor-pointer">
+          <label htmlFor="oet-code" >
+            OET Code
+          </label>
+
+          <select onChange={(e) => setOetCode(e.target.value)} name="oet-code" id="oet-code">
+            <option value="">--SELECT--</option>
+            {potOptions.map(pot => (
+              <option
+                key={pot.code} value={pot.code}>
+                {pot.code}
+              </option>
+            ))}
+          </select>
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
+            <ChevronDown size={16} />
+          </div>
+        </div>
       </div>
 
       {loading ? (
@@ -331,59 +363,34 @@ function DayEndClosingTab({ warehouse, loginUser }) {
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b border-gray-100">
-                  <th className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-widest text-gray-400">Metric</th>
-                  <th className="px-5 py-3 text-right text-[11px] font-bold uppercase tracking-widest text-gray-400">Value</th>
-                  <th className="px-5 py-3 text-right text-[11px] font-bold uppercase tracking-widest text-gray-400">Note</th>
+                  {
+                    report?.columns?.map((col) => (
+                      <th key={col.fieldname} className="px-5 py-3 text-right text-[11px] font-bold uppercase tracking-widest text-gray-400">
+                        {col.label}
+                      </th>
+                    ))
+                  }
                 </tr>
               </thead>
               <tbody>
-                <DayEndRow label="Total Invoices"        value={report.total_invoices}                                                                           />
-                <DayEndRow label="Total Grand Total"     value={report.total_grand_total?.toLocaleString(undefined, { minimumFractionDigits: 2 })}               />
-                <DayEndRow label="Total Paid"            value={report.total_paid?.toLocaleString(undefined, { minimumFractionDigits: 2 })}     highlight         />
-                <DayEndRow label="Total Outstanding"     value={report.total_outstanding?.toLocaleString(undefined, { minimumFractionDigits: 2 })} sub="Unpaid"  />
-                <DayEndRow label="Cash Collections"      value={report.cash_collections?.toLocaleString(undefined, { minimumFractionDigits: 2 })}               />
-                <DayEndRow label="Opening Balance"       value={report.opening_balance?.toLocaleString(undefined, { minimumFractionDigits: 2 })}                />
-                <DayEndRow label="Closing Balance"       value={report.closing_balance?.toLocaleString(undefined, { minimumFractionDigits: 2 })} highlight       />
-                {/* Fallback: render any other keys returned */}
-                {Object.entries(report)
-                  .filter(([k]) => !["total_invoices","total_grand_total","total_paid","total_outstanding","cash_collections","opening_balance","closing_balance","transactions"].includes(k))
-                  .map(([k, v]) => (
-                    <DayEndRow key={k} label={k.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())} value={typeof v === "number" ? v.toLocaleString() : String(v)} />
-                  ))}
+                
+                {
+                  report?.result?.map((row, idx) => (
+                    <tr key={idx} className={`border-b border-gray-100 ${idx % 2 === 1 ? "bg-gray-50/40" : "bg-white"}`}>
+                      {report.columns.map((col) => (
+                        <td key={col.fieldname} className="px-5 py-3 text-right text-sm">
+                          {row[col.fieldname] ?? "-"}
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+
+                }
               </tbody>
             </table>
           </div>
 
-          {/* Transactions breakdown if nested */}
-          {Array.isArray(report.transactions) && report.transactions.length > 0 && (
-            <div className="rounded-2xl border border-gray-200 overflow-x-auto md:col-span-2">
-              <div className="bg-gray-50 border-b border-gray-200 px-5 py-3">
-                <p className="text-[11px] font-bold uppercase tracking-widest text-[#E00000]">Transaction Breakdown</p>
-              </div>
-              <table className="w-full text-sm border-collapse min-w-[700px]">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
-                    {["#", "Name", "Customer", "Grand Total", "Paid", "Outstanding", "Status"].map((h) => (
-                      <th key={h} className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-widest text-gray-400">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.transactions.map((row, idx) => (
-                    <tr key={row.name} className={`border-b border-gray-100 hover:bg-gray-50 ${idx % 2 === 1 ? "bg-gray-50/40" : "bg-white"}`}>
-                      <td className="px-4 py-3 text-xs text-gray-300">{idx + 1}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-gray-700">{row.name}</td>
-                      <td className="px-4 py-3 text-gray-800">{row.customer ?? "—"}</td>
-                      <td className="px-4 py-3 text-right"><AmtCell value={row.grand_total} /></td>
-                      <td className="px-4 py-3 text-right"><AmtCell value={row.paid_amount} /></td>
-                      <td className="px-4 py-3 text-right"><AmtCell value={row.outstanding_amount} /></td>
-                      <td className="px-4 py-3"><StatusBadge status={row.status} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          
         </div>
       )}
     </div>
@@ -431,7 +438,7 @@ function StockTab({ warehouse, loginUser }) {
     try {
       const res = await axios.request({
         method: "POST",
-        url: "https://mhmoneyexpress.anantdv.com/api/method/moneygram.moneygram.api.get_denomination.get_all_countries_stock",
+        url: "/api/method/moneygram.moneygram.api.get_denomination.get_all_countries_stock",
         headers: {
           "Content-Type": "application/json",
           Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,

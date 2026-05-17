@@ -228,7 +228,7 @@ export const GovernmentIdSection = ({ exchangeType, isCreditExceeded }) => {
               <select
                 {...register('oet_code', { required: 'OET Code is required' })}
                 className={`${fieldCls(errors.oet_code)} appearance-none pr-10`}
-                defaultValue=""
+                defaultValue="18"
               >
                 <option value="" disabled>Select OET Code</option>
                 {potOptions.map(pot => (

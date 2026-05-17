@@ -630,7 +630,7 @@ export const TransferSuccess = ({
 
   const getInvoiceData = async (invoice_id) => {
     try {
-      const response = await axios.get(`https://mhmoneyexpress.anantdv.com/api/resource/Sales%20Invoice/${invoice_id}`, {
+      const response = await axios.get(`/api/resource/Sales%20Invoice/${invoice_id}`, {
         headers: {
           Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
         },
@@ -699,6 +699,10 @@ export const TransferSuccess = ({
 
   // ── Data Mapping ──────────────────────────────────────────────────────────
   const finalData = invoiceData || apiDoc || data;
+
+
+
+  console.log('Final data used for display:', finalData);
 
   const fmt = (val, decimals = 2) =>
     Number(val).toLocaleString(undefined, {

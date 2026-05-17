@@ -57,7 +57,7 @@ const MoneyTransfer = () => {
   const fetchMeta = async () => {
     try {
       const res = await fetch(
-        "http://192.168.101.182:81/api/resource/DocType/Money Transfer for Customer",
+        "/api/resource/DocType/Money Transfer for Customer",
         {
           headers: {
             "Content-Type": "application/json",

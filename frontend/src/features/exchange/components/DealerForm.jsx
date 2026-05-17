@@ -84,38 +84,74 @@ export const DealerForm = ({
   // Clear stock error when currency changes
   useEffect(() => { setStockError(''); }, [toCurrency?.code]);
 
-  const runStockCheck = async (si = senderInfo, ri = receiverInfo) => {
+   const runStockCheck = async (si = senderInfo, ri = receiverInfo) => {
+
+
     // Stock check only applies when selling (customer brings foreign currency)
-    if (exchangeType === 'BUY') return true;
+
 
     const warehouseName = selectedWarehouse?.warehouse;
-    const allItemNames = [
-      ...(si?.notes_name ?? []),
-      ...(si?.coins_name ?? []),
-      ...(ri?.notes_name ?? []),
-      ...(ri?.coins_name ?? []),
-    ];
-    if (!warehouseName || allItemNames.length === 0) return true;
-    setStockLoading(true);
-    try {
-      const { outOfStock } = await validateStockAvailability(allItemNames, warehouseName, loginUser);
-      if (outOfStock.length > 0) {
-        setStockError(
-          // `The following denominations are out of stock at ${warehouseName}: ${outOfStock.join(', ')}`
-          `Sufficient stock not available at ${warehouseName} for the denominations you've entered. Please adjust the counts or contact admin.`
-        );
-        setTimeout(() => stockErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
-        return false;
+
+
+    const getSelectedItems = (info, rows) => {
+      if (!info || !rows) return [];
+      return rows.filter(r => r.count > 0).map(r => {
+        const nIdx = info.notes?.indexOf(r.denom) ?? -1;
+        if (nIdx !== -1 && info.notes_name?.[nIdx]) return { item_code: info.notes_name[nIdx], requested_qty: r.count };
+        const cIdx = info.coins?.indexOf(r.denom) ?? -1;
+        if (cIdx !== -1 && info.coins_name?.[cIdx]) return { item_code: info.coins_name[cIdx], requested_qty: r.count };
+        return null;
+      }).filter(Boolean);
+    };
+
+    if (exchangeType === 'BUY') {
+      const selectedItems = getSelectedItems(si, senderDenomRowsRef.current);
+      if (!warehouseName || selectedItems.length === 0) return true; // nothing to check
+      setStockLoading(true);
+      try {
+        const { outOfStock } = await validateStockAvailability(selectedItems, warehouseName, loginUser);
+        if (outOfStock.length > 0) {
+          setStockError(
+            `Sufficient stock for ${si?.currency} not available at ${warehouseName} for the denominations you've entered. (Check: ${outOfStock.join(', ')}) Please adjust the counts or contact admin.`
+          );
+          setTimeout(() => stockErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+          return false;
+        }
+        setStockError('');
+        return true;
+      } catch (err) {
+        console.error('[Stock Check]', err);
+        setStockError('');
+        return true; // non-blocking on API error
+      } finally {
+        setStockLoading(false);
       }
-      setStockError('');
-      return true;
-    } catch (err) {
-      console.error('[Stock Check]', err);
-      setStockError('');
-      return true;
-    } finally {
-      setStockLoading(false);
+    } else if (exchangeType === 'SELL') {
+      const selectedItems = getSelectedItems(si, senderDenomRowsRef.current);
+      if (!warehouseName || selectedItems.length === 0) return true; // nothing to check
+      setStockLoading(true);
+      try {
+        const { outOfStock } = await validateStockAvailability(selectedItems, warehouseName, loginUser);
+        if (outOfStock.length > 0) {
+          setStockError(
+            `Sufficient stock for ${si?.currency} not available at ${warehouseName} for the denominations you've entered. (Check: ${outOfStock.join(', ')}) Please adjust the counts or contact admin.`
+          );
+          setTimeout(() => stockErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+          return false;
+        }
+        setStockError('');
+        return true;
+      } catch (err) {
+        console.error('[Stock Check]', err);
+        setStockError('');
+        return true; // non-blocking on API error
+      } finally {
+        setStockLoading(false);
+      }
     }
+
+
+
   };
 
   const senderDenomRowsRef = useRef([]);

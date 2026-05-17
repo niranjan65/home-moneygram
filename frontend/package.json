@@ -11,14 +11,14 @@
     "copy-html-entry": "cp ../home/public/frontend/index.html ../home/www/home.html"
   },
   "dependencies": {
-    "frappe-react-sdk": "^1.14.0",
     "@tailwindcss/vite": "^4.2.0",
     "axios": "^1.13.5",
     "country-list": "^2.4.1",
+    "frappe-react-sdk": "^1.14.0",
     "lucide-react": "^0.574.0",
-    "react": "^19.2.0",
+    "react": "^19.2.5",
     "react-datepicker": "^9.1.0",
-    "react-dom": "^19.2.0",
+    "react-dom": "^19.2.5",
     "react-hook-form": "^7.71.2",
     "react-icons": "^5.5.0",
     "react-router-dom": "^7.13.0",

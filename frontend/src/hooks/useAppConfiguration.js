@@ -12,7 +12,7 @@ export function useAppConfiguration() {
       try {
         setLoading(true);
         const response = await fetch(
-          "https://mhmoneyexpress.anantdv.com/api/method/moneygram.moneygram.api.app_configuration.get_app_configuration",
+          "/api/method/moneygram.moneygram.api.app_configuration.get_app_configuration",
           {
             method: "GET",
             headers: {

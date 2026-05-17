@@ -3,7 +3,7 @@
 export const getExchangeRates = async (selectedWarehouse) => {
   try {
     const response = await fetch(
-      "https://mhmoneyexpress.anantdv.com/api/method/moneygram.api.get_currency_exchange_rate",
+      "/api/method/moneygram.api.get_currency_exchange_rate",
       {
         method: "POST",
         headers: {

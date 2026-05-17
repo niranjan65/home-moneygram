@@ -442,7 +442,7 @@ const MoneyExchange = () => {
           balanced: 0,
 
           exchange_rate: transferPayload.exchangeRate,
-          exchangeType: transferPayload.exchangeType === 'BUY' ? 'SELL' : 'BUY',
+          exchangeType: transferPayload.exchangeType,
           transfer_fee: summary.fee,
           send_amount: transferPayload.sendAmount,
           total_amount: transferPayload.sendAmount + summary.fee,
@@ -469,7 +469,7 @@ const MoneyExchange = () => {
 
 
       const response = await fetch(
-        "https://mhmoneyexpress.anantdv.com/api/method/moneygram.moneygram.api.create_currency_exchange.create_currency_exchange",
+        "/api/method/moneygram.moneygram.api.create_currency_exchange.create_currency_exchange",
         {
           method: "POST",
           headers: {

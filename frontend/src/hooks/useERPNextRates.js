@@ -24,7 +24,7 @@ export function useERPNextRates() {
         const today = new Date().toISOString().split("T")[0];
 
         const response = await fetch(
-          "https://mhmoneyexpress.anantdv.com/api/method/moneygram.api.get_currency_exchange_rate",
+          "/api/method/moneygram.api.get_currency_exchange_rate",
           {
             method: "POST", 
             headers: {

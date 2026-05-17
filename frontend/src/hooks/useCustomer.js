@@ -14,7 +14,7 @@ export function useCustomers() {
         setError(null);
 
         const response = await fetch(
-          "https://mhmoneyexpress.anantdv.com/api/resource/Customer?fields=[\"name\",\"customer_name\",\"customer_group\",\"territory\"]&limit_page_length=500",
+          "/api/resource/Customer?fields=[\"name\",\"customer_name\",\"customer_group\",\"territory\"]&limit_page_length=500",
           {
             method: "GET",
             headers: {

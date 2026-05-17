@@ -5,7 +5,7 @@ export const getCustomerById = async (idNumber, loginUser) => {
   if (!idNumber || idNumber.length < 3) return null;
   try {
     const res = await fetch(
-      `https://mhmoneyexpress.anantdv.com/api/resource/Customer/${idNumber}`,
+      `/api/resource/Customer/${idNumber}`,
       {
         method: 'GET',
         headers: { 
@@ -70,7 +70,7 @@ export const createCustomer = async (form, documentUrl) => {
     console.log("Creating Customer:", payload);
 
     const res = await fetch(
-      "http://192.168.101.182:81/api/resource/Customer",
+      "/api/resource/Customer",
       {
         method: "POST",
         headers: {

@@ -14,7 +14,7 @@
 //         setError(null);
 
 //         const response = await fetch(
-//           "https://mhmoneyexpress.anantdv.com/api/method/moneygram.moneygram.api.get_denomination.get_denomination",
+//           "/api/method/moneygram.moneygram.api.get_denomination.get_denomination",
 //           {
 //             method: "POST", 
 //             headers: {
@@ -99,7 +99,7 @@ const extractNames = (arr = []) =>
 async function fetchCountryDenomination(country, loginUser) {
   
   const API_URL =
-    "https://mhmoneyexpress.anantdv.com/api/method/moneygram.moneygram.api.get_denomination.get_denomination";
+    "/api/method/moneygram.moneygram.api.get_denomination.get_denomination";
 
   const HEADERS = {
     "Content-Type": "application/json",

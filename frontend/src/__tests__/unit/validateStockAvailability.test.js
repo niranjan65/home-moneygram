@@ -15,7 +15,11 @@ import { MOCK_LOGIN_USER, MOCK_WAREHOUSE } from '../fixtures/dealerFixtures';
 
 global.fetch = jest.fn();
 
-const ITEMS_ALL  = ['AUD-100', 'AUD-50', 'AUD-20'];
+const ITEMS_ALL  = [
+  { item_code: 'AUD-100', requested_qty: 10 },
+  { item_code: 'AUD-50', requested_qty: 5 },
+  { item_code: 'AUD-20', requested_qty: 20 }
+];
 const WAREHOUSE  = MOCK_WAREHOUSE.warehouse;
 const LOGIN_USER = MOCK_LOGIN_USER;
 
@@ -104,7 +108,7 @@ describe('validateStockAvailability — all out of stock', () => {
 
   test('all requested items appear in outOfStock', async () => {
     const { outOfStock } = await validateStockAvailability(ITEMS_ALL, WAREHOUSE, LOGIN_USER);
-    expect(outOfStock.sort()).toEqual(ITEMS_ALL.sort());
+    expect(outOfStock.sort()).toEqual(ITEMS_ALL.map(it => it.item_code).sort());
   });
 });
 
@@ -135,7 +139,7 @@ describe('validateStockAvailability — request shape', () => {
   });
 
   test('body contains api_value array with item_code + warehouse', async () => {
-    await validateStockAvailability(['AUD-100'], WAREHOUSE, LOGIN_USER).catch(() => {});
+    await validateStockAvailability([{item_code: 'AUD-100', requested_qty: 1}], WAREHOUSE, LOGIN_USER).catch(() => {});
 
     const [, init] = global.fetch.mock.calls[0];
     const body = JSON.parse(init.body);

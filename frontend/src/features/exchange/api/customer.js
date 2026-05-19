@@ -212,6 +212,9 @@ export const createCustomer = async (
       );
     }
 
+
+    console.log("Customer created successfully:", data);
+
     return data.data;
   } catch (err) {
     console.error("Error creating customer:", err);

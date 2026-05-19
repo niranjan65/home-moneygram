@@ -6,22 +6,72 @@ import { useSettings } from "../context/SettingsContext";
 import { useAppConfiguration } from "../hooks/useAppConfiguration";
 import { ChevronDown } from "lucide-react";
 
+// // ── Stock tab constants ─────────────────────────────────────────────────────
+// const CURRENCY_CODE = {
+//   Australia:     "AUD",
+//   Fiji:          "FJD",
+//   Malaysia:      "MYR",
+//   "New Zealand": "NZD",
+//   Singapore:     "SGD",
+//   Thailand:      "THB",
+// };
+// const FLAG = {
+//   Australia:     "🇦🇺",
+//   Fiji:          "🇫🇯",
+//   Malaysia:      "🇲🇾",
+//   "New Zealand": "🇳🇿",
+//   Singapore:     "🇸🇬",
+//   Thailand:      "🇹🇭",
+// };
+
+
 // ── Stock tab constants ─────────────────────────────────────────────────────
 const CURRENCY_CODE = {
-  Australia:     "AUD",
-  Fiji:          "FJD",
-  Malaysia:      "MYR",
-  "New Zealand": "NZD",
-  Singapore:     "SGD",
-  Thailand:      "THB",
+  Australia:         "AUD",
+  Canada:            "CAD",
+  China:             "CNY",
+  Euro:              "EUR",
+  Fiji:              "FJD",
+  "French Pacific":  "XPF",
+  HongKong:          "HKD",
+  Japan:             "JPY",
+  Korea:             "KRW",
+  Malaysia:          "MYR",
+  "New Zealand":     "NZD",
+  "Papua New Guinea":"PGK",
+  Philippines:       "PHP",
+  Samoa:             "WST",
+  Singapore:         "SGD",
+  Switzerland:       "CHF",
+  Thailand:          "THB",
+  Tonga:             "TOP",
+  UK:                "GBP",
+  USA:               "USD",
+  Vanuatu:           "VUV",
 };
+
 const FLAG = {
-  Australia:     "🇦🇺",
-  Fiji:          "🇫🇯",
-  Malaysia:      "🇲🇾",
-  "New Zealand": "🇳🇿",
-  Singapore:     "🇸🇬",
-  Thailand:      "🇹🇭",
+  Australia:          "🇦🇺",
+  Canada:             "🇨🇦",
+  China:              "🇨🇳",
+  Euro:               "🇪🇺",
+  Fiji:               "🇫🇯",
+  "French Pacific":   "🇵🇫",
+  HongKong:           "🇭🇰",
+  Japan:              "🇯🇵",
+  Korea:              "🇰🇷",
+  Malaysia:           "🇲🇾",
+  "New Zealand":      "🇳🇿",
+  "Papua New Guinea": "🇵🇬",
+  Philippines:        "🇵🇭",
+  Samoa:              "🇼🇸",
+  Singapore:          "🇸🇬",
+  Switzerland:        "🇨🇭",
+  Thailand:           "🇹🇭",
+  Tonga:              "🇹🇴",
+  UK:                 "🇬🇧",
+  USA:                "🇺🇸",
+  Vanuatu:            "🇻🇺",
 };
 
 // ── Status Badge ───────────────────────────────────────────────────────────

@@ -484,6 +484,7 @@ if (denominationsEnabled && rowsToSubmit.length > 0) {
     // Create / Fetch Customer
     const customer = await createCustomer(form, documentUrl, loginUser);
     const customerId = customer.name;
+    const customerFullName = customer.custom_full_name;
 
     // Create Transaction
     const transfer = await createMoneyTransfer(
@@ -491,12 +492,14 @@ if (denominationsEnabled && rowsToSubmit.length > 0) {
       customerId,
       loginUser,
       documentUrl,
-      rowsToSubmit
+      rowsToSubmit,
+      selectedWarehouse
     );
 
     // success info
     setSuccessInfo({
       customer: customerId,
+      customerFullName,
       transaction: transfer.name,
       amount: Number(form.amount || 0),
       transfer,
@@ -872,7 +875,7 @@ const renderField = (field) => {
                   <h2 className="text-lg font-extrabold text-gray-800">Transfer Complete</h2>
                   <p className="text-sm text-gray-600 mt-1">{successInfo.message}</p>
                   <p className="mt-3 text-sm text-gray-700">
-                    <strong>Customer:</strong> {successInfo.customer} &nbsp;•&nbsp; <strong>Transaction:</strong> {successInfo.transaction}
+                    <strong>Customer:</strong> {successInfo.customerFullName} &nbsp;•&nbsp; <strong>Transaction:</strong> {successInfo.transaction}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-3">

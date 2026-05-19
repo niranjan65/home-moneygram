@@ -630,7 +630,7 @@ export const TransferSuccess = ({
 
   const getInvoiceData = async (invoice_id) => {
     try {
-      const response = await axios.get(`http://182.71.135.110:82/api/resource/Sales%20Invoice/${invoice_id}`, {
+      const response = await axios.get(`https://mhmoneyexpress.anantdv.com/api/resource/Sales%20Invoice/${invoice_id}`, {
         headers: {
           Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
         },
@@ -867,13 +867,7 @@ export const TransferSuccess = ({
               Make Another Transfer
             </button>
 
-            <button
-              onClick={onDashboard}
-              className="flex items-center justify-center gap-2 bg-[#602020] border-2 border-[#E00000]/50 hover:border-[#b5f000] text-white font-bold py-4 px-8 rounded-xl transition-all shadow-lg hover:bg-white/5"
-            >
-              <Icon name="dashboard" size={20} />
-              Go to Dashboard
-            </button>
+            
 
             <div className="flex gap-2">
               {/* Print Receipt */}

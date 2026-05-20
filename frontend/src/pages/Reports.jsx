@@ -6,23 +6,7 @@ import { useSettings } from "../context/SettingsContext";
 import { useAppConfiguration } from "../hooks/useAppConfiguration";
 import { ChevronDown } from "lucide-react";
 
-// // ── Stock tab constants ─────────────────────────────────────────────────────
-// const CURRENCY_CODE = {
-//   Australia:     "AUD",
-//   Fiji:          "FJD",
-//   Malaysia:      "MYR",
-//   "New Zealand": "NZD",
-//   Singapore:     "SGD",
-//   Thailand:      "THB",
-// };
-// const FLAG = {
-//   Australia:     "🇦🇺",
-//   Fiji:          "🇫🇯",
-//   Malaysia:      "🇲🇾",
-//   "New Zealand": "🇳🇿",
-//   Singapore:     "🇸🇬",
-//   Thailand:      "🇹🇭",
-// };
+
 
 
 // ── Stock tab constants ─────────────────────────────────────────────────────
@@ -194,7 +178,7 @@ function TransactionsTab({ warehouse, loginUser }) {
 
   const filtered = rows.filter((r) =>
     !search ||
-    [r.name, r.customer, r.status, r.currency, r.company, r.owner]
+    [r.name, r.party, r.status, r.currency, r.company, r.owner]
       .some((v) => v?.toLowerCase().includes(search.toLowerCase()))
   );
 
@@ -287,21 +271,36 @@ function TransactionsTab({ warehouse, loginUser }) {
               )}
             </tbody>
             {filtered.length > 0 && (
-              <tfoot>
-                <tr className="bg-gray-50 border-t-2 border-[#E00000]/15">
-                  <td colSpan={4} className="px-4 py-3 text-xs font-black uppercase tracking-widest text-[#E00000]">
-                    Totals
-                  </td>
-                  <td className="px-4 py-3 text-right font-black text-gray-900 tabular-nums text-sm">
-                    {totalGrand.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  </td>
+              // <tfoot>
+              //   <tr className="bg-gray-50 border-t-2 border-[#E00000]/15">
+              //     <td colSpan={4} className="px-4 py-3 text-xs font-black uppercase tracking-widest text-[#E00000]">
+              //       Totals
+              //     </td>
+              //     <td className="px-4 py-3 text-right font-black text-gray-900 tabular-nums text-sm">
+              //       {totalGrand.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              //     </td>
                   
-                  <td className="px-4 py-3 text-right font-black text-red-500 tabular-nums text-sm">
-                    {totalOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  </td>
-                  <td colSpan={5} />
-                </tr>
-              </tfoot>
+              //     <td className="px-4 py-3 text-right font-black text-red-500 tabular-nums text-sm">
+              //       {totalOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              //     </td>
+              //     <td colSpan={5} />
+              //   </tr>
+              // </tfoot>
+
+              <tfoot>
+  <tr className="bg-gray-50 border-t-2 border-[#E00000]/15">
+    <td colSpan={5} className="px-4 py-3 text-xs font-black uppercase tracking-widest text-[#E00000]">
+      Totals
+    </td>
+    <td className="px-4 py-3 text-right font-black text-gray-900 tabular-nums text-sm">
+      {totalGrand.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+    </td>
+    <td className="px-4 py-3 text-right font-black text-red-500 tabular-nums text-sm">
+      {totalOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+    </td>
+    <td colSpan={5} />
+  </tr>
+</tfoot>
             )}
           </table>
         )}

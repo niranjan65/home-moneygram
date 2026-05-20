@@ -32,6 +32,7 @@ export const ReceiverForm = ({
       country: initialData?.country || '',
       firstName: initialData?.firstName || '',
       lastName: initialData?.lastName || '',
+      email: initialData?.email || '',
       city: initialData?.city || '',
       idType: initialData?.idType || 'PASSPORT',
       idNumber: initialData?.idNumber || '',

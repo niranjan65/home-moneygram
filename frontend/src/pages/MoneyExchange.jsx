@@ -56,6 +56,7 @@ const MoneyExchange = () => {
     return saved ? JSON.parse(saved) : {
       firstName: '',
       lastName: '',
+      email: '',
       country: '',
       city: '',
       deliveryMethod: 'BANK_DEPOSIT',
@@ -414,7 +415,7 @@ const MoneyExchange = () => {
           passport_number: transferPayload.idNumber,
           first_name: transferPayload.firstName,
           last_name: transferPayload.lastName,
-          receiver_mailid: senderInfo.email,
+          receiver_mailid: transferPayload.email || senderInfo.email,
           destination_country: transferPayload.country,
           city__province: transferPayload.city,
           id_number: transferPayload.idNumber,

@@ -354,18 +354,33 @@ export const ReceiverForm = ({
             </div>
 
             {toCurrency && effectiveRate && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex items-center gap-2 bg-white/10 border border-white/20 px-3 py-2 rounded-lg">
-                  <span className="text-[#b5f000] text-xs">Live Rate</span>
-                  <span className="text-white text-sm font-semibold">
-                    1 {toCurrency.code} = {FJD.symbol}{effectiveRate} {FJD.code}
-                  </span>
-                </div>
-                <span className="text-xs font-medium bg-white/10 border border-white/20 text-yellow-200 px-2.5 py-1.5 rounded-lg uppercase tracking-wide">
-                  {exchangeType === 'BUY' ? '🟢 Buying' : '🔴 Selling'}
-                </span>
-              </div>
-            )}
+  <div className="flex items-center gap-2 flex-wrap">
+    <div className="flex items-center gap-2 bg-white/10 border border-white/20 px-3 py-2 rounded-lg">
+      <span className="text-[#b5f000] text-xs">Live Rate</span>
+      <span className="text-white text-sm font-semibold">
+        1 {toCurrency.code} = {FJD.symbol}{effectiveRate} {FJD.code}
+      </span>
+    </div>
+
+    {/* ── Rate date badge ─────────────────────────────── */}
+    {rateDate && !useManualRate && (
+      <div className="flex items-center gap-1.5 bg-white/10 border border-white/20 px-3 py-2 rounded-lg">
+        <span className="text-[#b5f000] text-xs">Rate Date</span>
+        <span className="text-white text-sm font-semibold">{rateDate}</span>
+      </div>
+    )}
+    {useManualRate && (
+      <div className="flex items-center gap-1.5 bg-white/10 border border-yellow-400/30 px-3 py-2 rounded-lg">
+        <span className="text-yellow-300 text-xs">⚙ Manual Rate</span>
+      </div>
+    )}
+    {/* ──────────────────────────────────────────────────── */}
+
+    <span className="text-xs font-medium bg-white/10 border border-white/20 text-yellow-200 px-2.5 py-1.5 rounded-lg uppercase tracking-wide">
+      {exchangeType === 'BUY' ? '🟢 Buying' : '🔴 Selling'}
+    </span>
+  </div>
+)}
           </div>
         </div>
 

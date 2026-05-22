@@ -15,7 +15,7 @@ export const personalInfoFields = [
     name: "email",
     label: "Email Address",
     placeholder: "e.g. user@example.com",
-    rules: { required: 'Email is required', pattern: { value: /^\\S+@\\S+\\.\\S+$/, message: 'Invalid email address' } },
+    rules: { required: 'Email is required', pattern: { value: /^\S+@\S+\.\S+$/, message: 'Invalid email address' } },
   },
   {
     name: "lastName",

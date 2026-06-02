@@ -50,7 +50,7 @@ export const getCustomerById = async (customerId, loginUser) => {
 
   try {
     const res = await fetch(
-      `${BASE_URL}/api/resource/Customer/${encodeURIComponent(customerId)}`,
+      `/api/resource/Customer/${encodeURIComponent(customerId)}`,
       {
         method: "GET",
         headers: getHeaders(loginUser, ERP_ENV.PROD),

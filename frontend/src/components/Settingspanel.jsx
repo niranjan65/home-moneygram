@@ -99,7 +99,7 @@ export default function SettingsPanel() {
           </div>
 
           {/* edit controls */}
-          <div className="flex items-center gap-3 mt-5">
+          {/* <div className="flex items-center gap-3 mt-5">
             {!editing ? (
               <button
                 onClick={() => { setDraft({ name: user.name, phone: user.phone }); setEditing(true); }}
@@ -118,7 +118,7 @@ export default function SettingsPanel() {
               </>
             )}
             {saved && <span className="text-xs font-bold text-green-600 animate-pulse ml-2">✓ Saved successfully</span>}
-          </div>
+          </div> */}
 
           <div className="border-t border-gray-100 my-8" />
 

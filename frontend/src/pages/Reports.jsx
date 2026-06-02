@@ -5,6 +5,7 @@ import { useUser } from "../context/UserContext";
 import { useSettings } from "../context/SettingsContext";
 import { useAppConfiguration } from "../hooks/useAppConfiguration";
 import { ChevronDown } from "lucide-react";
+import { printThermalReceipt } from "../components/ThermalReceiptPrint";
 
 
 
@@ -144,6 +145,8 @@ function TransactionsTab({ warehouse, loginUser }) {
   const [rows, setRows]       = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch]   = useState("");
+  const [cancellingRowId, setCancellingRowId] = useState(null);
+  const [printingRowId, setPrintingRowId]   = useState(null);
 
   const fetchData = useCallback(async () => {
     if (!loginUser?.user) return;
@@ -176,11 +179,98 @@ function TransactionsTab({ warehouse, loginUser }) {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const handleCancelRow = async (row) => {
+    if (!window.confirm(`Are you sure you want to cancel the transaction associated with invoice ${row.name}?`)) {
+      return;
+    }
+
+    setCancellingRowId(row.name);
+    try {
+      // 1. Fetch the linked "Currency Exchange For Customer" docname
+      const searchRes = await axios.get(
+        "/api/resource/Currency%20Exchange%20For%20Customer",
+        {
+          params: {
+            filters: JSON.stringify([["sales_invoice_number", "=", row.name]]),
+            fields: JSON.stringify(["name"]),
+            limit_page_length: 1,
+          },
+          headers: {
+            Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
+          },
+        }
+      );
+
+      const ceDocs = searchRes.data?.data ?? [];
+      if (ceDocs.length === 0) {
+        throw new Error(`Could not find a linked 'Currency Exchange For Customer' transaction for invoice ${row.name}.`);
+      }
+
+      const ceDocName = ceDocs[0].name;
+      console.log(`Found linked Currency Exchange For Customer: ${ceDocName}`);
+
+      // 2. Call the cancel whitelisted Python method with the Currency Exchange docname
+      const response = await axios.post(
+        "/api/method/moneygram.moneygram.doctype.currency_exchange_for_customer.currency_exchange_for_customer.cancel_currency_exchange",
+        {
+          docname: ceDocName,
+        },
+        {
+          headers: {
+            Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      console.log("Cancellation Response:", response.data);
+      alert(`Transaction has been successfully cancelled.`);
+      
+      // Update local state to reflect cancellation immediately
+      setRows((prevRows) =>
+        prevRows.map((r) => (r.name === row.name ? { ...r, status: "Cancelled" } : r))
+      );
+    } catch (error) {
+      console.error("Error cancelling transaction:", error);
+      const errMsg = error.response?.data?.message || error.response?.data?._server_messages || error.message || "Failed to cancel the transaction.";
+      alert(typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg));
+    } finally {
+      setCancellingRowId(null);
+    }
+  };
+
+  const handlePrintRow = async (row) => {
+    setPrintingRowId(row.name);
+    try {
+      // Fetch full Sales Invoice details to populate item tables, totals, taxes, and exchange rates
+      const response = await axios.get(
+        `/api/resource/Sales%20Invoice/${encodeURIComponent(row.name)}`,
+        {
+          headers: {
+            Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
+          },
+        }
+      );
+      
+      const fullInvoiceData = response.data.data;
+      
+      // Print using the imported thermal receipt utility
+      printThermalReceipt(fullInvoiceData);
+    } catch (error) {
+      console.error("Error fetching invoice details for printing:", error);
+      alert("Failed to fetch full transaction details. Please make sure the invoice exists and try again.");
+    } finally {
+      setPrintingRowId(null);
+    }
+  };
+
   const filtered = rows.filter((r) =>
     !search ||
-    [r.name, r.party, r.status, r.currency, r.company, r.owner]
+    [r.name, r.party, r.status, r.currency, r.company, r.owner, r.custom_customer_full_name]
       .some((v) => v?.toLowerCase().includes(search.toLowerCase()))
   );
+
+  console.log("filtered.....", rows)
 
   const totalGrand       = filtered.reduce((s, r) => s + (parseFloat(r.grand_total) || 0), 0);
   const totalPaid        = filtered.reduce((s, r) => s + (parseFloat(r.paid_amount) || 0), 0);
@@ -227,7 +317,7 @@ function TransactionsTab({ warehouse, loginUser }) {
           <table className="w-full text-sm border-collapse min-w-[900px]">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                {["#", "Name", "Date", "OET Code", "Customer", "Grand Total", "Outstanding", "Currency", "Status", "Company", "Warehouse", "Owner"].map((h) => (
+                {["#", "Name", "Date", "OET Code", "Customer", "Grand Total", "Outstanding", "Currency", "Status", "Company", "Warehouse", "Owner", "Actions"].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">
                     {h}
                   </th>
@@ -237,7 +327,7 @@ function TransactionsTab({ warehouse, loginUser }) {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="px-5 py-12 text-center text-gray-400 text-sm">No transactions found.</td>
+                  <td colSpan={13} className="px-5 py-12 text-center text-gray-400 text-sm">No transactions found.</td>
                 </tr>
               ) : (
                 filtered.map((row, idx) => (
@@ -257,7 +347,7 @@ function TransactionsTab({ warehouse, loginUser }) {
                         {row.oet_code}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5 font-medium text-gray-800 whitespace-nowrap">{row.party ?? "—"}</td>
+                    <td className="px-4 py-3.5 font-medium text-gray-800 whitespace-nowrap">{row.custom_customer_full_name ? row.custom_customer_full_name : row.party }</td>
                     <td className="px-4 py-3.5 text-right"><AmtCell value={row.grand_total} /></td>
                     {/* <td className="px-4 py-3.5 text-right"><AmtCell value={row.paid_amount} /></td> */}
                     <td className="px-4 py-3.5 text-right"><AmtCell value={row.outstanding_amount} /></td>
@@ -266,41 +356,66 @@ function TransactionsTab({ warehouse, loginUser }) {
                     <td className="px-4 py-3.5 truncate inline-block"><TextCell value={row.company} muted /></td>
                     <td className="px-4 py-3.5"><TextCell value={row.set_warehouse} muted /></td>
                     <td className="px-4 py-3.5"><TextCell value={row.owner} muted /></td>
+                    <td className="px-4 py-3.5 whitespace-nowrap">
+                      <div className="flex gap-2">
+                        {/* Cancel Button */}
+                        <button
+                          onClick={() => handleCancelRow(row)}
+                          disabled={row.status === "Cancelled" || row.status === "Draft" || cancellingRowId === row.name}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1 border ${
+                            row.status === "Cancelled" || row.status === "Draft"
+                              ? "bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed"
+                              : "bg-white text-red-600 border-red-200 hover:bg-red-50"
+                          }`}
+                          title="Cancel Transaction"
+                        >
+                          {cancellingRowId === row.name ? (
+                            <div className="w-3.5 h-3.5 rounded-full border border-t-transparent border-red-600 animate-spin" />
+                          ) : (
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          )}
+                          Cancel
+                        </button>
+
+                        {/* Print Thermal Receipt Button */}
+                        <button
+                          onClick={() => handlePrintRow(row)}
+                          disabled={printingRowId === row.name}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-gray-700 border border-gray-200 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50 transition-all shadow-sm flex items-center gap-1"
+                          title="Print Thermal Receipt"
+                        >
+                          {printingRowId === row.name ? (
+                            <div className="w-3.5 h-3.5 rounded-full border border-t-transparent border-[#E00000] animate-spin" />
+                          ) : (
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                            </svg>
+                          )}
+                          Receipt
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
             </tbody>
             {filtered.length > 0 && (
-              // <tfoot>
-              //   <tr className="bg-gray-50 border-t-2 border-[#E00000]/15">
-              //     <td colSpan={4} className="px-4 py-3 text-xs font-black uppercase tracking-widest text-[#E00000]">
-              //       Totals
-              //     </td>
-              //     <td className="px-4 py-3 text-right font-black text-gray-900 tabular-nums text-sm">
-              //       {totalGrand.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-              //     </td>
-                  
-              //     <td className="px-4 py-3 text-right font-black text-red-500 tabular-nums text-sm">
-              //       {totalOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-              //     </td>
-              //     <td colSpan={5} />
-              //   </tr>
-              // </tfoot>
-
               <tfoot>
-  <tr className="bg-gray-50 border-t-2 border-[#E00000]/15">
-    <td colSpan={5} className="px-4 py-3 text-xs font-black uppercase tracking-widest text-[#E00000]">
-      Totals
-    </td>
-    <td className="px-4 py-3 text-right font-black text-gray-900 tabular-nums text-sm">
-      {totalGrand.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-    </td>
-    <td className="px-4 py-3 text-right font-black text-red-500 tabular-nums text-sm">
-      {totalOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-    </td>
-    <td colSpan={5} />
-  </tr>
-</tfoot>
+                <tr className="bg-gray-50 border-t-2 border-[#E00000]/15">
+                  <td colSpan={5} className="px-4 py-3 text-xs font-black uppercase tracking-widest text-[#E00000]">
+                    Totals
+                  </td>
+                  <td className="px-4 py-3 text-right font-black text-gray-900 tabular-nums text-sm">
+                    {totalGrand.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </td>
+                  <td className="px-4 py-3 text-right font-black text-red-500 tabular-nums text-sm">
+                    {totalOutstanding.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  </td>
+                  <td colSpan={6} />
+                </tr>
+              </tfoot>
             )}
           </table>
         )}

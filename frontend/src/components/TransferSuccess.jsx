@@ -467,6 +467,581 @@
 
 
 
+// import React, { useState, useEffect, useRef } from 'react';
+// import { io } from 'socket.io-client';
+// import { useExchange } from '../context/ExchangeContext';
+// import { InvoiceDocument } from './SalesInvoice';
+// import { printThermalReceipt } from './ThermalReceiptPrint';
+// import { useUser } from '../context/UserContext';
+// import axios from 'axios';
+
+// // const socket_server = 'http://182.71.135.110:8079';
+// const socket_server = 'http://187.127.109.162:5000';
+// const socket = io(socket_server, { transports: ['websocket'] });
+
+// // ─── Inline SVG Icons ─────────────────────────────────────────────────────────
+// const Icon = ({ name, size = 24, className = '' }) => {
+//   const icons = {
+//     check_circle: (
+//       <svg viewBox="0 0 24 24" fill="currentColor" width={size} height={size} className={className}>
+//         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5l-4-4 1.41-1.41L10 13.67l6.59-6.59L18 8.5l-8 8z" />
+//       </svg>
+//     ),
+//     person: (
+//       <svg viewBox="0 0 24 24" fill="currentColor" width={size} height={size} className={className}>
+//         <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
+//       </svg>
+//     ),
+//     person_pin: (
+//       <svg viewBox="0 0 24 24" fill="currentColor" width={size} height={size} className={className}>
+//         <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.3c-2.5-3.2-6-8.4-6-11.3 0-3.31 2.69-6 6-6s6 2.69 6 6c0 2.9-3.5 8.1-6 11.3z" />
+//       </svg>
+//     ),
+//     send: (
+//       <svg viewBox="0 0 24 24" fill="currentColor" width={size} height={size} className={className}>
+//         <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+//       </svg>
+//     ),
+//     dashboard: (
+//       <svg viewBox="0 0 24 24" fill="currentColor" width={size} height={size} className={className}>
+//         <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" />
+//       </svg>
+//     ),
+//     print: (
+//       <svg viewBox="0 0 24 24" fill="currentColor" width={size} height={size} className={className}>
+//         <path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z" />
+//       </svg>
+//     ),
+//     pdf: (
+//       <svg viewBox="0 0 24 24" fill="currentColor" width={size} height={size} className={className}>
+//         <path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z" />
+//       </svg>
+//     ),
+//     wallet: (
+//       <svg viewBox="0 0 24 24" fill="currentColor" width={size} height={size} className={className}>
+//         <path d="M21 7.28V5c0-1.1-.9-2-2-2H5C3.89 3 3 3.9 3 5v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-2.28A2 2 0 0022 15V9a2 2 0 00-1-1.72zM20 9v6h-7V9h7zM5 19V5h14v2h-6c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2h6v2H5z" />
+//       </svg>
+//     ),
+//     cancel: (
+//       <svg viewBox="0 0 24 24" fill="currentColor" width={size} height={size} className={className}>
+//         <path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z" />
+//       </svg>
+//     ),
+//   };
+//   return icons[name] || null;
+// };
+
+// // ─── Print Invoice in a new window ───────────────────────────────────────────
+// const printInvoice = (invoiceData) => {
+//   const printWindow = window.open('', '_blank', 'width=900,height=700');
+
+//   // Collect all stylesheets from the current page to inject into the print window
+//   const styles = Array.from(document.styleSheets)
+//     .map(sheet => {
+//       try {
+//         return Array.from(sheet.cssRules).map(rule => rule.cssText).join('\n');
+//       } catch {
+//         // Cross-origin stylesheets can't be read
+//         return '';
+//       }
+//     })
+//     .join('\n');
+
+//   const invoiceHTML = document.getElementById('invoice-print-area')?.innerHTML ?? '';
+
+//   printWindow.document.write(`
+//     <!DOCTYPE html>
+//     <html>
+//       <head>
+//         <meta charset="utf-8" />
+//         <title>Invoice - ${invoiceData?.name ?? 'Receipt'}</title>
+//         <script src="https://cdn.tailwindcss.com"></script>
+//         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
+//         <style>
+//           body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: white; }
+//           @page { size: A4; margin: 20mm; }
+//           @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+//           ${styles}
+//         </style>
+//       </head>
+//       <body>
+//         <div style="padding: 40px; max-width: 800px; margin: 0 auto;">
+//           ${invoiceHTML}
+//         </div>
+//         <script>
+//           window.onload = () => { window.print(); }
+//         </script>
+//       </body>
+//     </html>
+//   `);
+//   printWindow.document.close();
+// };
+
+// // ─── Download PDF using browser print-to-PDF ─────────────────────────────────
+// const downloadPDF = (invoiceData) => {
+//   const printWindow = window.open('', '_blank', 'width=900,height=700');
+
+//   const invoiceHTML = document.getElementById('invoice-print-area')?.innerHTML ?? '';
+
+//   printWindow.document.write(`
+//     <!DOCTYPE html>
+//     <html>
+//       <head>
+//         <meta charset="utf-8" />
+//         <title>Invoice - ${invoiceData?.name ?? 'Receipt'}</title>
+//         <script src="https://cdn.tailwindcss.com"></script>
+//         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
+//         <style>
+//           body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: white; }
+//           @page { size: A4; margin: 20mm; }
+//           @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+//         </style>
+//       </head>
+//       <body>
+//         <div style="padding: 40px; max-width: 800px; margin: 0 auto;">
+//           ${invoiceHTML}
+//         </div>
+//         <script>
+//           window.onload = () => {
+//             // Trigger save-as-PDF dialog
+//             document.title = 'Invoice-${invoiceData?.name ?? 'receipt'}';
+//             window.print();
+            
+//           }
+//         </script>
+//       </body>
+//     </html>
+//   `);
+//   printWindow.document.close();
+// };
+
+// // ─── Main Component ───────────────────────────────────────────────────────────
+// export const TransferSuccess = ({
+//   data = {},
+//   apiDoc,
+//   transactionId,
+//   onDashboard,
+// }) => {
+//   const exchange = useExchange();
+//   const loginUser = useUser();
+//   const [invoiceData, setInvoiceData] = useState(() => {
+//     const saved = sessionStorage.getItem('exchangeInvoiceData');
+//     return saved ? JSON.parse(saved) : null;
+//   });
+//   const [isLoading, setIsLoading] = useState(() => {
+//     const saved = sessionStorage.getItem('exchangeInvoiceData');
+//     return saved ? false : true;
+//   });
+
+//   const [isCancelling, setIsCancelling] = useState(false);
+//   const [isCancelled, setIsCancelled] = useState(() => {
+//     const saved = sessionStorage.getItem('exchangeInvoiceData');
+//   const savedDoc = saved ? JSON.parse(saved) : null;
+//   const finalDataTemp = savedDoc ?? apiDoc ?? data;
+//   return finalDataTemp?.docstatus === 2;
+//   });
+ 
+
+//   const [txnStatus, setTxnStatus] = useState(() => {
+//   const saved = sessionStorage.getItem('exchangeInvoiceData');
+//   const savedDoc = saved ? JSON.parse(saved) : null;
+//   const finalDataTemp = savedDoc ?? apiDoc ?? data;
+//   return finalDataTemp?.docstatus === 2 ? 'Cancelled' : 'Paid';
+// });
+
+//   const handleCancelTransaction = async () => {
+//     const docName = apiDoc?.name;
+//     if (!docName) {
+//       alert("Error: Cannot find transaction document name to cancel.");
+//       return;
+//     }
+
+//     if (!window.confirm("Are you sure you want to cancel this Currency Exchange For Customer transaction?")) {
+//       return;
+//     }
+
+//     setIsCancelling(true);
+//     try {
+//       const response = await axios.post(
+//         "/api/method/moneygram.moneygram.doctype.currency_exchange_for_customer.currency_exchange_for_customer.cancel_currency_exchange",
+//         {
+//           docname: docName,
+//         },
+//         {
+//           headers: {
+//             Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
+//             "Content-Type": "application/json",
+//           },
+//         }
+//       );
+
+//       console.log("Cancellation Response:", response.data);
+//       setInvoiceData(prev => ({ ...prev, docstatus: 2 }));
+//       setIsCancelled(true);
+//       setTxnStatus("Cancelled");
+//       alert("Transaction has been successfully cancelled.");
+//     } catch (error) {
+//       console.error("Error cancelling transaction:", error);
+//       const errMsg = error.response?.data?.message || error.response?.data?._server_messages || error.message || "Failed to cancel the transaction.";
+//       alert(typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg));
+//     } finally {
+//       setIsCancelling(false);
+//     }
+//   };
+
+//   const getInvoiceData = async (invoice_id) => {
+//     try {
+//       const response = await axios.get(`/api/resource/Sales%20Invoice/${invoice_id}`, {
+//         headers: {
+//           Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
+//         },
+//       });
+//       return response.data.data;
+//     } catch (error) {
+      
+//     }
+//   }
+
+//   useEffect(() => {
+//   if (!apiDoc?.invoice) return;
+
+//   console.log('Fetching invoice:', apiDoc.invoice);
+
+//   getInvoiceData(apiDoc.invoice)
+//     .then(data => {
+//       setInvoiceData(data);
+//       setIsLoading(false);
+//     })
+//     .catch((err) => {
+//       console.error('Error fetching invoice:', err);
+//       setIsLoading(false);
+//     });
+
+// }, [apiDoc]);
+  
+//   useEffect(() => {
+//     if (invoiceData) {
+//       sessionStorage.setItem('exchangeInvoiceData', JSON.stringify(invoiceData));
+//     }
+//   }, [invoiceData]);
+
+//   // useEffect(() => {
+//   //   socket.on('connect', () => console.log('Socket connected'));
+//   //   socket.on('new-sales-invoice', (payload) => {
+//   //     console.log('Invoice received from socket:', payload);
+//   //     setInvoiceData(payload);
+//   //     setIsLoading(false);
+//   //   });
+//   //   socket.on('disconnect', () => console.log('Socket disconnected'));
+//   //   return () => {
+//   //     socket.off('new-sales-invoice');
+//   //     socket.off('connect');
+//   //     socket.off('disconnect');
+//   //   };
+//   // }, []);
+
+//   // ── Loading Screen ────────────────────────────────────────────────────────
+//   if (isLoading) {
+//     return (
+//       <div className="flex flex-col items-center justify-center min-h-screen bg-[#421010]">
+//         <div className="flex flex-col items-center gap-4">
+//           <div className="w-14 h-14 rounded-full border-4 border-[#b5f000] border-t-transparent animate-spin" />
+//           <p className="text-white/80 font-semibold text-lg tracking-wide">Waiting for confirmation...</p>
+//         </div>
+//         <button
+//           onClick={onDashboard}
+//           className="mt-8 px-6 py-2.5 rounded-xl border border-white/20 text-white/70 hover:text-white hover:bg-white/10 transition-colors text-sm font-bold"
+//         >
+//           Cancel & Start Fresh
+//         </button>
+//       </div>
+//     );
+//   }
+
+//   // ── Data Mapping ──────────────────────────────────────────────────────────
+//   const finalData = invoiceData || apiDoc || data;
+
+//   const fmt = (val, decimals = 2) =>
+//     Number(val).toLocaleString(undefined, {
+//       minimumFractionDigits: decimals,
+//       maximumFractionDigits: decimals,
+//     });
+
+//   const currency = finalData?.currency ?? 'FJD';
+//   const company = finalData?.company ?? 'MH Money Express';
+//   const senderName = finalData?.contact_email
+//     ? finalData.contact_email.split('@')[0].replace(/\./g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+//     : 'Sender';
+//   const recipientName = finalData?.custom_customer_full_name ?? finalData?.custom_customer_full_name ?? 'Recipient';
+//   const txnId = transactionId ?? finalData?.name ?? '—';
+//   const rawTime = (finalData?.posting_time ?? '').split('.')[0];
+//   const txnDate = finalData?.posting_date
+//     ? `${finalData.posting_date}${rawTime ? ' | ' + rawTime : ''}`
+//     : '—';
+//   const exchangeRate = finalData?.exchange_rate ?? data?.exchangeRate ?? null;
+//   const senderCurrency = finalData?.you_send_currency_type ?? data?.senderCurrency ?? data?.foreignCurrency ?? null;
+//   const receiverCurrency = finalData?.they_receive_currency_type ?? data?.receiverCurrency ?? 'FJD';
+
+//   const rows = (finalData?.items ?? []).map(item => ({
+//     label: item.item_code ?? item.item_name ?? '—',
+//     qty: item.qty ?? 0,
+//     rate: item.rate ?? 0,
+//     amount: item.amount ?? 0,
+//   }));
+
+//   const netAmount = finalData?.net_total ?? finalData?.total ?? 0;
+//   const taxAmount = finalData?.total_taxes_and_charges
+//     ?? (Array.isArray(finalData?.taxes)
+//       ? finalData.taxes.reduce((s, t) => s + (t.tax_amount ?? 0), 0)
+//       : 0);
+//   const grandTotal = finalData?.grand_total ?? exchange?.total ?? 0;
+//   const roundedTotal = finalData?.rounded_total ?? grandTotal;
+
+//   return (
+//     <div className="min-h-screen bg-[url('../assets/redbg.png')] bg-cover relative z-10 font-sans flex flex-col">
+
+//       {/* ── Main ──────────────────────────────────────────────────────────── */}
+//       <main className="flex-1 flex justify-center py-10 px-4">
+//         <div className="w-full max-w-4xl flex flex-col gap-8 relative z-20">
+
+//           {/* ── Hero Section ────────────────────────────────────────────── */}
+//           <div className="flex flex-col items-center text-center gap-4 mt-6">
+
+//             <div className={`w-20 h-20 rounded-full text-white flex items-center justify-center ring-8 mt-2 shadow-xl ${
+//               txnStatus === 'Cancelled'
+//                 ? 'bg-red-500 ring-red-500/30 shadow-red-500/20'
+//                 : 'bg-green-500 ring-green-500/30 shadow-green-500/20'
+//             }`}>
+//               <Icon name={txnStatus === 'Cancelled' ? 'cancel' : 'check_circle'} size={48} />
+//             </div>
+
+//             <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight leading-snug drop-shadow-sm">
+//               {txnStatus === 'Cancelled' ? 'Transfer Cancelled' : 'Transfer Successful'}
+//             </h1>
+//             <p className="text-gray-700 text-lg font-medium drop-shadow-sm">
+//               {txnStatus === 'Cancelled'
+//                 ? 'This transaction has been successfully cancelled'
+//                 : 'Your transaction has been completed successfully'}
+//             </p>
+//           </div>
+
+//           {/* ── Details Card ────────────────────────────────────────────── */}
+//           <div className="bg-[#602020] rounded-3xl border border-[#E00000]/30 shadow-2xl p-8 md:p-10 text-white">
+
+//             {/* Meta grid */}
+//             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pb-8 border-b border-[#E00000]/30">
+//               <div>
+//                 <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Transaction ID</p>
+//                 <p className="font-bold text-white text-sm tracking-wide">{invoiceData?.name}</p>
+//               </div>
+//               <div>
+//                 <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Date &amp; Time</p>
+//                 <p className="font-medium text-white/90 text-sm tracking-wide">{txnDate}</p>
+//               </div>
+//               <div>
+//                 <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Status</p>
+//                 <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+//                   txnStatus === 'Cancelled'
+//                     ? 'bg-red-500/20 text-red-500 border border-red-500/30'
+//                     : 'bg-[#b5f000]/20 text-[#b5f000] border border-[#b5f000]/30 shadow-sm'
+//                 }`}>
+//                   <span className={`w-2 h-2 rounded-full inline-block ${
+//                     txnStatus === 'Cancelled' ? 'bg-red-500' : 'bg-[#b5f000] animate-pulse'
+//                   }`} />
+//                   {txnStatus}
+//                 </span>
+//               </div>
+//               <div className="md:text-right">
+//                 <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Payment Method</p>
+//                 <p className="font-medium text-white/90 text-sm tracking-wide">Cash</p>
+//               </div>
+//               {exchangeRate && (
+//                 <div className="md:text-right col-span-2 md:col-span-1">
+//                   <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Exchange Rate</p>
+//                   <p className="font-bold text-white text-sm tracking-wide">
+//                     1 {senderCurrency ?? '—'} = {fmt(exchangeRate, 4)} FJD
+//                   </p>
+//                 </div>
+//               )}
+//             </div>
+
+
+//             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 py-8">
+
+//               <div className="flex items-start gap-4">
+//                 <div className="w-12 h-12 rounded-xl bg-white/10 text-white flex items-center justify-center flex-shrink-0 border border-white/20">
+//                   <Icon name="person_pin" size={22} />
+//                 </div>
+//                 <div>
+//                   <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Customer Details</p>
+//                   <h3 className="text-xl font-black text-white">{recipientName}</h3>
+//                 </div>
+//               </div>
+//             </div>
+
+//             {/* Items Table */}
+//             <div className="rounded-xl border border-[#E00000]/30 overflow-hidden bg-[#421010]/30 custom-scrollbar overflow-x-auto">
+//               <table className="w-full text-left border-collapse min-w-[500px]">
+//                 <thead className="bg-[#421010]/50 border-b border-[#E00000]/30">
+//                   <tr>
+//                     <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider">Item</th>
+//                     <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider text-right">Qty</th>
+//                     <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider text-right">Rate</th>
+//                     <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider text-right">Amount ({currency})</th>
+//                   </tr>
+//                 </thead>
+//                 <tbody className="divide-y divide-[#E00000]/20">
+//                   {rows.map((row, i) => (
+//                     <tr key={i} className="hover:bg-white/5 transition-colors">
+//                       <td className="px-6 py-4 text-sm font-semibold text-white/90">{row.label}</td>
+//                       <td className="px-6 py-4 text-sm text-white/70 text-right">{row.qty}</td>
+//                       <td className="px-6 py-4 text-sm text-white/70 text-right">{fmt(row.rate, 4)}</td>
+//                       <td className="px-6 py-4 text-sm font-bold text-white text-right">{fmt(row.amount, 4)}</td>
+//                     </tr>
+//                   ))}
+//                 </tbody>
+//               </table>
+//             </div>
+
+//             {/* Summary */}
+//             <div className="mt-8 pt-8 border-t border-[#E00000]/30 flex flex-col items-end gap-3">
+//               <div className="flex justify-between w-full max-w-[260px]">
+//                 <span className="text-sm font-medium text-white/70">Net Amount:</span>
+//                 <span className="text-sm font-bold text-white">{fmt(netAmount, 4)} {currency}</span>
+//               </div>
+//               <div className="flex justify-between w-full max-w-[260px]">
+//                 <span className="text-sm font-medium text-white/70">Taxes (VAT):</span>
+//                 <span className="text-sm font-bold text-white">{fmt(taxAmount, 4)} {currency}</span>
+//               </div>
+//               {exchangeRate && (
+//                 <div className="flex justify-between w-full max-w-[260px]">
+//                   <span className="text-sm font-medium text-white/70">Exchange Rate:</span>
+//                   <span className="text-sm font-bold text-[#b5f000]">
+//                     1 {senderCurrency ?? '—'} = {fmt(exchangeRate, 4)} FJD
+//                   </span>
+//                 </div>
+//               )}
+//               <div className="flex justify-between w-full max-w-[260px] pt-5 mt-2 border-t border-[#E00000]/30">
+//                 <span className="text-lg font-black text-white">Grand Total:</span>
+//                 <span className="text-lg font-black text-[#b5f000]">{fmt(roundedTotal)} {currency}</span>
+//               </div>
+//             </div>
+//           </div>
+
+//           {/* ── Action Buttons ───────────────────────────────────────────── */}
+//           <div className="flex flex-wrap items-center justify-center gap-4 mt-4">
+//             <button
+//               onClick={onDashboard}
+//               className="flex items-center justify-center gap-2 bg-[#E00000] hover:bg-[#b5f000] text-white hover:text-[#421010] font-bold py-4 px-8 rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 group"
+//             >
+//               <Icon name="send" size={20} className="transition-transform group-hover:translate-x-1" />
+//               Make Another Transfer
+//             </button>
+
+//             {apiDoc?.name && (
+//               <button
+//                 onClick={handleCancelTransaction}
+//                 disabled={isCancelling || isCancelled}
+//                 className={`flex items-center justify-center gap-2 font-bold py-4 px-8 rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 group border-2 ${
+//                   isCancelled
+//                     ? 'bg-gray-600/30 border-gray-600/50 text-gray-500 cursor-not-allowed'
+//                     : 'bg-transparent border-red-500 text-red-500 hover:bg-red-500 hover:text-white'
+//                 }`}
+//               >
+//                 {isCancelling ? (
+//                   <div className="w-5 h-5 rounded-full border-2 border-t-transparent border-red-500 animate-spin group-hover:border-white" />
+//                 ) : (
+//                   <Icon name="cancel" size={20} />
+//                 )}
+//                 {isCancelled ? 'Cancelled' : 'Cancel Transfer'}
+//               </button>
+//             )}
+
+//             <div className="flex gap-2">
+//               {/* Print Receipt */}
+//               <button
+//                 title="Print Receipt"
+//                 onClick={() => printInvoice(finalData)}
+//                 className="w-14 h-14 flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold transition-all border border-white/10 shadow-lg"
+//               >
+//                 <Icon name="print" size={22} />
+//               </button>
+
+//               {/* Download PDF */}
+//               <button
+//                 title="Download PDF"
+//                 onClick={() => downloadPDF(finalData)}
+//                 className="w-14 h-14 flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold transition-all border border-white/10 shadow-lg"
+//               >
+//                 <Icon name="pdf" size={22} />
+//               </button>
+
+//               <button
+//                 onClick={() => printThermalReceipt(finalData, exchange)}
+//                 className="w-14 h-14 flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold transition-all border border-white/10 shadow-lg"
+//                 title="Print Thermal Receipt"
+//               >
+//                 <Icon name="print" size={22} />
+//               </button>
+//             </div>
+//           </div>
+
+//           <p className="text-center text-sm text-white/50 mb-8 mt-4">
+//             Need help with this transfer?{' '}
+//             <a href="#" className="text-[#b5f000] font-bold hover:underline">
+//               Contact Support
+//             </a>
+//           </p>
+//         </div>
+//       </main>
+
+//       {/* ── Hidden Invoice DOM (used for print/PDF extraction) ──────────── */}
+//       <div className="hidden">
+//         <InvoiceDocument invoiceData={{ ...finalData, docstatus: isCancelled ? 2 : 1 }} />
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default TransferSuccess;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useExchange } from '../context/ExchangeContext';
@@ -522,21 +1097,253 @@ const Icon = ({ name, size = 24, className = '' }) => {
         <path d="M21 7.28V5c0-1.1-.9-2-2-2H5C3.89 3 3 3.9 3 5v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-2.28A2 2 0 0022 15V9a2 2 0 00-1-1.72zM20 9v6h-7V9h7zM5 19V5h14v2h-6c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2h6v2H5z" />
       </svg>
     ),
+    cancel: (
+      <svg viewBox="0 0 24 24" fill="currentColor" width={size} height={size} className={className}>
+        <path d="M12 2C6.47 2 2 6.47 2 12s4.47 10 10 10 10-4.47 10-10S17.53 2 12 2zm5 13.59L15.59 17 12 13.41 8.41 17 7 15.59 10.59 12 7 8.41 8.41 7 12 10.59 15.59 7 17 8.41 13.41 12 17 15.59z" />
+      </svg>
+    ),
+    warning: (
+      <svg viewBox="0 0 24 24" fill="currentColor" width={size} height={size} className={className}>
+        <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
+      </svg>
+    ),
+    error_outline: (
+      <svg viewBox="0 0 24 24" fill="currentColor" width={size} height={size} className={className}>
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+      </svg>
+    ),
   };
   return icons[name] || null;
+};
+
+// ─── Cancel Modal ─────────────────────────────────────────────────────────────
+// variant: 'confirm' | 'success' | 'error'
+const CancelModal = ({ variant, errorMessage, onConfirm, onDismiss, isCancelling }) => {
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
+  const overlay = {
+    position: 'fixed', inset: 0, zIndex: 9999,
+    background: 'rgba(0,0,0,0.72)',
+    backdropFilter: 'blur(6px)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    padding: '1rem',
+  };
+
+  const card = {
+    background: '#5a1a1a',
+    border: '1px solid rgba(224,0,0,0.35)',
+    borderRadius: '20px',
+    padding: '2rem',
+    width: '100%', maxWidth: '420px',
+    boxShadow: '0 32px 80px rgba(0,0,0,0.6)',
+    animation: 'modalIn 0.22s cubic-bezier(0.34,1.56,0.64,1)',
+  };
+
+  const divider = { height: '1px', background: 'rgba(224,0,0,0.2)', margin: '1.25rem 0' };
+
+  const btnBase = {
+    flex: 1, padding: '11px 16px', borderRadius: '10px',
+    fontWeight: 700, fontSize: '13px', cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '7px',
+    transition: 'all 0.15s',
+  };
+
+  const ghostBtn = {
+    ...btnBase,
+    background: 'transparent',
+    border: '1.5px solid rgba(255,255,255,0.2)',
+    color: 'rgba(255,255,255,0.72)',
+  };
+
+  const redBtn = {
+    ...btnBase,
+    background: '#E00000',
+    border: 'none',
+    color: '#fff',
+  };
+
+  const limeBtn = {
+    ...btnBase,
+    flex: 'none', width: '100%',
+    background: '#b5f000',
+    border: 'none',
+    color: '#421010',
+    fontWeight: 800,
+    fontSize: '14px',
+    padding: '12px',
+  };
+
+  const iconWrap = (bg, border) => ({
+    width: '60px', height: '60px', borderRadius: '50%',
+    background: bg, border,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    margin: '0 auto 1rem', flexShrink: 0,
+  });
+
+  const labelStyle = (color) => ({
+    fontSize: '10px', fontWeight: 700,
+    letterSpacing: '0.12em', textTransform: 'uppercase',
+    color, margin: '0 0 5px',
+  });
+
+  const titleStyle = {
+    fontSize: '18px', fontWeight: 800, color: '#fff',
+    margin: '0 0 8px', lineHeight: 1.3,
+  };
+
+  const bodyStyle = {
+    fontSize: '13px', color: 'rgba(255,255,255,0.6)',
+    lineHeight: 1.65, margin: 0,
+  };
+
+  const spinnerStyle = {
+    width: '16px', height: '16px', borderRadius: '50%',
+    border: '2px solid rgba(255,255,255,0.35)',
+    borderTopColor: '#fff',
+    animation: 'spin 0.7s linear infinite',
+    display: 'inline-block',
+  };
+
+  const keyframes = `
+    @keyframes modalIn { from { opacity:0; transform:translateY(14px) scale(0.96) } to { opacity:1; transform:none } }
+    @keyframes spin { to { transform:rotate(360deg) } }
+  `;
+
+  // ── Confirm ──
+  if (variant === 'confirm') return (
+    <div style={overlay}>
+      <style>{keyframes}</style>
+      <div style={card} role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
+          <div style={{
+            ...iconWrap('rgba(224,0,0,0.15)', '1px solid rgba(224,0,0,0.4)'),
+            margin: 0, flexShrink: 0,
+            width: '48px', height: '48px',
+          }}>
+            <span style={{ color: '#E00000', display: 'flex' }}><Icon name="warning" size={24} /></span>
+          </div>
+          <div>
+            <p style={labelStyle('#E00000')}>Confirm Action</p>
+            <h2 id="modal-title" style={titleStyle}>Cancel this transfer?</h2>
+            <p style={bodyStyle}>
+              This will permanently cancel the Currency Exchange transaction. This action cannot be undone.
+            </p>
+          </div>
+        </div>
+        <div style={divider} />
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            style={ghostBtn}
+            onClick={onDismiss}
+            disabled={isCancelling}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+          >
+            Keep Transfer
+          </button>
+          <button
+            style={{ ...redBtn, opacity: isCancelling ? 0.7 : 1, cursor: isCancelling ? 'not-allowed' : 'pointer' }}
+            onClick={onConfirm}
+            disabled={isCancelling}
+          >
+            {isCancelling
+              ? <><span style={spinnerStyle} /> Cancelling…</>
+              : <><Icon name="cancel" size={16} /> Yes, Cancel</>
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── Success ──
+  if (variant === 'success') return (
+    <div style={overlay}>
+      <style>{keyframes}</style>
+      <div style={{ ...card, textAlign: 'center' }} role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div style={iconWrap('rgba(181,240,0,0.13)', '1.5px solid rgba(181,240,0,0.35)')}>
+          <span style={{ color: '#b5f000', display: 'flex' }}><Icon name="check_circle" size={32} /></span>
+        </div>
+        <p style={labelStyle('#b5f000')}>Cancelled Successfully</p>
+        <h2 id="modal-title" style={titleStyle}>Transaction Cancelled</h2>
+        <p style={{ ...bodyStyle, marginBottom: '1.5rem' }}>
+          The transaction has been successfully cancelled and recorded in the system.
+        </p>
+        <div style={divider} />
+        <button
+          style={limeBtn}
+          onClick={onDismiss}
+          onMouseEnter={e => e.currentTarget.style.opacity = '0.88'}
+          onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+        >
+          Done
+        </button>
+      </div>
+    </div>
+  );
+
+  // ── Error ──
+  if (variant === 'error') return (
+    <div style={overlay}>
+      <style>{keyframes}</style>
+      <div style={{ ...card, textAlign: 'center' }} role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div style={iconWrap('rgba(224,0,0,0.13)', '1.5px solid rgba(224,0,0,0.4)')}>
+          <span style={{ color: '#E00000', display: 'flex' }}><Icon name="error_outline" size={32} /></span>
+        </div>
+        <p style={labelStyle('#E00000')}>Cancellation Failed</p>
+        <h2 id="modal-title" style={titleStyle}>Something went wrong</h2>
+        <p style={{ ...bodyStyle, marginBottom: errorMessage ? '12px' : '1.5rem' }}>
+          We couldn't cancel this transaction. Please try again or contact support if the issue persists.
+        </p>
+        {errorMessage && (
+          <div style={{
+            background: 'rgba(224,0,0,0.1)', border: '1px solid rgba(224,0,0,0.25)',
+            borderRadius: '8px', padding: '10px 14px',
+            fontSize: '12px', color: 'rgba(255,255,255,0.5)',
+            textAlign: 'left', fontFamily: 'monospace',
+            marginBottom: '1.5rem', wordBreak: 'break-word',
+          }}>
+            {errorMessage}
+          </div>
+        )}
+        <div style={divider} />
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            style={ghostBtn}
+            onClick={onDismiss}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+          >
+            Dismiss
+          </button>
+          <button
+            style={redBtn}
+            onClick={onConfirm}
+            onMouseEnter={e => e.currentTarget.style.opacity = '0.88'}
+            onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+          >
+            <Icon name="cancel" size={16} /> Try Again
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  return null;
 };
 
 // ─── Print Invoice in a new window ───────────────────────────────────────────
 const printInvoice = (invoiceData) => {
   const printWindow = window.open('', '_blank', 'width=900,height=700');
 
-  // Collect all stylesheets from the current page to inject into the print window
   const styles = Array.from(document.styleSheets)
     .map(sheet => {
       try {
         return Array.from(sheet.cssRules).map(rule => rule.cssText).join('\n');
       } catch {
-        // Cross-origin stylesheets can't be read
         return '';
       }
     })
@@ -564,7 +1371,7 @@ const printInvoice = (invoiceData) => {
           ${invoiceHTML}
         </div>
         <script>
-          window.onload = () => { window.print(); window.close(); }
+          window.onload = () => { window.print(); }
         </script>
       </body>
     </html>
@@ -598,10 +1405,8 @@ const downloadPDF = (invoiceData) => {
         </div>
         <script>
           window.onload = () => {
-            // Trigger save-as-PDF dialog
             document.title = 'Invoice-${invoiceData?.name ?? 'receipt'}';
             window.print();
-            window.close();
           }
         </script>
       </body>
@@ -619,6 +1424,7 @@ export const TransferSuccess = ({
 }) => {
   const exchange = useExchange();
   const loginUser = useUser();
+
   const [invoiceData, setInvoiceData] = useState(() => {
     const saved = sessionStorage.getItem('exchangeInvoiceData');
     return saved ? JSON.parse(saved) : null;
@@ -628,9 +1434,78 @@ export const TransferSuccess = ({
     return saved ? false : true;
   });
 
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [isCancelled, setIsCancelled] = useState(() => {
+    const saved = sessionStorage.getItem('exchangeInvoiceData');
+    const savedDoc = saved ? JSON.parse(saved) : null;
+    const finalDataTemp = savedDoc ?? apiDoc ?? data;
+    return finalDataTemp?.docstatus === 2;
+  });
+
+  const [txnStatus, setTxnStatus] = useState(() => {
+    const saved = sessionStorage.getItem('exchangeInvoiceData');
+    const savedDoc = saved ? JSON.parse(saved) : null;
+    const finalDataTemp = savedDoc ?? apiDoc ?? data;
+    return finalDataTemp?.docstatus === 2 ? 'Cancelled' : 'Paid';
+  });
+
+  // ── Modal state ─────────────────────────────────────────────────────────────
+  const [modalVariant, setModalVariant] = useState(null); // null | 'confirm' | 'success' | 'error'
+  const [modalError, setModalError] = useState('');
+
+  // ── Open confirm modal when button clicked ──────────────────────────────────
+  const handleCancelClick = () => {
+    if (!apiDoc?.name) {
+      setModalError('Cannot find the transaction document name.');
+      setModalVariant('error');
+      return;
+    }
+    setModalVariant('confirm');
+  };
+
+  // ── Actual cancellation API call ────────────────────────────────────────────
+  const executeCancellation = async () => {
+    const docName = apiDoc?.name;
+    setIsCancelling(true);
+    try {
+      const response = await axios.post(
+        "/api/method/moneygram.moneygram.doctype.currency_exchange_for_customer.currency_exchange_for_customer.cancel_currency_exchange",
+        { docname: docName },
+        {
+          headers: {
+            Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      console.log("Cancellation Response:", response.data);
+      setInvoiceData(prev => ({ ...prev, docstatus: 2 }));
+      setIsCancelled(true);
+      setTxnStatus("Cancelled");
+      setModalVariant('success');   // ← show success modal
+    } catch (error) {
+      console.error("Error cancelling transaction:", error);
+      const raw =
+        error.response?.data?.message ||
+        error.response?.data?._server_messages ||
+        error.message ||
+        "Failed to cancel the transaction.";
+      setModalError(typeof raw === 'string' ? raw : JSON.stringify(raw));
+      setModalVariant('error');     // ← show error modal
+    } finally {
+      setIsCancelling(false);
+    }
+  };
+
+  // ── Dismiss modal ────────────────────────────────────────────────────────────
+  const handleModalDismiss = () => {
+    setModalVariant(null);
+    setModalError('');
+  };
+
   const getInvoiceData = async (invoice_id) => {
     try {
-      const response = await axios.get(`https://mhmoneyexpress.anantdv.com/api/resource/Sales%20Invoice/${invoice_id}`, {
+      const response = await axios.get(`/api/resource/Sales%20Invoice/${invoice_id}`, {
         headers: {
           Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
         },
@@ -642,42 +1517,24 @@ export const TransferSuccess = ({
   }
 
   useEffect(() => {
-  if (!apiDoc?.invoice) return;
-
-  console.log('Fetching invoice:', apiDoc.invoice);
-
-  getInvoiceData(apiDoc.invoice)
-    .then(data => {
-      setInvoiceData(data);
-      setIsLoading(false);
-    })
-    .catch((err) => {
-      console.error('Error fetching invoice:', err);
-      setIsLoading(false);
-    });
-
-}, [apiDoc]);
+    if (!apiDoc?.invoice) return;
+    console.log('Fetching invoice:', apiDoc.invoice);
+    getInvoiceData(apiDoc.invoice)
+      .then(data => {
+        setInvoiceData(data);
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        console.error('Error fetching invoice:', err);
+        setIsLoading(false);
+      });
+  }, [apiDoc]);
   
   useEffect(() => {
     if (invoiceData) {
       sessionStorage.setItem('exchangeInvoiceData', JSON.stringify(invoiceData));
     }
   }, [invoiceData]);
-
-  // useEffect(() => {
-  //   socket.on('connect', () => console.log('Socket connected'));
-  //   socket.on('new-sales-invoice', (payload) => {
-  //     console.log('Invoice received from socket:', payload);
-  //     setInvoiceData(payload);
-  //     setIsLoading(false);
-  //   });
-  //   socket.on('disconnect', () => console.log('Socket disconnected'));
-  //   return () => {
-  //     socket.off('new-sales-invoice');
-  //     socket.off('connect');
-  //     socket.off('disconnect');
-  //   };
-  // }, []);
 
   // ── Loading Screen ────────────────────────────────────────────────────────
   if (isLoading) {
@@ -700,6 +1557,8 @@ export const TransferSuccess = ({
   // ── Data Mapping ──────────────────────────────────────────────────────────
   const finalData = invoiceData || apiDoc || data;
 
+  
+
   const fmt = (val, decimals = 2) =>
     Number(val).toLocaleString(undefined, {
       minimumFractionDigits: decimals,
@@ -711,14 +1570,12 @@ export const TransferSuccess = ({
   const senderName = finalData?.contact_email
     ? finalData.contact_email.split('@')[0].replace(/\./g, ' ').replace(/\b\w/g, c => c.toUpperCase())
     : 'Sender';
-  const recipientName = finalData?.customer_name ?? finalData?.customer ?? 'Recipient';
+  const recipientName = finalData?.custom_customer_full_name ?? finalData?.custom_customer_full_name ?? 'Recipient';
   const txnId = transactionId ?? finalData?.name ?? '—';
   const rawTime = (finalData?.posting_time ?? '').split('.')[0];
   const txnDate = finalData?.posting_date
     ? `${finalData.posting_date}${rawTime ? ' | ' + rawTime : ''}`
     : '—';
-  // const txnStatus     = finalData?.status ?? 'Unpaid';
-  const txnStatus = 'Paid';
   const exchangeRate = finalData?.exchange_rate ?? data?.exchangeRate ?? null;
   const senderCurrency = finalData?.you_send_currency_type ?? data?.senderCurrency ?? data?.foreignCurrency ?? null;
   const receiverCurrency = finalData?.they_receive_currency_type ?? data?.receiverCurrency ?? 'FJD';
@@ -739,179 +1596,219 @@ export const TransferSuccess = ({
   const roundedTotal = finalData?.rounded_total ?? grandTotal;
 
   return (
-    <div className="min-h-screen bg-[url('../assets/redbg.png')] bg-cover relative z-10 font-sans flex flex-col">
+    <>
+      {/* ── Cancel Modal ────────────────────────────────────────────────── */}
+      {modalVariant && (
+        <CancelModal
+          variant={modalVariant}
+          errorMessage={modalError}
+          isCancelling={isCancelling}
+          onConfirm={modalVariant === 'confirm' ? executeCancellation : handleCancelClick}
+          onDismiss={handleModalDismiss}
+        />
+      )}
 
-      {/* ── Main ──────────────────────────────────────────────────────────── */}
-      <main className="flex-1 flex justify-center py-10 px-4">
-        <div className="w-full max-w-4xl flex flex-col gap-8 relative z-20">
+      <div className="min-h-screen bg-[url('../assets/redbg.png')] bg-cover relative z-10 font-sans flex flex-col">
 
-          {/* ── Hero Section ────────────────────────────────────────────── */}
-          <div className="flex flex-col items-center text-center gap-4 mt-6">
+        {/* ── Main ──────────────────────────────────────────────────────────── */}
+        <main className="flex-1 flex justify-center py-10 px-4">
+          <div className="w-full max-w-4xl flex flex-col gap-8 relative z-20">
 
-            <div className="w-20 h-20 rounded-full bg-green-500 text-white flex items-center justify-center ring-8 ring-green-500/30 mt-2 shadow-xl shadow-green-500/20">
-              <Icon name="check_circle" size={48} />
+            {/* ── Hero Section ────────────────────────────────────────────── */}
+            <div className="flex flex-col items-center text-center gap-4 mt-6">
+
+              <div className={`w-20 h-20 rounded-full text-white flex items-center justify-center ring-8 mt-2 shadow-xl ${
+                txnStatus === 'Cancelled'
+                  ? 'bg-red-500 ring-red-500/30 shadow-red-500/20'
+                  : 'bg-green-500 ring-green-500/30 shadow-green-500/20'
+              }`}>
+                <Icon name={txnStatus === 'Cancelled' ? 'cancel' : 'check_circle'} size={48} />
+              </div>
+
+              <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight leading-snug drop-shadow-sm">
+                {txnStatus === 'Cancelled' ? 'Transfer Cancelled' : 'Transfer Successful'}
+              </h1>
+              <p className="text-gray-700 text-lg font-medium drop-shadow-sm">
+                {txnStatus === 'Cancelled'
+                  ? 'This transaction has been successfully cancelled'
+                  : 'Your transaction has been completed successfully'}
+              </p>
             </div>
 
-            <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight leading-snug drop-shadow-sm">
-              Transfer Successful
-            </h1>
-            <p className="text-gray-700 text-lg font-medium drop-shadow-sm">
-              Your transaction has been completed successfully
-            </p>
-          </div>
+            {/* ── Details Card ────────────────────────────────────────────── */}
+            <div className="bg-[#602020] rounded-3xl border border-[#E00000]/30 shadow-2xl p-8 md:p-10 text-white">
 
-          {/* ── Details Card ────────────────────────────────────────────── */}
-          <div className="bg-[#602020] rounded-3xl border border-[#E00000]/30 shadow-2xl p-8 md:p-10 text-white">
-
-            {/* Meta grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pb-8 border-b border-[#E00000]/30">
-              <div>
-                <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Transaction ID</p>
-                <p className="font-bold text-white text-sm tracking-wide">{invoiceData?.name}</p>
-              </div>
-              <div>
-                <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Date &amp; Time</p>
-                <p className="font-medium text-white/90 text-sm tracking-wide">{txnDate}</p>
-              </div>
-              <div>
-                <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Status</p>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#b5f000]/20 text-[#b5f000] border border-[#b5f000]/30 shadow-sm">
-                  <span className="w-2 h-2 rounded-full bg-[#b5f000] inline-block animate-pulse" />
-                  {txnStatus}
-                </span>
-              </div>
-              <div className="md:text-right">
-                <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Payment Method</p>
-                <p className="font-medium text-white/90 text-sm tracking-wide">Cash</p>
-              </div>
-              {exchangeRate && (
-                <div className="md:text-right col-span-2 md:col-span-1">
-                  <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Exchange Rate</p>
-                  <p className="font-bold text-white text-sm tracking-wide">
-                    1 {senderCurrency ?? '—'} = {fmt(exchangeRate, 4)} FJD
-                  </p>
-                </div>
-              )}
-            </div>
-
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10 py-8">
-
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-xl bg-white/10 text-white flex items-center justify-center flex-shrink-0 border border-white/20">
-                  <Icon name="person_pin" size={22} />
+              {/* Meta grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pb-8 border-b border-[#E00000]/30">
+                <div>
+                  <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Transaction ID</p>
+                  <p className="font-bold text-white text-sm tracking-wide">{invoiceData?.name}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Customer Details</p>
-                  <h3 className="text-xl font-black text-white">{recipientName}</h3>
+                  <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Date &amp; Time</p>
+                  <p className="font-medium text-white/90 text-sm tracking-wide">{txnDate}</p>
                 </div>
-              </div>
-            </div>
-
-            {/* Items Table */}
-            <div className="rounded-xl border border-[#E00000]/30 overflow-hidden bg-[#421010]/30 custom-scrollbar overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[500px]">
-                <thead className="bg-[#421010]/50 border-b border-[#E00000]/30">
-                  <tr>
-                    <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider">Item</th>
-                    <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider text-right">Qty</th>
-                    <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider text-right">Rate</th>
-                    <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider text-right">Amount ({currency})</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E00000]/20">
-                  {rows.map((row, i) => (
-                    <tr key={i} className="hover:bg-white/5 transition-colors">
-                      <td className="px-6 py-4 text-sm font-semibold text-white/90">{row.label}</td>
-                      <td className="px-6 py-4 text-sm text-white/70 text-right">{row.qty}</td>
-                      <td className="px-6 py-4 text-sm text-white/70 text-right">{fmt(row.rate, 4)}</td>
-                      <td className="px-6 py-4 text-sm font-bold text-white text-right">{fmt(row.amount, 4)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Summary */}
-            <div className="mt-8 pt-8 border-t border-[#E00000]/30 flex flex-col items-end gap-3">
-              <div className="flex justify-between w-full max-w-[260px]">
-                <span className="text-sm font-medium text-white/70">Net Amount:</span>
-                <span className="text-sm font-bold text-white">{fmt(netAmount, 4)} {currency}</span>
-              </div>
-              <div className="flex justify-between w-full max-w-[260px]">
-                <span className="text-sm font-medium text-white/70">Taxes (VAT):</span>
-                <span className="text-sm font-bold text-white">{fmt(taxAmount, 4)} {currency}</span>
-              </div>
-              {exchangeRate && (
-                <div className="flex justify-between w-full max-w-[260px]">
-                  <span className="text-sm font-medium text-white/70">Exchange Rate:</span>
-                  <span className="text-sm font-bold text-[#b5f000]">
-                    1 {senderCurrency ?? '—'} = {fmt(exchangeRate, 4)} FJD
+                <div>
+                  <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Status</p>
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                    txnStatus === 'Cancelled'
+                      ? 'bg-red-500/20 text-red-500 border border-red-500/30'
+                      : 'bg-[#b5f000]/20 text-[#b5f000] border border-[#b5f000]/30 shadow-sm'
+                  }`}>
+                    <span className={`w-2 h-2 rounded-full inline-block ${
+                      txnStatus === 'Cancelled' ? 'bg-red-500' : 'bg-[#b5f000] animate-pulse'
+                    }`} />
+                    {txnStatus}
                   </span>
                 </div>
-              )}
-              <div className="flex justify-between w-full max-w-[260px] pt-5 mt-2 border-t border-[#E00000]/30">
-                <span className="text-lg font-black text-white">Grand Total:</span>
-                <span className="text-lg font-black text-[#b5f000]">{fmt(roundedTotal)} {currency}</span>
+                <div className="md:text-right">
+                  <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Payment Method</p>
+                  <p className="font-medium text-white/90 text-sm tracking-wide">Cash</p>
+                </div>
+                {exchangeRate && (
+                  <div className="md:text-right col-span-2 md:col-span-1">
+                    <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Exchange Rate</p>
+                    <p className="font-bold text-white text-sm tracking-wide">
+                      1 {senderCurrency ?? '—'} = {fmt(exchangeRate, 4)} FJD
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-10 py-8">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-white/10 text-white flex items-center justify-center flex-shrink-0 border border-white/20">
+                    <Icon name="person_pin" size={22} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Customer Details</p>
+                    <h3 className="text-xl font-black text-white">{recipientName}</h3>
+                  </div>
+                </div>
+              </div>
+
+              {/* Items Table */}
+              <div className="rounded-xl border border-[#E00000]/30 overflow-hidden bg-[#421010]/30 custom-scrollbar overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[500px]">
+                  <thead className="bg-[#421010]/50 border-b border-[#E00000]/30">
+                    <tr>
+                      <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider">Item</th>
+                      <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider text-right">Qty</th>
+                      <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider text-right">Rate</th>
+                      <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider text-right">Amount ({currency})</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#E00000]/20">
+                    {rows.map((row, i) => (
+                      <tr key={i} className="hover:bg-white/5 transition-colors">
+                        <td className="px-6 py-4 text-sm font-semibold text-white/90">{row.label}</td>
+                        <td className="px-6 py-4 text-sm text-white/70 text-right">{row.qty}</td>
+                        <td className="px-6 py-4 text-sm text-white/70 text-right">{fmt(row.rate, 4)}</td>
+                        <td className="px-6 py-4 text-sm font-bold text-white text-right">{fmt(row.amount, 4)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Summary */}
+              <div className="mt-8 pt-8 border-t border-[#E00000]/30 flex flex-col items-end gap-3">
+                <div className="flex justify-between w-full max-w-[260px]">
+                  <span className="text-sm font-medium text-white/70">Net Amount:</span>
+                  <span className="text-sm font-bold text-white">{fmt(netAmount, 4)} {currency}</span>
+                </div>
+                <div className="flex justify-between w-full max-w-[260px]">
+                  <span className="text-sm font-medium text-white/70">Taxes (VAT):</span>
+                  <span className="text-sm font-bold text-white">{fmt(taxAmount, 4)} {currency}</span>
+                </div>
+                {exchangeRate && (
+                  <div className="flex justify-between w-full max-w-[260px]">
+                    <span className="text-sm font-medium text-white/70">Exchange Rate:</span>
+                    <span className="text-sm font-bold text-[#b5f000]">
+                      1 {senderCurrency ?? '—'} = {fmt(exchangeRate, 4)} FJD
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between w-full max-w-[260px] pt-5 mt-2 border-t border-[#E00000]/30">
+                  <span className="text-lg font-black text-white">Grand Total:</span>
+                  <span className="text-lg font-black text-[#b5f000]">{fmt(roundedTotal)} {currency}</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* ── Action Buttons ───────────────────────────────────────────── */}
-          <div className="flex flex-wrap items-center justify-center gap-4 mt-4">
-            <button
-              onClick={onDashboard}
-              className="flex items-center justify-center gap-2 bg-[#E00000] hover:bg-[#b5f000] text-white hover:text-[#421010] font-bold py-4 px-8 rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 group"
-            >
-              <Icon name="send" size={20} className="transition-transform group-hover:translate-x-1" />
-              Make Another Transfer
-            </button>
-
-            
-
-            <div className="flex gap-2">
-              {/* Print Receipt */}
+            {/* ── Action Buttons ───────────────────────────────────────────── */}
+            <div className="flex flex-wrap items-center justify-center gap-4 mt-4">
               <button
-                title="Print Receipt"
-                onClick={() => printInvoice(finalData)}
-                className="w-14 h-14 flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold transition-all border border-white/10 shadow-lg"
+                onClick={onDashboard}
+                className="flex items-center justify-center gap-2 bg-[#E00000] hover:bg-[#b5f000] text-white hover:text-[#421010] font-bold py-4 px-8 rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 group"
               >
-                <Icon name="print" size={22} />
+                <Icon name="send" size={20} className="transition-transform group-hover:translate-x-1" />
+                Make Another Transfer
               </button>
 
-              {/* Download PDF */}
-              <button
-                title="Download PDF"
-                onClick={() => downloadPDF(finalData)}
-                className="w-14 h-14 flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold transition-all border border-white/10 shadow-lg"
-              >
-                <Icon name="pdf" size={22} />
-              </button>
+              {apiDoc?.name && (
+                <button
+                  onClick={handleCancelClick}
+                  disabled={isCancelling || isCancelled}
+                  className={`flex items-center justify-center gap-2 font-bold py-4 px-8 rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 group border-2 ${
+                    isCancelled
+                      ? 'bg-gray-600/30 border-gray-600/50 text-gray-500 cursor-not-allowed'
+                      : 'bg-transparent border-red-500 text-red-500 hover:bg-red-500 hover:text-white'
+                  }`}
+                >
+                  {isCancelling ? (
+                    <div className="w-5 h-5 rounded-full border-2 border-t-transparent border-red-500 animate-spin group-hover:border-white" />
+                  ) : (
+                    <Icon name="cancel" size={20} />
+                  )}
+                  {isCancelled ? 'Cancelled' : 'Cancel Transfer'}
+                </button>
+              )}
 
-              <button
-                onClick={() => printThermalReceipt(finalData, exchange)}
-                className="w-14 h-14 flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold transition-all border border-white/10 shadow-lg"
-                title="Print Thermal Receipt"
-              >
-                <Icon name="print" size={22} />
-              </button>
+              <div className="flex gap-2">
+                {/* Print Receipt */}
+                <button
+                  title="Print Receipt"
+                  onClick={() => printInvoice(finalData)}
+                  className="w-14 h-14 flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold transition-all border border-white/10 shadow-lg"
+                >
+                  <Icon name="print" size={22} />
+                </button>
+
+                {/* Download PDF */}
+                <button
+                  title="Download PDF"
+                  onClick={() => downloadPDF(finalData)}
+                  className="w-14 h-14 flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold transition-all border border-white/10 shadow-lg"
+                >
+                  <Icon name="pdf" size={22} />
+                </button>
+
+                <button
+                  onClick={() => printThermalReceipt(finalData, exchange)}
+                  className="w-14 h-14 flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold transition-all border border-white/10 shadow-lg"
+                  title="Print Thermal Receipt"
+                >
+                  <Icon name="print" size={22} />
+                </button>
+              </div>
             </div>
+
+            <p className="text-center text-sm text-white/50 mb-8 mt-4">
+              Need help with this transfer?{' '}
+              <a href="#" className="text-[#b5f000] font-bold hover:underline">
+                Contact Support
+              </a>
+            </p>
           </div>
+        </main>
 
-          <p className="text-center text-sm text-white/50 mb-8 mt-4">
-            Need help with this transfer?{' '}
-            <a href="#" className="text-[#b5f000] font-bold hover:underline">
-              Contact Support
-            </a>
-          </p>
+        {/* ── Hidden Invoice DOM (used for print/PDF extraction) ──────────── */}
+        <div className="hidden">
+          <InvoiceDocument invoiceData={{ ...finalData, docstatus: isCancelled ? 2 : 1 }} />
         </div>
-      </main>
-
-      {/* ── Hidden Invoice DOM (used for print/PDF extraction) ──────────── */}
-      <div className="hidden">
-        <InvoiceDocument invoiceData={finalData} />
       </div>
-    </div>
+    </>
   );
 };
 

@@ -308,14 +308,21 @@ export const ReviewStep = ({
 }) => {
   const { selectedWarehouse } = useSettings();
   const [showNoWarehouseModal, setShowNoWarehouseModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); 
 
-  const handleConfirm = () => {
-    if (!selectedWarehouse?.warehouse) {
-      setShowNoWarehouseModal(true);
-      return;
-    }
-    onConfirm?.();
-  };
+  const handleConfirm = async () => {
+  if (isSubmitting) return;                  
+  if (!selectedWarehouse?.warehouse) {
+    setShowNoWarehouseModal(true);
+    return;
+  }
+  setIsSubmitting(true);
+  try {
+    await onConfirm?.();
+  } finally {
+    setIsSubmitting(false);                   
+  }
+};
 
   const {
     sendAmount       = 0,
@@ -356,6 +363,8 @@ export const ReviewStep = ({
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
     });
+
+    <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
 
   return (
     <div className="flex flex-col gap-6">
@@ -576,13 +585,36 @@ export const ReviewStep = ({
               Cancel
             </button>
 
-            <button onClick={handleConfirm}
-              className="flex items-center gap-2.5 px-8 py-3 rounded-2xl text-sm font-black text-white transition-all hover:opacity-90 active:scale-95 group"
-              style={{ background: gradBtn, boxShadow: `0 8px 24px ${R.primary}44` }}>
-              Confirm Transaction
-              <ArrowRight size={17} strokeWidth={2.5}
-                className="group-hover:translate-x-1 transition-transform" />
-            </button>
+            <button
+  onClick={handleConfirm}
+  disabled={isSubmitting}
+  className="flex items-center gap-2.5 px-8 py-3 rounded-2xl text-sm font-black text-white transition-all active:scale-95 group"
+  style={{
+    background: gradBtn,
+    boxShadow: `0 8px 24px ${R.primary}44`,
+    opacity: isSubmitting ? 0.7 : 1,
+    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+  }}
+>
+  {isSubmitting ? (
+    <>
+      <span style={{
+        width: '16px', height: '16px', borderRadius: '50%',
+        border: '2.5px solid rgba(255,255,255,0.35)',
+        borderTopColor: '#fff',
+        animation: 'spin 0.7s linear infinite',
+        display: 'inline-block', flexShrink: 0,
+      }} />
+      Processing…
+    </>
+  ) : (
+    <>
+      Confirm Transaction
+      <ArrowRight size={17} strokeWidth={2.5}
+        className="group-hover:translate-x-1 transition-transform" />
+    </>
+  )}
+</button>
           </div>
         </div>
 

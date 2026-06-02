@@ -6,6 +6,7 @@ import React from 'react';
 // For printing: call window.print() — the @media print rules will handle the rest
 
 export const ThermalReceipt = ({ invoiceData = {}, exchange = {} }) => {
+  
   const fmt = (val, dec = 2) =>
     Number(val || 0).toLocaleString(undefined, {
       minimumFractionDigits: dec,
@@ -20,8 +21,8 @@ export const ThermalReceipt = ({ invoiceData = {}, exchange = {} }) => {
   const rawTime      = (invoiceData?.posting_time ?? '').split('.')[0];
   const txnDate      = invoiceData?.posting_date ?? '—';
   const txnTime      = rawTime || '—';
-  const customer     = invoiceData?.customer_name ?? invoiceData?.customer ?? '—';
-  const status       = invoiceData?.status ?? 'Paid';
+  const customer     = invoiceData?.custom_customer_full_name ?? invoiceData?.custom_customer_full_name ?? '—';
+  const status       = invoiceData?.docstatus === 2 ? 'Cancelled' : 'Paid';
 
   const rows = (invoiceData?.items ?? []).map(item => ({
     label:  item.item_name ?? item.item_code ?? '—',
@@ -176,8 +177,9 @@ export const ThermalReceipt = ({ invoiceData = {}, exchange = {} }) => {
           <span className="value r-bold">{txnId}</span>
         </div>
         <div className="r-row">
-          <span className="label">STATUS:</span>
+          <span className="label">STATUSyy:</span>
           <span className="value"><span className="r-status">{status}</span></span>
+          <span className="value"><span className="r-status">ppp{invoiceData?.docstatus}</span></span>
         </div>
 
         <hr className="r-divider" />
@@ -343,10 +345,10 @@ export const printThermalReceipt = (invoiceData, exchange) => {
           <div class="r-row"><span class="label">DATE:</span><span class="value">${invoiceData?.posting_date ?? '—'}</span></div>
           <div class="r-row"><span class="label">TIME:</span><span class="value">${(invoiceData?.posting_time ?? '').split('.')[0] || '—'}</span></div>
           <div class="r-row"><span class="label">SALE REF:</span><span class="value r-bold">${invoiceData?.name ?? '—'}</span></div>
-          <div class="r-row"><span class="label">STATUS:</span><span class="value"><span class="r-status">${'Paid'}</span></span></div>
+          <div class="r-row"><span class="label">STATUS:</span><span class="value"><span class="r-status">${invoiceData?.docstatus === 2 ? 'Cancelled' : 'Paid'}</span></span></div>
 
           <hr class="r-divider" />
-          <div class="r-row"><span class="label">CUSTOMER:</span><span class="value r-bold">${invoiceData?.customer_name ?? invoiceData?.customer ?? '—'}</span></div>
+          <div class="r-row"><span class="label">CUSTOMER:</span><span class="value r-bold">${invoiceData?.custom_customer_full_name ?? invoiceData?.custom_customer_full_name ?? '—'}</span></div>
           <hr class="r-divider" />
 
           ${invoiceData?.you_send ? `

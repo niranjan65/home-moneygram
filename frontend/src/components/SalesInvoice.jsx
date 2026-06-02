@@ -37,12 +37,12 @@ export const InvoiceDocument = ({ invoiceData }) => {
   const dueDate = d.due_date ?? '—';
   const rawTime = (d.posting_time ?? '').split('.')[0];
   const generatedAt = postingDate + (rawTime ? ' ' + rawTime : '');
-  const customerName = d.customer_name ?? d.customer ?? '—';
+  const customerName = d.custom_customer_full_name ?? d.custom_customer_full_name ?? '—';
   const customerId = d.customer ?? '—';
   const contactEmail = d.contact_email ?? '—';
   const contactMobile = d.contact_mobile || '—';
   // const txnStatus = d.status ?? 'Unpaid';
-  const txnStatus = 'Paid';
+  const txnStatus = invoiceData?.docstatus === 2 ? 'Cancelled' : 'Paid';
   const remarks = d.remarks ?? 'No Remarks';
 
   const rows = (d.items ?? []).map(item => ({
@@ -63,6 +63,7 @@ export const InvoiceDocument = ({ invoiceData }) => {
   const outstandingAmount = d.outstanding_amount ?? roundedTotal;
 
   const isUnpaid = txnStatus?.toLowerCase() === 'unpaid';
+const isCancelled = txnStatus?.toLowerCase() === 'cancelled';
 
   return (
     <div id="invoice-print-area" className="bg-white font-sans text-slate-900 w-full p-6 print:p-4" style={{ fontSize: '12px' }}>
@@ -77,7 +78,7 @@ export const InvoiceDocument = ({ invoiceData }) => {
       `}</style>
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex justify-between items-start border-b-2 border-blue-100 pb-4 mb-4">
+      <div className={`flex justify-between items-start border-b-2 pb-4 mb-4 ${isCancelled ? 'border-red-200' : 'border-blue-100'}`}>
         {/* Left: Company */}
         <div className="space-y-2">
           <div className="flex items-center gap-2">
@@ -108,7 +109,7 @@ export const InvoiceDocument = ({ invoiceData }) => {
 
         {/* Right: Invoice meta */}
         <div className="text-right">
-          <h2 className="text-2xl font-black text-blue-100 mb-2 uppercase tracking-widest">
+          <h2 className={`text-2xl font-black mb-2 uppercase tracking-widest ${isCancelled ? 'text-red-100' : 'text-blue-100'}`}>
             Sales Invoice
           </h2>
           <div className="space-y-0.5 text-xs">
@@ -149,7 +150,7 @@ export const InvoiceDocument = ({ invoiceData }) => {
 
         {/* Status panel */}
         <div className="flex flex-col justify-between gap-2">
-          <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-100">
+          <div className={`flex items-center justify-between p-3 rounded-lg border ${isCancelled ? 'bg-red-50 border-red-100' : 'bg-blue-50 border-blue-100'}`}>
             <div className="text-center">
               <p className="text-[10px] uppercase font-bold text-slate-500 mb-0.5">Currency</p>
               <p className="font-bold text-xs text-slate-900">{currency}</p>
@@ -157,7 +158,11 @@ export const InvoiceDocument = ({ invoiceData }) => {
             <div className="h-6 w-px bg-slate-200" />
             <div className="text-center">
               <p className="text-[10px] uppercase font-bold text-slate-500 mb-0.5">Status</p>
-              <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full uppercase ${isUnpaid ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+              <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full uppercase ${
+  isCancelled ? 'bg-red-100 text-red-600' :
+  isUnpaid ? 'bg-yellow-100 text-yellow-600' :
+  'bg-green-100 text-green-600'
+}`}>
                 {txnStatus}
               </span>
             </div>
@@ -167,8 +172,10 @@ export const InvoiceDocument = ({ invoiceData }) => {
               <p className="font-medium text-slate-600 italic text-[10px]">{remarks}</p>
             </div>
           </div>
-          <div className="p-2.5 border-l-4 border-blue-600 bg-blue-50 rounded-r-lg">
-            <p className="text-[10px] font-semibold text-blue-600 uppercase mb-0.5">Payment Instructions</p>
+          <div className={`p-2.5 border-l-4 rounded-r-lg ${isCancelled ? 'border-red-500 bg-red-50' : 'border-blue-600 bg-blue-50'}`}>
+  <p className={`text-[10px] font-semibold uppercase mb-0.5 ${isCancelled ? 'text-red-600' : 'text-blue-600'}`}>
+    {isCancelled ? 'Cancellation Notice' : 'Payment Instructions'}
+  </p>
             <p className="text-[10px] text-slate-600">
               Please include the Invoice # in your transfer description for faster processing.
             </p>
@@ -180,7 +187,7 @@ export const InvoiceDocument = ({ invoiceData }) => {
       <div className="mb-4">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-900 text-white text-[10px] uppercase tracking-wider">
+            <tr className={`text-white text-[10px] uppercase tracking-wider ${isCancelled ? 'bg-red-700' : 'bg-slate-900'}`}>
               <th className="p-2 rounded-tl-lg">Item Code</th>
               <th className="p-2">Item Name</th>
               <th className="p-2 text-center">Qty</th>
@@ -258,7 +265,7 @@ export const InvoiceDocument = ({ invoiceData }) => {
           </div>
           <div className="flex justify-between text-xs font-bold text-slate-900 pt-0.5">
             <span>Rounded Total:</span>
-            <span className="text-blue-600">{currency} {fmt(roundedTotal)}</span>
+            <span className={isCancelled ? 'text-red-600' : 'text-blue-600'}>{currency} {fmt(roundedTotal)}</span>
           </div>
           <div className="flex justify-between text-xs font-bold text-red-600 pt-1 border-t border-red-100">
             <span>Outstanding:</span>

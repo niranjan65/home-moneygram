@@ -74,10 +74,12 @@
 import React from "react";
 import { User, Edit3 } from "lucide-react";
 import { useCurrentUser } from "../hooks/useCurrentUser";
+import { useSettings } from "../context/SettingsContext";
 
 
 export const SenderCard = () => {
   const { user, loading, error } = useCurrentUser();
+  const { selectedWarehouse } = useSettings();
 
   if (loading) {
     return <div className="p-6">Loading user...</div>;
@@ -128,6 +130,15 @@ export const SenderCard = () => {
           </span>
           <span className="text-sm font-bold text-gray-900">
             {user?.mobile_no || "Not Available"}
+          </span>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+           Active Location
+          </span>
+          <span className="text-sm font-bold text-gray-900">
+            {selectedWarehouse?.warehouse || "Not Available"}
           </span>
         </div>
       </div>

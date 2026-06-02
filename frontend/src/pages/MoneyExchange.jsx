@@ -29,6 +29,7 @@ const MoneyExchange = () => {
   const ratesData = useERPNextRates();
 
   const [summaryChange, setHandleSumamryChange] = useState();
+  const [showLocationModal, setShowLocationModal] = useState(false);
 
   // Holds the raw rbfDocument File between DETAILS → REVIEW steps.
   // Can't use sessionStorage because File objects are not serialisable.
@@ -218,6 +219,11 @@ const MoneyExchange = () => {
 
   const handleConfirm = useCallback(async () => {
     if (!transferPayload) return;
+
+     if (!selectedWarehouse?.warehouse) {
+    setShowLocationModal(true);
+    return;
+  }
 
     let uploadedFileUrl = null;
 
@@ -651,6 +657,32 @@ const MoneyExchange = () => {
       <footer className="py-8 px-10 border-t border-gray-100 text-center text-gray-400 text-xs font-bold uppercase tracking-[0.2em]">
         © 2026 MoneyGram.
       </footer>
+
+
+      {/* Location required modal */}
+{showLocationModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 flex flex-col items-center gap-5">
+      <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center">
+        <svg className="w-7 h-7 text-[#E00000]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+        </svg>
+      </div>
+      <div className="text-center">
+        <h2 className="text-gray-900 text-xl font-bold mb-2">No Location Selected</h2>
+        <p className="text-gray-500 text-sm leading-relaxed">
+          Please select a <span className="font-semibold text-gray-700">Location</span> before confirming the transaction. You can change it from the settings.
+        </p>
+      </div>
+      <button
+        onClick={() => setShowLocationModal(false)}
+        className="w-full py-3 rounded-xl bg-[#E00000] text-white font-bold text-sm tracking-wide hover:bg-red-700 transition-colors"
+      >
+        Got it
+      </button>
+    </div>
+  </div>
+)}
     </div>
   );
 };

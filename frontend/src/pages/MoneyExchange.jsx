@@ -12,6 +12,8 @@ import { useSettings } from '../context/SettingsContext';
 import { useERPNextRates } from '../hooks/useERPNextRates';
 import { CheckCircle2 } from 'lucide-react';
 import { useUser } from '../context/UserContext';
+import { useDispatch } from 'react-redux';
+import { setIsDealer } from '../store/exchangeSlice';
 
 const Step = {
   ESTIMATE: 1,
@@ -25,6 +27,12 @@ const TRANSFER_FEE = 4.99;
 
 
 const MoneyExchange = () => {
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    dispatch(setIsDealer(false));
+  }, [dispatch]);
+
   const { uploadFile } = useERPFileUpload();
   const ratesData = useERPNextRates();
 

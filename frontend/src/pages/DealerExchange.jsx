@@ -11,6 +11,8 @@ import { useERPNextRates } from '../hooks/useERPNextRates';
 import { useUser } from '../context/UserContext';
 import { useSettings } from '../context/SettingsContext';
 import { useERPFileUpload } from '../hooks/useERPFileUpload';
+import { useDispatch } from 'react-redux';
+import { setIsDealer } from '../store/exchangeSlice';
 
 const Step = {
   ESTIMATE: 1,
@@ -22,6 +24,12 @@ const Step = {
 const TRANSFER_FEE = 4.99;
 
 const DealerExchange = () => {
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    dispatch(setIsDealer(true));
+  }, [dispatch]);
+
   const { uploadFile } = useERPFileUpload();
   const ratesData = useERPNextRates();
   const loginUser = useUser();
@@ -422,6 +430,7 @@ useEffect(() => saveToSession('dealerSummary', summary), [summary]);
           estimatedArrival="Processed immediately"
           onDashboard={handleDashboard}
           onDownloadReceipt={handleDownloadReceipt}
+          isDealer={true}
         />
       );
     }

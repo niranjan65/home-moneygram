@@ -186,44 +186,114 @@ function TransactionsTab({ warehouse, loginUser }) {
 
     setCancellingRowId(row.name);
     try {
-      // 1. Fetch the linked "Currency Exchange For Customer" docname
-      const searchRes = await axios.get(
-        "/api/resource/Currency%20Exchange%20For%20Customer",
-        {
-          params: {
-            filters: JSON.stringify([["sales_invoice_number", "=", row.name]]),
-            fields: JSON.stringify(["name"]),
-            limit_page_length: 1,
-          },
-          headers: {
-            Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
-          },
-        }
-      );
+      let ceDocs = [];
+      let isDealerDoc = false;
+      let dealerDocType = "Currency Exchange For Dealer";
 
-      const ceDocs = searchRes.data?.data ?? [];
+      // 1. Try to fetch the linked "Currency Exchange For Customer" docname
+      try {
+        const searchRes = await axios.get(
+          "/api/resource/Currency%20Exchange%20For%20Customer",
+          {
+            params: {
+              filters: JSON.stringify([["sales_invoice_number", "=", row.name]]),
+              fields: JSON.stringify(["name"]),
+              limit_page_length: 1,
+            },
+            headers: {
+              Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
+            },
+          }
+        );
+        ceDocs = searchRes.data?.data ?? [];
+      } catch (err) {
+        console.error("Failed to query Currency Exchange For Customer:", err);
+      }
+
+      // 2. If not found, try to query dealer exchange doctypes
       if (ceDocs.length === 0) {
-        throw new Error(`Could not find a linked 'Currency Exchange For Customer' transaction for invoice ${row.name}.`);
+        try {
+          const searchResDealer = await axios.get(
+            `/api/resource/${encodeURIComponent(dealerDocType)}`,
+            {
+              params: {
+                filters: JSON.stringify([["sales_invoice_number", "=", row.name]]),
+                fields: JSON.stringify(["name"]),
+                limit_page_length: 1,
+              },
+              headers: {
+                Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
+              },
+            }
+          );
+          ceDocs = searchResDealer.data?.data ?? [];
+          if (ceDocs.length > 0) {
+            isDealerDoc = true;
+          }
+        } catch (err) {
+          console.log(`Failed to query ${dealerDocType}, trying lowercase 'for'...`, err);
+          // Try lowercase 'for'
+          dealerDocType = "Currency Exchange for Dealer";
+          try {
+            const searchResDealer2 = await axios.get(
+              `/api/resource/${encodeURIComponent(dealerDocType)}`,
+              {
+                params: {
+                  filters: JSON.stringify([["sales_invoice_number", "=", row.name]]),
+                  fields: JSON.stringify(["name"]),
+                  limit_page_length: 1,
+                },
+                headers: {
+                  Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
+                },
+              }
+            );
+            ceDocs = searchResDealer2.data?.data ?? [];
+            if (ceDocs.length > 0) {
+              isDealerDoc = true;
+            }
+          } catch (err2) {
+            console.error(`Failed to query both dealer exchange doctypes.`, err2);
+          }
+        }
+      }
+
+      if (ceDocs.length === 0) {
+        throw new Error(`Could not find a linked Currency Exchange transaction for invoice ${row.name}.`);
       }
 
       const ceDocName = ceDocs[0].name;
-      console.log(`Found linked Currency Exchange For Customer: ${ceDocName}`);
+      console.log(`Found linked exchange document: ${ceDocName} (isDealerDoc: ${isDealerDoc})`);
 
-      // 2. Call the cancel whitelisted Python method with the Currency Exchange docname
-      const response = await axios.post(
-        "/api/method/moneygram.moneygram.doctype.currency_exchange_for_customer.currency_exchange_for_customer.cancel_currency_exchange",
-        {
-          docname: ceDocName,
-        },
-        {
-          headers: {
-            Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
-            "Content-Type": "application/json",
+      // 3. Cancel the transaction: PUT to resource for dealer, custom method for customer
+      if (isDealerDoc) {
+        const response = await axios.put(
+          `/api/resource/${encodeURIComponent(dealerDocType)}/${encodeURIComponent(ceDocName)}`,
+          { docstatus: 2 },
+          {
+            headers: {
+              Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        console.log("Direct Cancellation Response:", response.data);
+      } else {
+        const response = await axios.post(
+          "/api/method/moneygram.moneygram.doctype.currency_exchange_for_customer.currency_exchange_for_customer.cancel_currency_exchange",
+          {
+            docname: ceDocName,
           },
-        }
-      );
+          {
+            headers: {
+              Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        console.log("Cancellation Response:", response.data);
+      }
 
-      console.log("Cancellation Response:", response.data);
       alert(`Transaction has been successfully cancelled.`);
       
       // Update local state to reflect cancellation immediately

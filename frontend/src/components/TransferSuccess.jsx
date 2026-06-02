@@ -606,7 +606,7 @@
 //             // Trigger save-as-PDF dialog
 //             document.title = 'Invoice-${invoiceData?.name ?? 'receipt'}';
 //             window.print();
-            
+
 //           }
 //         </script>
 //       </body>
@@ -640,7 +640,7 @@
 //   const finalDataTemp = savedDoc ?? apiDoc ?? data;
 //   return finalDataTemp?.docstatus === 2;
 //   });
- 
+
 
 //   const [txnStatus, setTxnStatus] = useState(() => {
 //   const saved = sessionStorage.getItem('exchangeInvoiceData');
@@ -698,7 +698,7 @@
 //       });
 //       return response.data.data;
 //     } catch (error) {
-      
+
 //     }
 //   }
 
@@ -718,7 +718,7 @@
 //     });
 
 // }, [apiDoc]);
-  
+
 //   useEffect(() => {
 //     if (invoiceData) {
 //       sessionStorage.setItem('exchangeInvoiceData', JSON.stringify(invoiceData));
@@ -1049,6 +1049,7 @@ import { InvoiceDocument } from './SalesInvoice';
 import { printThermalReceipt } from './ThermalReceiptPrint';
 import { useUser } from '../context/UserContext';
 import axios from 'axios';
+import { useSelector } from 'react-redux';
 
 // const socket_server = 'http://182.71.135.110:8079';
 const socket_server = 'http://187.127.109.162:5000';
@@ -1421,9 +1422,12 @@ export const TransferSuccess = ({
   apiDoc,
   transactionId,
   onDashboard,
+  isDealer: propIsDealer,
 }) => {
   const exchange = useExchange();
   const loginUser = useUser();
+  const reduxIsDealer = useSelector((state) => state.exchange.isDealer);
+  const isDealer = propIsDealer !== undefined ? propIsDealer : reduxIsDealer;
 
   const [invoiceData, setInvoiceData] = useState(() => {
     const saved = sessionStorage.getItem('exchangeInvoiceData');
@@ -1468,17 +1472,52 @@ export const TransferSuccess = ({
     const docName = apiDoc?.name;
     setIsCancelling(true);
     try {
-      const response = await axios.post(
-        "/api/method/moneygram.moneygram.doctype.currency_exchange_for_customer.currency_exchange_for_customer.cancel_currency_exchange",
-        { docname: docName },
-        {
-          headers: {
-            Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
-            "Content-Type": "application/json",
-          },
+      if (isDealer) {
+        let resolvedDocType = apiDoc?.doctype || "Currency Exchange For Dealer";
+        try {
+          const response = await axios.put(
+            `/api/resource/${encodeURIComponent(resolvedDocType)}/${encodeURIComponent(docName)}`,
+            { docstatus: 2 },
+            {
+              headers: {
+                Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+          console.log("Direct Cancellation Response:", response.data);
+        } catch (err) {
+          if (!apiDoc?.doctype && resolvedDocType === "Currency Exchange For Dealer") {
+            const fallbackDocType = "Currency Exchange for Dealer";
+            console.log(`Failed with ${resolvedDocType}, trying fallback ${fallbackDocType}...`);
+            const response = await axios.put(
+              `/api/resource/${encodeURIComponent(fallbackDocType)}/${encodeURIComponent(docName)}`,
+              { docstatus: 2 },
+              {
+                headers: {
+                  Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
+                  "Content-Type": "application/json",
+                },
+              }
+            );
+            console.log("Direct Fallback Cancellation Response:", response.data);
+          } else {
+            throw err;
+          }
         }
-      );
-      console.log("Cancellation Response:", response.data);
+      } else {
+        const response = await axios.post(
+          "/api/method/moneygram.moneygram.doctype.currency_exchange_for_customer.currency_exchange_for_customer.cancel_currency_exchange",
+          { docname: docName },
+          {
+            headers: {
+              Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        console.log("Cancellation Response:", response.data);
+      }
       setInvoiceData(prev => ({ ...prev, docstatus: 2 }));
       setIsCancelled(true);
       setTxnStatus("Cancelled");
@@ -1512,7 +1551,7 @@ export const TransferSuccess = ({
       });
       return response.data.data;
     } catch (error) {
-      
+
     }
   }
 
@@ -1529,7 +1568,7 @@ export const TransferSuccess = ({
         setIsLoading(false);
       });
   }, [apiDoc]);
-  
+
   useEffect(() => {
     if (invoiceData) {
       sessionStorage.setItem('exchangeInvoiceData', JSON.stringify(invoiceData));
@@ -1557,7 +1596,7 @@ export const TransferSuccess = ({
   // ── Data Mapping ──────────────────────────────────────────────────────────
   const finalData = invoiceData || apiDoc || data;
 
-  
+
 
   const fmt = (val, decimals = 2) =>
     Number(val).toLocaleString(undefined, {
@@ -1617,11 +1656,10 @@ export const TransferSuccess = ({
             {/* ── Hero Section ────────────────────────────────────────────── */}
             <div className="flex flex-col items-center text-center gap-4 mt-6">
 
-              <div className={`w-20 h-20 rounded-full text-white flex items-center justify-center ring-8 mt-2 shadow-xl ${
-                txnStatus === 'Cancelled'
+              <div className={`w-20 h-20 rounded-full text-white flex items-center justify-center ring-8 mt-2 shadow-xl ${txnStatus === 'Cancelled'
                   ? 'bg-red-500 ring-red-500/30 shadow-red-500/20'
                   : 'bg-green-500 ring-green-500/30 shadow-green-500/20'
-              }`}>
+                }`}>
                 <Icon name={txnStatus === 'Cancelled' ? 'cancel' : 'check_circle'} size={48} />
               </div>
 
@@ -1650,14 +1688,12 @@ export const TransferSuccess = ({
                 </div>
                 <div>
                   <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Status</p>
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                    txnStatus === 'Cancelled'
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${txnStatus === 'Cancelled'
                       ? 'bg-red-500/20 text-red-500 border border-red-500/30'
                       : 'bg-[#b5f000]/20 text-[#b5f000] border border-[#b5f000]/30 shadow-sm'
-                  }`}>
-                    <span className={`w-2 h-2 rounded-full inline-block ${
-                      txnStatus === 'Cancelled' ? 'bg-red-500' : 'bg-[#b5f000] animate-pulse'
-                    }`} />
+                    }`}>
+                    <span className={`w-2 h-2 rounded-full inline-block ${txnStatus === 'Cancelled' ? 'bg-red-500' : 'bg-[#b5f000] animate-pulse'
+                      }`} />
                     {txnStatus}
                   </span>
                 </div>
@@ -1750,11 +1786,10 @@ export const TransferSuccess = ({
                 <button
                   onClick={handleCancelClick}
                   disabled={isCancelling || isCancelled}
-                  className={`flex items-center justify-center gap-2 font-bold py-4 px-8 rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 group border-2 ${
-                    isCancelled
+                  className={`flex items-center justify-center gap-2 font-bold py-4 px-8 rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 group border-2 ${isCancelled
                       ? 'bg-gray-600/30 border-gray-600/50 text-gray-500 cursor-not-allowed'
                       : 'bg-transparent border-red-500 text-red-500 hover:bg-red-500 hover:text-white'
-                  }`}
+                    }`}
                 >
                   {isCancelling ? (
                     <div className="w-5 h-5 rounded-full border-2 border-t-transparent border-red-500 animate-spin group-hover:border-white" />

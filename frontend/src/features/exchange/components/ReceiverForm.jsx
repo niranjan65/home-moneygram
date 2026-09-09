@@ -51,6 +51,11 @@ export const ReceiverForm = ({
       idIssueState: initialData?.idIssueState || '',
       occupation: initialData?.occupation || 'Accountant / Auditor',
       secondLastName: initialData?.secondLastName || '',
+      availableBalance: initialData?.availableBalance !== undefined ? initialData.availableBalance : null,
+      annualFxAndMoneygramLimit: initialData?.annualFxAndMoneygramLimit !== undefined ? initialData.annualFxAndMoneygramLimit : null,
+      annualComplianceLimit: initialData?.annualComplianceLimit !== undefined ? initialData.annualComplianceLimit : null,
+      tinNumber: initialData?.tinNumber || '',
+      taxClearanceFile: initialData?.taxClearanceFile || null,
     },
   });
 
@@ -98,6 +103,8 @@ export const ReceiverForm = ({
     onSummaryChange,
     exchangeType,
   });
+
+  const forexAmount = exchangeType === 'BUY' ? (exchangePreview?.rawAmount ?? 0) : (parseFloat(sendAmount) || 0);
 
   const { data: baseCurrencyInfo } = useBaseCurrency();
   const selectedDenomCountry = toCurrency?.country ?? null;
@@ -251,7 +258,7 @@ export const ReceiverForm = ({
       return denom >= 1 ? 'Note' : 'Coin';
     };
 
-    
+
 
     onContinue?.({
       ...data,
@@ -279,6 +286,11 @@ export const ReceiverForm = ({
       pnrNumber: data.pnrNumber,
       rbfNumber: data.rbfNumber || null,
       rbfDocument: data.rbfDocument || null,
+      tinNumber: data.tinNumber || null,
+      taxClearanceFile: data.taxClearanceFile || null,
+      availableBalance: data.availableBalance,
+      annualFxAndMoneygramLimit: data.annualFxAndMoneygramLimit,
+      annualComplianceLimit: data.annualComplianceLimit,
       senderDenominationRows: senderDenomRowsRef.current.filter(r => r.count > 0).map(r => ({
         denomination_value: r.denom,
         denomination_type: getDenomType(r.denom, senderInfo?.notes, senderInfo?.coins),
@@ -298,10 +310,10 @@ export const ReceiverForm = ({
   const FIELD_ORDER = [
     'idName', 'dateOfBirth', 'government_id', 'idNumber',
     'idIssueCountry', 'idIssueState', 'docFile', 'travelDate', 'destination', 'airwaysName', 'flightNumber', 'pnrNumber',
-    'rbfNumber', 'rbfDocument',
+    'rbfNumber', 'rbfDocument', 'tinNumber', 'taxClearanceFile',
     'firstName', 'lastName', 'city', 'country', 'exchangeType',
   ];
-  const FILE_FIELDS = new Set(['docFile', 'rbfDocument']);
+  const FILE_FIELDS = new Set(['docFile', 'rbfDocument', 'taxClearanceFile']);
 
 
   const onError = (errors) => {
@@ -354,33 +366,33 @@ export const ReceiverForm = ({
             </div>
 
             {toCurrency && effectiveRate && (
-  <div className="flex items-center gap-2 flex-wrap">
-    <div className="flex items-center gap-2 bg-white/10 border border-white/20 px-3 py-2 rounded-lg">
-      <span className="text-[#b5f000] text-xs">Live Rate</span>
-      <span className="text-white text-sm font-semibold">
-        1 {toCurrency.code} = {FJD.symbol}{effectiveRate} {FJD.code}
-      </span>
-    </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2 bg-white/10 border border-white/20 px-3 py-2 rounded-lg">
+                  <span className="text-[#b5f000] text-xs">Live Rate</span>
+                  <span className="text-white text-sm font-semibold">
+                    1 {toCurrency.code} = {FJD.symbol}{effectiveRate} {FJD.code}
+                  </span>
+                </div>
 
-    {/* ── Rate date badge ─────────────────────────────── */}
-    {rateDate && !useManualRate && (
-      <div className="flex items-center gap-1.5 bg-white/10 border border-white/20 px-3 py-2 rounded-lg">
-        <span className="text-[#b5f000] text-xs">Rate Date</span>
-        <span className="text-white text-sm font-semibold">{rateDate}</span>
-      </div>
-    )}
-    {useManualRate && (
-      <div className="flex items-center gap-1.5 bg-white/10 border border-yellow-400/30 px-3 py-2 rounded-lg">
-        <span className="text-yellow-300 text-xs">⚙ Manual Rate</span>
-      </div>
-    )}
-    {/* ──────────────────────────────────────────────────── */}
+                {/* ── Rate date badge ─────────────────────────────── */}
+                {rateDate && !useManualRate && (
+                  <div className="flex items-center gap-1.5 bg-white/10 border border-white/20 px-3 py-2 rounded-lg">
+                    <span className="text-[#b5f000] text-xs">Rate Date</span>
+                    <span className="text-white text-sm font-semibold">{rateDate}</span>
+                  </div>
+                )}
+                {useManualRate && (
+                  <div className="flex items-center gap-1.5 bg-white/10 border border-yellow-400/30 px-3 py-2 rounded-lg">
+                    <span className="text-yellow-300 text-xs">⚙ Manual Rate</span>
+                  </div>
+                )}
+                {/* ──────────────────────────────────────────────────── */}
 
-    <span className="text-xs font-medium bg-white/10 border border-white/20 text-yellow-200 px-2.5 py-1.5 rounded-lg uppercase tracking-wide">
-      {exchangeType === 'BUY' ? '🟢 Buying' : '🔴 Selling'}
-    </span>
-  </div>
-)}
+                <span className="text-xs font-medium bg-white/10 border border-white/20 text-yellow-200 px-2.5 py-1.5 rounded-lg uppercase tracking-wide">
+                  {exchangeType === 'BUY' ? '🟢 Buying' : '🔴 Selling'}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -405,7 +417,7 @@ export const ReceiverForm = ({
           )} */}
 
           {/* <CreditLimit sendAmount={sendAmount} onLimitCheck={setIsCreditExceeded} /> */}
-          <GovernmentIdSection exchangeType={exchangeType} isCreditExceeded={isCreditExceeded} />
+          <GovernmentIdSection exchangeType={exchangeType} isCreditExceeded={isCreditExceeded} forexAmount={forexAmount} />
 
           <SectionDivider label="Personal Information" />
           <PersonalInfoSection />

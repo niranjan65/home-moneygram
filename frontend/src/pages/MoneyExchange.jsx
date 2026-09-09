@@ -42,6 +42,7 @@ const MoneyExchange = () => {
   // Holds the raw rbfDocument File between DETAILS → REVIEW steps.
   // Can't use sessionStorage because File objects are not serialisable.
   const rbfDocumentFileRef = React.useRef(null);
+  const taxClearanceFileRef = React.useRef(null);
 
   const [currentStep, setCurrentStep] = useState(() => {
     const saved = sessionStorage.getItem('exchangeCurrentStep');
@@ -149,6 +150,12 @@ const MoneyExchange = () => {
       console.log('[RBF DEBUG] 4. handleContinue - data.rbfDocument is NOT a File ❌', typeof data.rbfDocument, data.rbfDocument);
     }
 
+    if (data.taxClearanceFile instanceof File) {
+      taxClearanceFileRef.current = data.taxClearanceFile;
+    } else {
+      taxClearanceFileRef.current = null;
+    }
+
     setReceiverInfo(data);
     setTransferPayload(data);
     console.log('Transfer payload:', data);
@@ -173,6 +180,7 @@ const MoneyExchange = () => {
   // Called from ReviewStep → Cancel → reset everything and go back to DETAILS
   const handleCancel = useCallback(() => {
     rbfDocumentFileRef.current = null;
+    taxClearanceFileRef.current = null;
     setReceiverInfo({
       firstName: '',
       lastName: '',
@@ -242,7 +250,14 @@ const MoneyExchange = () => {
       });
     }
 
-    // Upload the RBF document (PDF) and capture the returned URL.
+    let taxClearanceDocUrl = null;
+    const taxFile = taxClearanceFileRef.current || (transferPayload.taxClearanceFile instanceof File ? transferPayload.taxClearanceFile : null);
+    if (taxFile) {
+      taxClearanceDocUrl = await uploadFile(taxFile, {
+        isPrivate: 0,
+        doctype: "Currency Exchange For Customer",
+      });
+    }
     // let rbfDocumentUrl = null;
     // const rbfFile = rbfDocumentFileRef.current;
     // console.log('[RBF DEBUG] 5. handleConfirm - rbfDocumentFileRef.current:', rbfFile?.name ?? 'null/undefined ❌');
@@ -424,7 +439,7 @@ const MoneyExchange = () => {
 
       const apiPayload = {
         data: {
-          custom_available_currency_transfer_balance: 2000,
+          custom_available_currency_transfer_balance: transferPayload.availableBalance !== undefined && transferPayload.availableBalance !== null ? parseFloat(transferPayload.availableBalance) : 2000,
           verification_id_type: transferPayload.idType,
           passport_number: transferPayload.idNumber,
           first_name: transferPayload.firstName,
@@ -462,9 +477,10 @@ const MoneyExchange = () => {
           send_amount: transferPayload.sendAmount,
           total_amount: transferPayload.sendAmount + summary.fee,
 
-          // rbf_number: transferPayload.rbfNumber || null,
-          // Use the uploaded file URL, not the raw File object.
-          // rbf_document: rbfDocumentUrl || null,
+          rbf_number: transferPayload.rbfNumber || null,
+          tin_number: transferPayload.tinNumber || null,
+          annual_compliance: taxClearanceDocUrl || null,
+          tax_clearance_document: taxClearanceDocUrl || null,
 
           purposeOfTransaction: transferPayload.purposeOfTransaction,
           travelDate: transferPayload.travelDate,
@@ -521,6 +537,7 @@ const MoneyExchange = () => {
 
   const handleDashboard = useCallback(() => {
     rbfDocumentFileRef.current = null;
+    taxClearanceFileRef.current = null;
     // Reset receiver info
     setReceiverInfo({
       firstName: '',

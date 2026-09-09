@@ -30,6 +30,11 @@ export const useCustomer = () => {
     setValue('city', '');
     setValue('idNumber', '');
     setValue('docFile', null);
+    setValue('availableBalance', null);
+    setValue('annualFxAndMoneygramLimit', null);
+    setValue('annualComplianceLimit', null);
+    setValue('tinNumber', '');
+    setValue('taxClearanceFile', null);
     setPreviewUrl(null);
     setPreviewFile(null);
   }, [setValue]);
@@ -56,6 +61,10 @@ export const useCustomer = () => {
       setValue('idNumber', customer.custom_drivers_licence_number || customer.custom_tin_number || customer.custom_voter_id_number || customer.custom_passport_number);
       setValue('idType', customer.custom_government_id || '');
       setValue('occupation', customer.custom_occupation || '');
+      setValue('availableBalance', customer.custom_available_currency_transfer_balance !== undefined && customer.custom_available_currency_transfer_balance !== null ? customer.custom_available_currency_transfer_balance : 0);
+      setValue('annualFxAndMoneygramLimit', customer.custom_annual_fx_and_moneygram_limit !== undefined && customer.custom_annual_fx_and_moneygram_limit !== null ? customer.custom_annual_fx_and_moneygram_limit : 0);
+      setValue('annualComplianceLimit', customer.custom_annual_compliance_limit !== undefined && customer.custom_annual_compliance_limit !== null ? customer.custom_annual_compliance_limit : 0);
+      setValue('tinNumber', customer.custom_tin_number || '');
       console.log('Customer found...', customer);
 
       if (customer.image) {
@@ -67,6 +76,12 @@ export const useCustomer = () => {
         setPreviewFile(null);
         setValue('docFile', url, { shouldValidate: true });
       }
+    } else {
+      setValue('availableBalance', null);
+      setValue('annualFxAndMoneygramLimit', null);
+      setValue('annualComplianceLimit', null);
+      setValue('tinNumber', '');
+      setValue('taxClearanceFile', null);
     }
   }, [setValue, loginUser]);
 

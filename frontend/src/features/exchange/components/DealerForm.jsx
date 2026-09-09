@@ -84,7 +84,7 @@ export const DealerForm = ({
   // Clear stock error when currency changes
   useEffect(() => { setStockError(''); }, [toCurrency?.code]);
 
-   const runStockCheck = async (si = senderInfo, ri = receiverInfo) => {
+  const runStockCheck = async (si = senderInfo, ri = receiverInfo) => {
 
 
     // Stock check only applies when selling (customer brings foreign currency)
@@ -158,7 +158,7 @@ export const DealerForm = ({
   const receiverDenomRowsRef = useRef([]);
   const senderDenomStatusRef = useRef({ total: 0, target: 0 });
   const receiverDenomStatusRef = useRef({ total: 0, target: 0 });
-  
+
   const [denomBalanceError, setDenomBalanceError] = useState('');
   const denomErrorRef = useRef(null);
 
@@ -239,7 +239,7 @@ export const DealerForm = ({
       totalAmount: exchangePreview?.rawAmount ?? 0,
       rateSource: 'manual',
       rateDate: null, // manual rate has no specific rateDate from ERP
-      
+
       senderDenominationRows: senderDenomRowsRef.current.filter(r => r.count > 0).map(r => ({
         denomination_value: r.denom,
         denomination_type: getDenomType(r.denom, senderInfo?.notes, senderInfo?.coins),
@@ -260,7 +260,7 @@ export const DealerForm = ({
   const onError = (errors) => {
     const firstErrorField = FIELD_ORDER.find(f => errors[f]);
     if (!firstErrorField) return;
-    try { setFocus(firstErrorField); } catch (_) {}
+    try { setFocus(firstErrorField); } catch (_) { }
     const el = document.getElementById(`field-${firstErrorField}`) || document.querySelector(`[name="${firstErrorField}"]`);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
@@ -299,7 +299,7 @@ export const DealerForm = ({
         </div>
 
         <form onSubmit={handleSubmit(onSubmit, onError)} className="px-4 sm:px-8 lg:px-12 py-8 flex flex-col gap-5 max-w-5xl mx-auto" noValidate>
-          
+
           <DealerPersonalInfoSection />
 
           <SectionDivider label="Exchange Details" />

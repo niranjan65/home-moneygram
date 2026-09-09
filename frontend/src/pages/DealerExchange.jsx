@@ -91,22 +91,22 @@ const DealerExchange = () => {
   });
 
   const saveToSession = useCallback((key, value) => {
-  const timeout = setTimeout(() => {
-    sessionStorage.setItem(key, JSON.stringify(value));
-  }, 300);
+    const timeout = setTimeout(() => {
+      sessionStorage.setItem(key, JSON.stringify(value));
+    }, 300);
 
-  return () => clearTimeout(timeout);
-}, []);
+    return () => clearTimeout(timeout);
+  }, []);
 
-useEffect(() => {
-  console.log("transfer payload", transferPayload)
-}, [transferPayload])
+  useEffect(() => {
+    console.log("transfer payload", transferPayload)
+  }, [transferPayload])
 
 
   useEffect(() => { sessionStorage.setItem('dealerCurrentStep', JSON.stringify(currentStep)); }, [currentStep]);
   useEffect(() => { sessionStorage.setItem('dealerReceiverInfo', JSON.stringify(receiverInfo)); }, [receiverInfo]);
-//   useEffect(() => { sessionStorage.setItem('dealerSummary', JSON.stringify(summary)); }, [summary]);
-useEffect(() => saveToSession('dealerSummary', summary), [summary]);
+  //   useEffect(() => { sessionStorage.setItem('dealerSummary', JSON.stringify(summary)); }, [summary]);
+  useEffect(() => saveToSession('dealerSummary', summary), [summary]);
   useEffect(() => { sessionStorage.setItem('dealerTransferPayload', JSON.stringify(transferPayload)); }, [transferPayload]);
   useEffect(() => { if (transactionId) sessionStorage.setItem('dealerTransactionId', JSON.stringify(transactionId)); }, [transactionId]);
   useEffect(() => { if (apiResponseDoc) sessionStorage.setItem('dealerApiResponseDoc', JSON.stringify(apiResponseDoc)); }, [apiResponseDoc]);
@@ -183,148 +183,148 @@ useEffect(() => saveToSession('dealerSummary', summary), [summary]);
 
     let denominationData = [];
 
-      let receiverData = []
+    let receiverData = []
 
-      if (transferPayload.exchangeType === "BUY") {
+    if (transferPayload.exchangeType === "BUY") {
 
-        denominationData =
-          transferPayload.receiverDenominationRows?.map(row => {
-            const { denomination_value, denomination_type } = row;
-            let itemName = denomination_value;
+      denominationData =
+        transferPayload.receiverDenominationRows?.map(row => {
+          const { denomination_value, denomination_type } = row;
+          let itemName = denomination_value;
 
-            if (
-              denomination_type === "Note" &&
-              transferPayload.notes &&
-              transferPayload.notes_name
-            ) {
-              const index = transferPayload.notes.findIndex(
-                n => n === denomination_value
-              );
-              if (index !== -1) itemName = transferPayload.notes_name[index];
-            }
+          if (
+            denomination_type === "Note" &&
+            transferPayload.notes &&
+            transferPayload.notes_name
+          ) {
+            const index = transferPayload.notes.findIndex(
+              n => n === denomination_value
+            );
+            if (index !== -1) itemName = transferPayload.notes_name[index];
+          }
 
-            if (
-              denomination_type === "Coin" &&
-              transferPayload.coins &&
-              transferPayload.coins_name
-            ) {
-              const index = transferPayload.coins.findIndex(
-                c => c === denomination_value
-              );
-              if (index !== -1) itemName = transferPayload.coins_name[index];
-            }
+          if (
+            denomination_type === "Coin" &&
+            transferPayload.coins &&
+            transferPayload.coins_name
+          ) {
+            const index = transferPayload.coins.findIndex(
+              c => c === denomination_value
+            );
+            if (index !== -1) itemName = transferPayload.coins_name[index];
+          }
 
-            return {
-              denomination: itemName,
-              qty: row.count,
-              amount: row.subtotal
-            };
-          }) || [];
+          return {
+            denomination: itemName,
+            qty: row.count,
+            amount: row.subtotal
+          };
+        }) || [];
 
-        receiverData =
-          transferPayload.senderDenominationRows?.map(row => {
-            const { denomination_value, denomination_type } = row;
-            let itemName = denomination_value;
+      receiverData =
+        transferPayload.senderDenominationRows?.map(row => {
+          const { denomination_value, denomination_type } = row;
+          let itemName = denomination_value;
 
-            if (
-              denomination_type === "Note" &&
-              transferPayload.sender_notes &&
-              transferPayload.sender_notes_name
-            ) {
-              const index = transferPayload.sender_notes.findIndex(
-                n => n === denomination_value
-              );
-              if (index !== -1) itemName = transferPayload.sender_notes_name[index];
-            }
+          if (
+            denomination_type === "Note" &&
+            transferPayload.sender_notes &&
+            transferPayload.sender_notes_name
+          ) {
+            const index = transferPayload.sender_notes.findIndex(
+              n => n === denomination_value
+            );
+            if (index !== -1) itemName = transferPayload.sender_notes_name[index];
+          }
 
-            if (
-              denomination_type === "Coin" &&
-              transferPayload.sender_coins &&
-              transferPayload.sender_coins_name
-            ) {
-              const index = transferPayload.sender_coins.findIndex(
-                c => c === denomination_value
-              );
-              if (index !== -1) itemName = transferPayload.sender_coins_name[index];
-            }
+          if (
+            denomination_type === "Coin" &&
+            transferPayload.sender_coins &&
+            transferPayload.sender_coins_name
+          ) {
+            const index = transferPayload.sender_coins.findIndex(
+              c => c === denomination_value
+            );
+            if (index !== -1) itemName = transferPayload.sender_coins_name[index];
+          }
 
-            return {
-              denomination: itemName,
-              qty: row.count,
-              amount: row.subtotal
-            };
-          }) || [];
+          return {
+            denomination: itemName,
+            qty: row.count,
+            amount: row.subtotal
+          };
+        }) || [];
 
-      } else {
+    } else {
 
-        denominationData =
-          transferPayload.senderDenominationRows?.map(row => {
-            const { denomination_value, denomination_type } = row;
-            let itemName = denomination_value;
+      denominationData =
+        transferPayload.senderDenominationRows?.map(row => {
+          const { denomination_value, denomination_type } = row;
+          let itemName = denomination_value;
 
-            if (
-              denomination_type === "Note" &&
-              transferPayload.sender_notes &&
-              transferPayload.sender_notes_name
-            ) {
-              const index = transferPayload.sender_notes.findIndex(
-                n => n === denomination_value
-              );
-              if (index !== -1) itemName = transferPayload.sender_notes_name[index];
-            }
+          if (
+            denomination_type === "Note" &&
+            transferPayload.sender_notes &&
+            transferPayload.sender_notes_name
+          ) {
+            const index = transferPayload.sender_notes.findIndex(
+              n => n === denomination_value
+            );
+            if (index !== -1) itemName = transferPayload.sender_notes_name[index];
+          }
 
-            if (
-              denomination_type === "Coin" &&
-              transferPayload.sender_coins &&
-              transferPayload.sender_coins_name
-            ) {
-              const index = transferPayload.sender_coins.findIndex(
-                c => c === denomination_value
-              );
-              if (index !== -1) itemName = transferPayload.sender_coins_name[index];
-            }
+          if (
+            denomination_type === "Coin" &&
+            transferPayload.sender_coins &&
+            transferPayload.sender_coins_name
+          ) {
+            const index = transferPayload.sender_coins.findIndex(
+              c => c === denomination_value
+            );
+            if (index !== -1) itemName = transferPayload.sender_coins_name[index];
+          }
 
-            return {
-              denomination: itemName,
-              qty: row.count,
-              amount: row.subtotal
-            };
-          }) || [];
+          return {
+            denomination: itemName,
+            qty: row.count,
+            amount: row.subtotal
+          };
+        }) || [];
 
-        receiverData =
-          transferPayload.receiverDenominationRows?.map(row => {
-            const { denomination_value, denomination_type } = row;
-            let itemName = denomination_value;
+      receiverData =
+        transferPayload.receiverDenominationRows?.map(row => {
+          const { denomination_value, denomination_type } = row;
+          let itemName = denomination_value;
 
-            if (
-              denomination_type === "Note" &&
-              transferPayload.notes &&
-              transferPayload.notes_name
-            ) {
-              const index = transferPayload.notes.findIndex(
-                n => n === denomination_value
-              );
-              if (index !== -1) itemName = transferPayload.notes_name[index];
-            }
+          if (
+            denomination_type === "Note" &&
+            transferPayload.notes &&
+            transferPayload.notes_name
+          ) {
+            const index = transferPayload.notes.findIndex(
+              n => n === denomination_value
+            );
+            if (index !== -1) itemName = transferPayload.notes_name[index];
+          }
 
-            if (
-              denomination_type === "Coin" &&
-              transferPayload.coins &&
-              transferPayload.coins_name
-            ) {
-              const index = transferPayload.coins.findIndex(
-                c => c === denomination_value
-              );
-              if (index !== -1) itemName = transferPayload.coins_name[index];
-            }
+          if (
+            denomination_type === "Coin" &&
+            transferPayload.coins &&
+            transferPayload.coins_name
+          ) {
+            const index = transferPayload.coins.findIndex(
+              c => c === denomination_value
+            );
+            if (index !== -1) itemName = transferPayload.coins_name[index];
+          }
 
-            return {
-              denomination: itemName,
-              qty: row.count,
-              amount: row.subtotal
-            };
-          }) || [];
-      }
+          return {
+            denomination: itemName,
+            qty: row.count,
+            amount: row.subtotal
+          };
+        }) || [];
+    }
     try {
       const localAmount = transferPayload.exchangeType === 'BUY' ? transferPayload.sendAmount : transferPayload.receiverGets;
       const foreignAmount = transferPayload.exchangeType === 'BUY' ? transferPayload.receiverGets : transferPayload.sendAmount;
@@ -352,7 +352,7 @@ useEffect(() => saveToSession('dealerSummary', summary), [summary]);
           exchangeType: transferPayload.exchangeType,
           transfer_fee: summary.fee,
           send_amount: transferPayload.sendAmount,
-          total_amount: transferPayload.sendAmount ,
+          total_amount: transferPayload.sendAmount,
 
           warehouse: selectedWarehouse?.warehouse,
 
@@ -388,7 +388,7 @@ useEffect(() => saveToSession('dealerSummary', summary), [summary]);
 
 
       const createdDoc = result?.message?.data || result?.data || result;
-      setApiResponseDoc(createdDoc); 
+      setApiResponseDoc(createdDoc);
       setCurrentStep(Step.PAYMENT);
 
     } catch (error) {

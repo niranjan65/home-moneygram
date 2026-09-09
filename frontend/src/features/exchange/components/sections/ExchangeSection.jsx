@@ -20,6 +20,8 @@ export const ExchangeSection = ({
   exchangePreview,
   onAmountBlur,
 }) => {
+
+  console.log("availableCurrencies", availableCurrencies)
   const { register, setValue, formState: { errors } } = useFormContext();
   const FJD = { code: 'FJD', symbol: 'FJ$' };
 
@@ -46,11 +48,10 @@ export const ExchangeSection = ({
               return (
                 <button key={key} type="button"
                   onClick={() => setValue('exchangeType', key, { shouldValidate: true })}
-                  className={`relative py-4 px-4 rounded-xl border-2 text-sm font-medium transition-all flex flex-col items-center gap-2 ${
-                    active
+                  className={`relative py-4 px-4 rounded-xl border-2 text-sm font-medium transition-all flex flex-col items-center gap-2 ${active
                       ? 'border-[#E00000] bg-[#E00000]/5 text-[#B70000]'
                       : 'border-gray-200 bg-white text-gray-400 hover:border-gray-300'
-                  }`}>
+                    }`}>
                   {active && <CheckCircle2 size={13} className="absolute top-2.5 right-2.5 text-[#E00000]" strokeWidth={2.5} />}
                   <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${active ? 'bg-[#E00000] text-white' : 'bg-gray-100 text-gray-400'}`}>
                     <Icon size={17} strokeWidth={1.75} />
@@ -155,9 +156,8 @@ export const ExchangeSection = ({
               </FieldLabel>
 
               <div className="relative">
-                <div className={`w-full h-12 mt-1 rounded-lg flex items-center px-4 pr-16 text-lg font-semibold border transition-colors ${
-                  exchangePreview ? 'bg-[#E00000]/5 border-[#E00000]/20 text-red-800' : 'bg-gray-50 border-gray-200 text-gray-400'
-                }`}>
+                <div className={`w-full h-12 mt-1 rounded-lg flex items-center px-4 pr-16 text-lg font-semibold border transition-colors ${exchangePreview ? 'bg-[#E00000]/5 border-[#E00000]/20 text-red-800' : 'bg-gray-50 border-gray-200 text-gray-400'
+                  }`}>
                   {ratesLoading ? (
                     <span className="text-sm font-normal text-gray-400 animate-pulse">Loading…</span>
                   ) : exchangePreview ? (

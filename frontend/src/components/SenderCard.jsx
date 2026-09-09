@@ -35,7 +35,7 @@
 
 //   return () => mounted = false;
 // }, []);
-  
+
 //   return (
 //     // Fixed: changed 'class' to 'className' throughout the component
 //     <div className="rounded-2xl border border-gray-200 bg-white  overflow-hidden shadow-sm hover:shadow-md transition-shadow">
@@ -71,7 +71,7 @@
 
 
 
-import React from "react";
+
 import { User, Edit3 } from "lucide-react";
 import { useCurrentUser } from "../hooks/useCurrentUser";
 import { useSettings } from "../context/SettingsContext";
@@ -81,6 +81,7 @@ export const SenderCard = () => {
   const { user, loading, error } = useCurrentUser();
   const { selectedWarehouse } = useSettings();
 
+
   if (loading) {
     return <div className="p-6">Loading user...</div>;
   }
@@ -89,7 +90,7 @@ export const SenderCard = () => {
     return <div className="p-6 text-red-500">Failed to load user</div>;
   }
 
-  console.log("Current user data:", user); // Debug log to check user data
+
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow">
@@ -135,7 +136,7 @@ export const SenderCard = () => {
 
         <div className="flex flex-col gap-1">
           <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-           Active Location
+            Active Location
           </span>
           <span className="text-sm font-bold text-gray-900">
             {selectedWarehouse?.warehouse || "Not Available"}

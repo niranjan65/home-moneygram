@@ -1,53 +1,78 @@
 // erpConfig.js
+// Central API configuration for the Doppio/Frappe React app.
+// This app is served by Frappe, so authenticated requests should use the
+// logged-in Frappe session cookie created by username/password login.
+// Do NOT hardcode API tokens in frontend code.
 
 export const ERP_ENV = {
   DEMO: "DEMO",
   PROD: "PROD",
 };
 
-// 🔥 Change this to switch environment
 let CURRENT_ENV = ERP_ENV.PROD;
 
-// 👉 Optional: allow runtime switching
 export const setERPEnv = (env) => {
   CURRENT_ENV = env;
 };
 
 export const getERPEnv = () => CURRENT_ENV;
 
-// ✅ Base URLs
-const CONFIG = {
-  [ERP_ENV.DEMO]: {
-    baseURL: "https://mhmoneyexpress.anantdv.com/",
-    getAuthHeaders: () => ({
-      "Content-Type": "application/json",
-      Authorization: `token ab5bd602e5f2950:47a1752c33990d9`,
-    }),
+const normalizeBaseURL = (url) => {
+  if (!url) return "/";
+  return url.endsWith("/") ? url : `${url}/`;
+};
+
+const getRuntimeBaseURL = () => {
+  const envBaseURL = import.meta.env?.VITE_ERPNEXT_BASE_URL?.trim();
+
+  if (envBaseURL) {
+    return normalizeBaseURL(envBaseURL);
+  }
+
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return normalizeBaseURL(window.location.origin);
+  }
+
+  return "/";
+};
+
+export const getBaseURL = () => getRuntimeBaseURL();
+
+export const buildApiUrl = (path) => {
+  const cleanPath = String(path || "").replace(/^\/+/, "");
+  return `${getBaseURL()}${cleanPath}`;
+};
+
+const getCSRFToken = () => {
+  if (typeof window === "undefined") return "";
+
+  const token = window.csrf_token || window.frappe?.csrf_token || "";
+
+  // During local template development this can remain as raw Jinja text.
+  if (!token || token.includes("{{")) return "";
+
+  return token;
+};
+
+export const getHeaders = () => {
+  const headers = {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  };
+
+  const csrfToken = getCSRFToken();
+  if (csrfToken) {
+    headers["X-Frappe-CSRF-Token"] = csrfToken;
+  }
+
+  return headers;
+};
+
+export const getFetchOptions = (options = {}) => ({
+  credentials: "include",
+  ...options,
+  headers: {
+    ...getHeaders(),
+    ...(options.headers || {}),
   },
-
-  [ERP_ENV.PROD]: {
-    baseURL: "/",
-    getAuthHeaders: (loginUser) => ({
-      "Content-Type": "application/json",
-      Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
-    }),
-  },
-};
-
-// ✅ Helpers
-// export const getBaseURL = () => CONFIG[CURRENT_ENV].baseURL;
-
-// export const getHeaders = (loginUser) =>
-//   CONFIG[CURRENT_ENV].getAuthHeaders(loginUser);
-
-// ✅ Helpers (UPDATED)
-
-export const getBaseURL = (envOverride) => {
-  const env = envOverride || CURRENT_ENV;
-  return CONFIG[env].baseURL;
-};
-
-export const getHeaders = (loginUser, envOverride) => {
-  const env = envOverride || CURRENT_ENV;
-  return CONFIG[env].getAuthHeaders(loginUser);
-};
+});

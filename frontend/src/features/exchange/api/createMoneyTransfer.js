@@ -1,6 +1,6 @@
 // // createMoneyTransfer.js
 
-// import { getBaseURL, getHeaders, ERP_ENV } from "../config/erpConfig";
+// import { buildApiUrl, getFetchOptions } from "../config/erpConfig";
 
 // // Always use DEMO base URL, but authenticate using loginUser credentials
 // const MONEY_TRANSFER_BASE_ENV = ERP_ENV.DEMO;
@@ -210,11 +210,7 @@
 
 // createMoneyTransfer.js
 
-import { getBaseURL, getHeaders, ERP_ENV } from "../config/erpConfig";
-
-// Always use DEMO base URL, but authenticate using loginUser credentials
-const MONEY_TRANSFER_BASE_ENV = ERP_ENV.DEMO;
-
+import { buildApiUrl, getFetchOptions } from "../config/erpConfig";
 
 export const createMoneyTransfer = async (
   form,
@@ -226,13 +222,9 @@ export const createMoneyTransfer = async (
 ) => {
 
   try {
-    const baseURL = getBaseURL(MONEY_TRANSFER_BASE_ENV);
-    const headers = getHeaders(loginUser, ERP_ENV.PROD);
-
-    console.log("Creating Money Transfer using loginUser:", {
-      api_key: loginUser?.api_key,
-      api_secret: loginUser?.api_secret,
-      headers,
+    console.log("Creating Money Transfer using active Frappe session:", {
+      email: loginUser?.user?.email,
+      sessionActive: loginUser?.user?.sessionActive,
     });
 
     // Prepare child table rows
@@ -299,12 +291,11 @@ export const createMoneyTransfer = async (
 
     // STEP 1: CREATE DRAFT DOCUMENT
     const createRes = await fetch(
-      `${baseURL}/api/resource/Money Transfer`,
-      {
+      buildApiUrl("api/resource/Money Transfer"),
+      getFetchOptions({
         method: "POST",
-        headers,
         body: JSON.stringify(payload),
-      }
+      })
     );
 
     const createData = await createRes.json();
@@ -343,14 +334,13 @@ export const createMoneyTransfer = async (
     );
 
     const submitRes = await fetch(
-      `${baseURL}/api/method/frappe.client.submit`,
-      {
+      buildApiUrl("api/method/frappe.client.submit"),
+      getFetchOptions({
         method: "POST",
-        headers,
         body: JSON.stringify({
           doc: docToSubmit,
         }),
-      }
+      })
     );
 
     const submitData = await submitRes.json();

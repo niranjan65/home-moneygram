@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { ChevronDown, BadgeCheck, Upload, FileText, CheckCircle2, ShieldCheck, X, Calendar, Globe, Plane, MapPin, Hash, QrCode, AlertCircle } from 'lucide-react';
+import { ChevronDown, BadgeCheck, Upload, FileText, CheckCircle2, ShieldCheck, X, Calendar, Globe, Plane, MapPin, Hash, QrCode, AlertCircle, Wallet } from 'lucide-react';
 import { FieldLabel, fieldCls, ErrorMsg } from '../ui/FormUtilities';
 import { useCustomer } from '../../hooks/useCustomer';
 import { useCountries } from '../../../../hooks/useCountry';
@@ -8,10 +8,10 @@ import { useAppConfiguration } from '../../../../hooks/useAppConfiguration';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
-export const GovernmentIdSection = ({ exchangeType, isCreditExceeded }) => {
+export const GovernmentIdSection = ({ exchangeType, isCreditExceeded, forexAmount }) => {
   const { countries, loading: countryLoading, error: countryError } = useCountries();
   const { potOptions, loading: potLoading, error: potError } = useAppConfiguration();
-  const { register, watch, setValue, getValues, formState: { errors } } = useFormContext();
+  const { register, watch, setValue, getValues, clearErrors, formState: { errors } } = useFormContext();
   const [dragOver, setDragOver] = useState(false);
   const [rbfFileName, setRbfFileName] = useState('');  // display name for the selected RBF file
 
@@ -35,13 +35,78 @@ export const GovernmentIdSection = ({ exchangeType, isCreditExceeded }) => {
     handleFile
   } = useCustomer();
 
-  // useEffect(() => {
-  //   if (!governmentId) return;
-  //   clearCustomerData();
-  // }, [governmentId, clearCustomerData]);
+  const availableBalance = watch('availableBalance');
+  const annualFxAndMoneygramLimit = watch('annualFxAndMoneygramLimit');
+  const annualComplianceLimit = watch('annualComplianceLimit');
 
-  // register('docFile', { validate: v => !!v || 'Please upload a government document' });
+  const [taxClearancePreview, setTaxClearancePreview] = useState(null);
+  const [taxClearanceFile, setTaxClearanceFile] = useState(null);
+  const [taxClearanceDragOver, setTaxClearanceDragOver] = useState(false);
+
+  const balanceNum = parseFloat(availableBalance);
+  const fxAndMgLimitNum = parseFloat(annualFxAndMoneygramLimit);
+  const complianceLimitNum = parseFloat(annualComplianceLimit);
+  const forexAmountNum = parseFloat(forexAmount);
+
+  const isBalanceFetched = availableBalance !== null && availableBalance !== undefined && !isNaN(balanceNum);
+  const isFxAndMgFetched = annualFxAndMoneygramLimit !== null && annualFxAndMoneygramLimit !== undefined && !isNaN(fxAndMgLimitNum);
+  const isComplianceFetched = annualComplianceLimit !== null && annualComplianceLimit !== undefined && !isNaN(complianceLimitNum);
+
+  const showRbfNumber = isBalanceFetched && (balanceNum <= 0 || (!isNaN(forexAmountNum) && balanceNum < forexAmountNum));
+  const showTinNumber = isFxAndMgFetched && (fxAndMgLimitNum <= 0 || (!isNaN(forexAmountNum) && fxAndMgLimitNum < forexAmountNum));
+  const showTaxClearance = isComplianceFetched && (complianceLimitNum <= 0 || (!isNaN(forexAmountNum) && complianceLimitNum < forexAmountNum));
+
+  const showRbfSection = showRbfNumber || showTinNumber || showTaxClearance;
+
+  useEffect(() => {
+    if (!showRbfNumber) {
+      setValue('rbfNumber', '');
+      clearErrors('rbfNumber');
+    }
+  }, [showRbfNumber, setValue, clearErrors]);
+
+  useEffect(() => {
+    if (!showTinNumber) {
+      clearErrors('tinNumber');
+    }
+  }, [showTinNumber, clearErrors]);
+
+  useEffect(() => {
+    if (!showTaxClearance) {
+      setValue('taxClearanceFile', null);
+      clearErrors('taxClearanceFile');
+      setTaxClearanceFile(null);
+      setTaxClearancePreview(null);
+    }
+  }, [showTaxClearance, setValue, clearErrors]);
+
   register('docFile');
+  register('taxClearanceFile', {
+    validate: (v) => {
+      if (showTaxClearance && !v) {
+        return 'Tax clearance document from RBF is required';
+      }
+      return true;
+    }
+  });
+
+  const handleTaxClearanceFile = (file) => {
+    if (!file) return;
+    setTaxClearanceFile(file);
+    setValue('taxClearanceFile', file, { shouldValidate: true });
+    if (file.type === 'application/pdf') {
+      setTaxClearancePreview(file.name);
+    } else {
+      const url = URL.createObjectURL(file);
+      setTaxClearancePreview(url);
+    }
+  };
+
+  const removeTaxClearanceFile = () => {
+    setTaxClearanceFile(null);
+    setTaxClearancePreview(null);
+    setValue('taxClearanceFile', null, { shouldValidate: true });
+  };
 
 
   const onDrop = (e) => {
@@ -183,6 +248,38 @@ export const GovernmentIdSection = ({ exchangeType, isCreditExceeded }) => {
             className={`${fieldCls(errors.idNumber)} mt-1`} />
           <ErrorMsg message={errors.idNumber?.message} />
         </div>
+
+        {(isBalanceFetched || isFxAndMgFetched || isComplianceFetched) && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 bg-gray-50/80 border border-gray-200 rounded-xl">
+            <div>
+              <FieldLabel icon={Wallet}>Available FX Balance</FieldLabel>
+              <input
+                type="text"
+                readOnly
+                value={isBalanceFetched ? balanceNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+                className="mt-1 w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 font-semibold cursor-not-allowed"
+              />
+            </div>
+            <div>
+              <FieldLabel icon={Wallet}>Annual FX &amp; MG Limit</FieldLabel>
+              <input
+                type="text"
+                readOnly
+                value={isFxAndMgFetched ? fxAndMgLimitNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+                className="mt-1 w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 font-semibold cursor-not-allowed"
+              />
+            </div>
+            <div>
+              <FieldLabel icon={Wallet}>Annual Compliance Limit</FieldLabel>
+              <input
+                type="text"
+                readOnly
+                value={isComplianceFetched ? complianceLimitNum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+                className="mt-1 w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 font-semibold cursor-not-allowed"
+              />
+            </div>
+          </div>
+        )}
 
         <div>
           <FieldLabel required icon={Globe}>ID Issue Country</FieldLabel>
@@ -367,74 +464,131 @@ export const GovernmentIdSection = ({ exchangeType, isCreditExceeded }) => {
           </div>
         )}
 
-        {/* RBF Fields — only when exchange amount exceeds credit limit */}
-        {/* {isCreditExceeded && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-2 p-4 bg-orange-50 border border-orange-200 rounded-xl">
-            <div className="sm:col-span-2 flex items-center gap-2 py-1">
-              <AlertCircle className="text-orange-500" size={16} />
-              <p className="text-sm font-semibold text-orange-800">
-                RBF Authorization
-              </p>
-            </div>
-
-           
-            <div id="field-rbfNumber" className="sm:col-span-2">
-              <FieldLabel required icon={Hash}>RBF Number</FieldLabel>
-              <input
-                type="text"
-                placeholder="Enter RBF Number"
-                {...register('rbfNumber', {
-                  required: isCreditExceeded ? 'RBF Number is required' : false,
-                })}
-                className={`${fieldCls(errors.rbfNumber)} mt-1`}
-              />
-              <ErrorMsg message={errors.rbfNumber?.message} />
-            </div>
-
-            
-            <div id="field-rbfDocument" className="sm:col-span-2">
-              <FieldLabel required icon={Upload}>Supporting Document</FieldLabel>
-
-              
-              <input
-                type="hidden"
-                {...register('rbfDocument', {
-                  required: isCreditExceeded ? 'Please attach a supporting document' : false,
-                })}
-              />
-
-             
-              <input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                onChange={(e) => {
-                  const file = e.target.files?.[0] || null;
-                  console.log('[RBF DEBUG] 1. File selected in input:', file?.name, file?.size, file?.type);
-                  // Store the raw File object in form state (not a FileList)
-                  setValue('rbfDocument', file, { shouldValidate: true });
-                  setRbfFileName(file ? file.name : '');
-                  console.log('[RBF DEBUG] 2. setValue called with File object');
-                }}
-                className={`mt-1 w-full border rounded-xl px-4 py-2 text-sm
-                  file:mr-4 file:py-1.5 file:px-4 file:rounded-lg file:border-0
-                  file:text-sm file:font-semibold file:bg-orange-100 file:text-orange-700
-                  hover:file:bg-orange-200
-                  ${errors.rbfDocument ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-white'}`}
-              />
-
-             
-              {rbfFileName && (
-                <p className="text-xs text-orange-700 mt-1 flex items-center gap-1">
-                  <FileText size={12} />
-                  {rbfFileName}
+        {/* RBF Authentication Requirement Section */}
+        {showRbfSection && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-2 p-4 bg-orange-50/60 border border-orange-200 rounded-xl">
+            <div className="sm:col-span-2 flex items-start gap-2.5 py-1">
+              <AlertCircle className="text-orange-500 flex-shrink-0 mt-0.5" size={18} />
+              <div>
+                <p className="text-sm font-semibold text-orange-800">
+                  RBF Authentication &amp; Compliance Requirement
                 </p>
-              )}
-
-              <ErrorMsg message={errors.rbfDocument?.message} />
+                <p className="text-xs text-orange-600 mt-0.5">
+                  Customer limit thresholds exceeded. Please provide the required information below to proceed.
+                </p>
+              </div>
             </div>
 
+            {/* 1. RBF ID — when Available Balance <= 0 or < entered forex amount */}
+            {showRbfNumber && (
+              <div id="field-rbfNumber" className="sm:col-span-2">
+                <FieldLabel required icon={Hash}>RBF ID</FieldLabel>
+                <input
+                  type="text"
+                  placeholder="Enter RBF ID"
+                  {...register('rbfNumber', {
+                    required: 'RBF ID is required when Available Balance is exceeded',
+                  })}
+                  className={`${fieldCls(errors.rbfNumber)} mt-1 bg-white`}
+                />
+                <p className="text-[11px] text-orange-700 mt-1">
+                  Available FX Balance exceeded. Official RBF authorization ID is mandatory.
+                </p>
+                <ErrorMsg message={errors.rbfNumber?.message} />
+              </div>
+            )}
+
+            {/* 2. TIN Number — when Annual FX & MoneyGram Limit <= 0 or < entered forex amount */}
+            {showTinNumber && (
+              <div id="field-tinNumber" className="sm:col-span-2">
+                <FieldLabel required icon={Hash}>TIN Number</FieldLabel>
+                <input
+                  type="text"
+                  placeholder="Enter customer TIN Number"
+                  {...register('tinNumber', {
+                    required: 'TIN Number is mandatory when Annual FX & MoneyGram Limit is exceeded',
+                    minLength: { value: 3, message: 'TIN Number is too short' }
+                  })}
+                  className={`${fieldCls(errors.tinNumber)} mt-1 bg-white`}
+                />
+                <p className="text-[11px] text-orange-700 mt-1">
+                  Annual FX &amp; MoneyGram Limit exceeded. Updating/confirming customer TIN Number is mandatory.
+                </p>
+                <ErrorMsg message={errors.tinNumber?.message} />
+              </div>
+            )}
+
+            {/* 3. Tax Clearance from RBF — when Annual Compliance Limit <= 0 or < entered forex amount */}
+            {showTaxClearance && (
+              <div id="field-taxClearanceFile" className="sm:col-span-2">
+                <FieldLabel required icon={Upload}>Tax Clearance from RBF</FieldLabel>
+                <p className="text-xs text-orange-700 mb-2">
+                  Annual Compliance Limit exceeded. A valid Tax Clearance reference document from RBF is required before proceeding with transaction.
+                </p>
+                <div className="mt-1">
+                  {taxClearancePreview ? (
+                    <div className={`rounded-lg border overflow-hidden ${errors.taxClearanceFile ? 'border-[#E00000]/30' : 'border-gray-200'}`}>
+                      {taxClearanceFile?.type === 'application/pdf' ? (
+                        <div className="flex items-center gap-3 px-4 py-3 bg-white">
+                          <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-orange-500/10">
+                            <FileText size={16} className="text-orange-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-800 text-sm truncate">{taxClearanceFile.name}</p>
+                            <p className="text-xs text-gray-400">{(taxClearanceFile.size / 1024).toFixed(1)} KB · PDF</p>
+                          </div>
+                          <button type="button" onClick={removeTaxClearanceFile}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#E00000] hover:bg-orange-100 transition-colors">
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="relative bg-white p-2">
+                          <img src={taxClearancePreview} alt="Tax Clearance" className="w-full max-h-48 object-contain p-2 bg-gray-50 rounded" />
+                          <button type="button" onClick={removeTaxClearanceFile}
+                            className="absolute top-3 right-3 w-7 h-7 bg-white border border-gray-200 rounded-lg shadow-sm flex items-center justify-center text-gray-400 hover:text-[#E00000] transition-colors">
+                            <X size={13} />
+                          </button>
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 border-t border-green-100 text-xs font-medium text-green-700 mt-2 rounded">
+                            <CheckCircle2 size={11} strokeWidth={2.5} /> Tax Clearance document uploaded
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <label
+                      onDragOver={e => { e.preventDefault(); setTaxClearanceDragOver(true); }}
+                      onDragLeave={() => setTaxClearanceDragOver(false)}
+                      onDrop={e => {
+                        e.preventDefault();
+                        setTaxClearanceDragOver(false);
+                        if (e.dataTransfer.files?.[0]) handleTaxClearanceFile(e.dataTransfer.files[0]);
+                      }}
+                      className={`flex flex-col items-center justify-center gap-2 py-6 px-5 rounded-lg border-2 border-dashed cursor-pointer transition-all ${taxClearanceDragOver
+                        ? 'border-orange-500 bg-orange-50'
+                        : errors.taxClearanceFile
+                          ? 'border-[#E00000] bg-[#E00000]/5'
+                          : 'border-orange-200 bg-white hover:border-orange-300 hover:bg-orange-50/50'
+                        }`}>
+                      <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf"
+                        className="hidden" onChange={e => {
+                          if (e.target.files?.[0]) handleTaxClearanceFile(e.target.files[0]);
+                        }} />
+                      <Upload size={20} className={errors.taxClearanceFile ? 'text-[#E00000]' : 'text-orange-400'} strokeWidth={1.5} />
+                      <div className="text-center">
+                        <p className="text-sm text-gray-700 font-medium">
+                          Drop here or <span className="text-orange-600 underline underline-offset-2">browse</span>
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">PDF, JPG, PNG or WEBP · Max 10 MB</p>
+                      </div>
+                    </label>
+                  )}
+                </div>
+                <ErrorMsg message={errors.taxClearanceFile?.message} />
+              </div>
+            )}
           </div>
-        )} */}
+        )}
 
       </div>
     </div>

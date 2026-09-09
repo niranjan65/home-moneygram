@@ -7,7 +7,7 @@ const SettingsContext = createContext(null);
 
 export function SettingsProvider({ children }) {
   const loginUser = useUser();
-  
+
   const [user, setUser] = useState(() => {
     const u = loginUser?.user || {};
     return {
@@ -78,7 +78,7 @@ export function SettingsProvider({ children }) {
       const userData = await userRes.json();
 
       console.log("userData", userData)
-
+      // console.log("userData", userData.message.email)
       const warehouseRes = await fetch(
         "/api/method/moneygram.api.get_user_warehouse",
         {
@@ -88,13 +88,13 @@ export function SettingsProvider({ children }) {
             Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
           },
           credentials: "include",
-          body: JSON.stringify({ user: userData.message.email }),
+          body: JSON.stringify({ user: userData.message }),
         }
       );
 
       const warehouseData = await warehouseRes.json();
 
-      return warehouseData?.message; 
+      return warehouseData?.message;
     } catch (error) {
       console.error("Error fetching warehouse:", error);
       return null;

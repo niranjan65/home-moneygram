@@ -1,9 +1,6 @@
 
 // customer.js
-import { getBaseURL, getHeaders, ERP_ENV } from "../config/erpConfig";
-
-// Always use DEMO server URL, but authenticate using loginUser credentials
-const BASE_URL = getBaseURL(ERP_ENV.DEMO);
+import { buildApiUrl, getFetchOptions } from "../config/erpConfig";
 
 /**
  * Normalize Government ID Type
@@ -50,11 +47,10 @@ export const getCustomerById = async (customerId, loginUser) => {
 
   try {
     const res = await fetch(
-      `/api/resource/Customer/${encodeURIComponent(customerId)}`,
-      {
+      buildApiUrl(`api/resource/Customer/${encodeURIComponent(customerId)}`),
+      getFetchOptions({
         method: "GET",
-        headers: getHeaders(loginUser, ERP_ENV.PROD),
-      }
+      })
     );
 
     if (!res.ok) {
@@ -130,6 +126,14 @@ export const createCustomer = async (
 
     const customerId = `${cleanName}_${formatDate(form.dob)}`;
 
+    // Check if customer already exists before creating
+    const existing = await getCustomerById(customerId, loginUser);
+    const existingCustomer = existing?.data || existing;
+    if (existingCustomer?.name) {
+      console.log("Customer already exists, reusing existing customer:", existingCustomer.name);
+      return existingCustomer;
+    }
+
     // Normalize Government ID Type
     const normalizedGovId = normalizeGovId(
       form.government_id_type
@@ -185,18 +189,17 @@ export const createCustomer = async (
       JSON.stringify(payload, null, 2)
     );
 
-    console.log("Using loginUser credentials:", {
-      api_key: loginUser?.api_key,
-      api_secret: loginUser?.api_secret,
+    console.log("Creating customer using active Frappe session:", {
+      email: loginUser?.user?.email,
+      sessionActive: loginUser?.user?.sessionActive,
     });
 
     const res = await fetch(
-      `${BASE_URL}/api/resource/Customer`,
-      {
+      buildApiUrl("api/resource/Customer"),
+      getFetchOptions({
         method: "POST",
-        headers: getHeaders(loginUser, ERP_ENV.PROD),
         body: JSON.stringify(payload),
-      }
+      })
     );
 
     const data = await res.json();
@@ -221,6 +224,40 @@ export const createCustomer = async (
     throw err;
   }
 };
+
+/**
+ * Update Customer
+ */
+export const updateCustomer = async (
+  customerId,
+  updateData,
+  loginUser
+) => {
+  if (!customerId) return null;
+
+  try {
+    const res = await fetch(
+      buildApiUrl(`api/resource/Customer/${encodeURIComponent(customerId)}`),
+      getFetchOptions({
+        method: "PUT",
+        body: JSON.stringify(updateData),
+      })
+    );
+
+    if (!res.ok) {
+      console.warn("Update customer response not ok:", res.status);
+      return null;
+    }
+
+    const data = await res.json();
+    return data?.data || data;
+  } catch (err) {
+    console.warn("Error updating customer:", err);
+    return null;
+  }
+};
+
+
 
 // import { getBaseURL, getHeaders } from "../config/erpConfig";
 

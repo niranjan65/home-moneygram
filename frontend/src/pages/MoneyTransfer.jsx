@@ -4,21 +4,22 @@ import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import { useERPFileUpload } from "../hooks/useERPFileUpload";
 import { useUser } from "../context/UserContext";
-import { getCustomerById, createCustomer } from "../features/exchange/api/customer";
+import { getCustomerById, createCustomer, updateCustomer } from "../features/exchange/api/customer";
 import FileUploadBox from "../features/exchange/config/FileUploadBox";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { ArrowUpRight, ArrowDownLeft, ArrowLeftRight, CheckCircle2 } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, ArrowLeftRight, CheckCircle2, Wallet } from "lucide-react";
 import { createMoneyTransfer } from "../features/exchange/api/createMoneyTransfer";
 import TransferAmountSection from "../features/exchange/components/TransferAmountSection";
 import { DenominationPanel } from "../features/exchange/components/sections/DenominationPanel";
 import { InvoiceDocument } from "../components/SalesInvoice";
 import { useBaseCurrency } from "../hooks/useDenomination";
-import { getBaseURL, getHeaders, ERP_ENV } from "../features/exchange/config/erpConfig";
+import { buildApiUrl, getFetchOptions } from "../features/exchange/config/erpConfig";
 import { useSettings } from "../context/SettingsContext";
 import { validateStockAvailability } from "../hooks/useStockValidation";
 
 const MoneyTransfer = () => {
+  console.log("🚨🚨🚨 NEW MONEY TRANSFER FILE IS RUNNING 🚨🚨🚨");
   const { uploadFile } = useERPFileUpload();
   const loginUser = useUser();
   const [metaFields, setMetaFields] = useState([]);
@@ -29,232 +30,257 @@ const MoneyTransfer = () => {
   const [fieldErrors, setFieldErrors] = useState({});
   const [submitError, setSubmitError] = useState("");
   const { data: baseCurrencyData, loading: baseDenomLoading, error: baseDenomError } = useBaseCurrency();
+  // const [defaultLimits, setDefaultLimits] = useState(null);
+
+  // useEffect(() => {
+  //   getDefaultCustomerLimits().then((limits) => {
+  //     if (limits) {
+  //       setDefaultLimits(limits);
+  //     }
+  //   });
+  // }, []);
 
   // console.log("Current User:", loginUser);
- const settings = useSettings();
-const selectedWarehouse =
-  settings?.selectedWarehouse ||
-  (settings?.warehouses?.length > 0 ? settings.warehouses[0] : null);
+  const settings = useSettings();
+  const selectedWarehouse =
+    settings?.selectedWarehouse ||
+    (settings?.warehouses?.length > 0 ? settings.warehouses[0] : null);
 
-// Stock validation states
-const [stockError, setStockError] = useState("");
-const [stockLoading, setStockLoading] = useState(false);
+  // Stock validation states
+  const [stockError, setStockError] = useState("");
+  const [stockLoading, setStockLoading] = useState(false);
 
-const handleDenominationRowsChange = useCallback((rows) => {
-  setCurrencyDenominationRows(
-    rows
-      .filter((row) => row.count > 0)
-      .map((row) => {
-        const denom = Number(row.denom);
-        const itemCode = denom >= 1
-          ? `FJD $${denom}`
-          : `FJD ${Math.round(denom * 100)}c`;
+  const [customerLookupDone, setCustomerLookupDone] = useState(false);
+  const [customerFound, setCustomerFound] = useState(false);
 
-        return {
-          denomination: itemCode,
-          qty: Number(row.count),
-          amount: denom * Number(row.count),
-        };
-      })
-  );
-}, []);
+  const handleDenominationRowsChange = useCallback((rows) => {
+    setCurrencyDenominationRows(
+      rows
+        .filter((row) => row.count > 0)
+        .map((row) => {
+          const denom = Number(row.denom);
+          const itemCode = denom >= 1
+            ? `FJD $${denom}`
+            : `FJD ${Math.round(denom * 100)}c`;
 
-useEffect(() => {
-  console.log("⚙️ Settings Context:", settings);
-  console.log("🏬 Selected Warehouse from Context:", settings?.selectedWarehouse);
-  console.log(
-    "💾 selected_warehouse from localStorage:",
-    localStorage.getItem("selected_warehouse")
-  );
-}, [settings]);
-
-const runStockCheck = async () => {
-  // -----------------------------------------
-  // 1. Get warehouse from Settings Context
-  // -----------------------------------------
-  let warehouseObj = selectedWarehouse;
-
-  // -----------------------------------------
-  // 2. Fallback to localStorage if context is not yet loaded
-  // -----------------------------------------
-  if (!warehouseObj) {
-    try {
-      const stored = localStorage.getItem("selected_warehouse");
-
-      if (stored) {
-        warehouseObj = JSON.parse(stored);
-        console.log("💾 Loaded warehouse from localStorage:", warehouseObj);
-      }
-    } catch (err) {
-      console.error("❌ Failed to parse selected_warehouse:", err);
-    }
-  }
-
-  // -----------------------------------------
-  // 3. Resolve warehouse name
-  // Supports:
-  // - { warehouse: "Main Branch - MG" }
-  // - { name: "Main Branch - MG" }
-  // - { label: "Main Branch - MG" }
-  // - "Main Branch - MG"
-  // -----------------------------------------
-  const warehouseName =
-    warehouseObj?.warehouse ||
-    warehouseObj?.name ||
-    warehouseObj?.label ||
-    (typeof warehouseObj === "string" ? warehouseObj : "") ||
-    "";
-
-  console.log("🏬 Selected Warehouse Object:", warehouseObj);
-  console.log("🏬 Resolved Warehouse Name:", warehouseName);
-  console.log("💰 Currency Denomination Rows:", currencyDenominationRows);
-
-  // -----------------------------------------
-  // 4. Warehouse is mandatory
-  // -----------------------------------------
-  if (!warehouseName) {
-    console.error("❌ No warehouse selected in Settings.");
-
-    setStockError(
-      "No warehouse is selected. Please select a warehouse before submitting."
+          return {
+            denomination: itemCode,
+            qty: Number(row.count),
+            amount: denom * Number(row.count),
+          };
+        })
     );
+  }, []);
 
-    return false;
-  }
-
-  // -----------------------------------------
-  // 5. If no denomination rows, skip validation
-  // -----------------------------------------
-  if (!currencyDenominationRows.length) {
-    console.log("ℹ️ No denomination rows entered. Stock validation skipped.");
-    setStockError("");
-    return true;
-  }
-
-  // -----------------------------------------
-  // 6. Prepare items array exactly as required
-  // validateStockAvailability(items, warehouse, loginUser)
-  // -----------------------------------------
-  const items = currencyDenominationRows.map((row) => ({
-    item_code: row.denomination,
-    requested_qty: Number(row.qty || 0),
-  }));
-
-  console.log("📤 Sending Stock Validation Request:");
-  console.table(items);
-
-  setStockLoading(true);
-
-  try {
-    // IMPORTANT:
-    // validateStockAvailability expects:
-    // 1. items      -> array
-    // 2. warehouse  -> string
-    // 3. loginUser  -> actual loginUser object (NOT { user })
-    const result = await validateStockAvailability(
-      items,
-      warehouseName,
-      loginUser
+  useEffect(() => {
+    console.log("⚙️ Settings Context:", settings);
+    console.log("🏬 Selected Warehouse from Context:", settings?.selectedWarehouse);
+    console.log(
+      "💾 selected_warehouse from localStorage:",
+      localStorage.getItem("selected_warehouse")
     );
+  }, [settings]);
 
-    console.log("📥 Stock Validation Response:", result);
-
-    const { outOfStock = [], qtyMap = {} } = result;
-
-    // Log stock availability for each denomination
-    items.forEach((item) => {
-      const availableQty = qtyMap[item.item_code] ?? 0;
-
-      console.log(
-        `📦 ${item.item_code}: Requested ${item.requested_qty}, Available ${availableQty}`
-      );
+  useEffect(() => {
+    const shouldShow = Boolean(customerLookupDone && customerFound && form?.customer);
+    console.log("📊 [CUSTOMER LIMITS VISIBILITY CHECK]:", {
+      shouldShowCustomerLimits: shouldShow,
+      customerLookupDone,
+      customerFound,
+      customer: form?.customer || "(none)",
     });
+  }, [customerLookupDone, customerFound, form?.customer]);
 
-    // If any item is out of stock, block submission
-    if (outOfStock.length > 0) {
-      console.warn("❌ Out of Stock Items:", outOfStock);
+  const runStockCheck = async () => {
+    // -----------------------------------------
+    // 1. Get warehouse from Settings Context
+    // -----------------------------------------
+    let warehouseObj = selectedWarehouse;
+
+    // -----------------------------------------
+    // 2. Fallback to localStorage if context is not yet loaded
+    // -----------------------------------------
+    if (!warehouseObj) {
+      try {
+        const stored = localStorage.getItem("selected_warehouse");
+
+        if (stored) {
+          warehouseObj = JSON.parse(stored);
+          console.log("💾 Loaded warehouse from localStorage:", warehouseObj);
+        }
+      } catch (err) {
+        console.error("❌ Failed to parse selected_warehouse:", err);
+      }
+    }
+
+    // -----------------------------------------
+    // 3. Resolve warehouse name
+    // Supports:
+    // - { warehouse: "Main Branch - MG" }
+    // - { name: "Main Branch - MG" }
+    // - { label: "Main Branch - MG" }
+    // - "Main Branch - MG"
+    // -----------------------------------------
+    const warehouseName =
+      warehouseObj?.warehouse ||
+      warehouseObj?.name ||
+      warehouseObj?.label ||
+      (typeof warehouseObj === "string" ? warehouseObj : "") ||
+      "";
+
+    console.log("🏬 Selected Warehouse Object:", warehouseObj);
+    console.log("🏬 Resolved Warehouse Name:", warehouseName);
+    console.log("💰 Currency Denomination Rows:", currencyDenominationRows);
+
+    // -----------------------------------------
+    // 4. Warehouse is mandatory
+    // -----------------------------------------
+    if (!warehouseName) {
+      console.error("❌ No warehouse selected in Settings.");
 
       setStockError(
-        `Insufficient stock available in ${warehouseName} for: ${outOfStock.join(
-          ", "
-        )}`
+        "No warehouse is selected. Please select a warehouse before submitting."
       );
 
       return false;
     }
 
-    // Success
-    console.log("✅ All selected denominations have sufficient stock.");
-    setStockError("");
-    return true;
-  } catch (err) {
-    console.error("❌ Stock validation failed:", err);
+    // -----------------------------------------
+    // 5. If no denomination rows, skip validation
+    // -----------------------------------------
+    if (!currencyDenominationRows.length) {
+      console.log("ℹ️ No denomination rows entered. Stock validation skipped.");
+      setStockError("");
+      return true;
+    }
 
-    setStockError(
-      err.message || "Unable to validate stock. Please try again."
+    // -----------------------------------------
+    // 6. Prepare items array exactly as required
+    // validateStockAvailability(items, warehouse, loginUser)
+    // -----------------------------------------
+    const items = currencyDenominationRows.map((row) => ({
+      item_code: row.denomination,
+      requested_qty: Number(row.qty || 0),
+    }));
+
+    console.log("📤 Sending Stock Validation Request:");
+    console.table(items);
+
+    setStockLoading(true);
+
+    try {
+      // IMPORTANT:
+      // validateStockAvailability expects:
+      // 1. items      -> array
+      // 2. warehouse  -> string
+      // 3. loginUser  -> actual loginUser object (NOT { user })
+      const result = await validateStockAvailability(
+        items,
+        warehouseName,
+        loginUser
+      );
+
+      console.log("📥 Stock Validation Response:", result);
+
+      const { outOfStock = [], qtyMap = {} } = result;
+
+      // Log stock availability for each denomination
+      items.forEach((item) => {
+        const availableQty = qtyMap[item.item_code] ?? 0;
+
+        console.log(
+          `📦 ${item.item_code}: Requested ${item.requested_qty}, Available ${availableQty}`
+        );
+      });
+
+      // If any item is out of stock, block submission
+      if (outOfStock.length > 0) {
+        console.warn("❌ Out of Stock Items:", outOfStock);
+
+        setStockError(
+          `Insufficient stock available in ${warehouseName} for: ${outOfStock.join(
+            ", "
+          )}`
+        );
+
+        return false;
+      }
+
+      // Success
+      console.log("✅ All selected denominations have sufficient stock.");
+      setStockError("");
+      return true;
+    } catch (err) {
+      console.error("❌ Stock validation failed:", err);
+
+      setStockError(
+        err.message || "Unable to validate stock. Please try again."
+      );
+
+      return false;
+    } finally {
+      setStockLoading(false);
+    }
+  };
+  const usableFields = metaFields
+    .map((f) => (f.fieldname === "amount" ? { ...f, reqd: 1, depends_on: "" } : f))
+    .filter(
+      (f) =>
+        !f.hidden &&
+        !["Section Break", "Column Break"].includes(f.fieldtype)
     );
 
-    return false;
-  } finally {
-    setStockLoading(false);
-  }
-};
-const usableFields = metaFields.filter(
-  (f) =>
-    !f.hidden &&
-    !["Section Break", "Column Break"].includes(f.fieldtype)
-);
+  const orderedFields = React.useMemo(() => {
+    const getParentFieldname = (field) => {
+      if (field.fieldname === "amount") return null;
+      if (!field.depends_on) return null;
+      const condition = field.depends_on.replace("eval:", "");
+      const matches = [...condition.matchAll(/doc\.([a-zA-Z0-9_]+)/g)];
+      const parents = matches.map((m) => m[1]).filter((name) => name && name !== field.fieldname);
+      return parents.length ? parents[0] : null;
+    };
 
-const orderedFields = React.useMemo(() => {
-  const getParentFieldname = (field) => {
-    if (!field.depends_on) return null;
-    const condition = field.depends_on.replace("eval:", "");
-    const matches = [...condition.matchAll(/doc\.([a-zA-Z0-9_]+)/g)];
-    const parents = matches.map((m) => m[1]).filter((name) => name && name !== field.fieldname);
-    return parents.length ? parents[0] : null;
-  };
+    const dependents = new Map();
+    const roots = [];
 
-  const dependents = new Map();
-  const roots = [];
+    usableFields.forEach((field) => {
+      const parent = getParentFieldname(field);
+      if (parent) {
+        dependents.set(parent, [...(dependents.get(parent) || []), field]);
+      } else {
+        roots.push(field);
+      }
+    });
 
-  usableFields.forEach((field) => {
-    const parent = getParentFieldname(field);
-    if (parent) {
-      dependents.set(parent, [...(dependents.get(parent) || []), field]);
-    } else {
-      roots.push(field);
-    }
-  });
+    const sorted = [];
+    const visited = new Set();
 
-  const sorted = [];
-  const visited = new Set();
+    const addFieldWithDependents = (field) => {
+      if (visited.has(field.fieldname)) return;
+      visited.add(field.fieldname);
+      sorted.push(field);
+      const children = dependents.get(field.fieldname) || [];
+      children.forEach(addFieldWithDependents);
+    };
 
-  const addFieldWithDependents = (field) => {
-    if (visited.has(field.fieldname)) return;
-    visited.add(field.fieldname);
-    sorted.push(field);
-    const children = dependents.get(field.fieldname) || [];
-    children.forEach(addFieldWithDependents);
-  };
+    usableFields.forEach((field) => {
+      if (!visited.has(field.fieldname) && !getParentFieldname(field)) {
+        addFieldWithDependents(field);
+      }
+    });
 
-  usableFields.forEach((field) => {
-    if (!visited.has(field.fieldname) && !getParentFieldname(field)) {
-      addFieldWithDependents(field);
-    }
-  });
+    usableFields.forEach((field) => {
+      if (!visited.has(field.fieldname)) {
+        addFieldWithDependents(field);
+      }
+    });
 
-  usableFields.forEach((field) => {
-    if (!visited.has(field.fieldname)) {
-      addFieldWithDependents(field);
-    }
-  });
-
-  return sorted;
-}, [usableFields]);
+    return sorted;
+  }, [usableFields]);
 
   const inputStyle =
-  "w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#E00000] focus:bg-white transition-all duration-200";
-  
+    "w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#E00000] focus:bg-white transition-all duration-200";
+
   const labelStyle =
     "text-xs uppercase font-bold text-gray-400 mb-2 block";
 
@@ -273,291 +299,552 @@ const orderedFields = React.useMemo(() => {
   };
 
   useEffect(() => {
-  const fetchMeta = async () => {
-  try {
-    const baseURL = getBaseURL(ERP_ENV.DEMO);
-    // const headers = getHeaders(loginUser.api_key, loginUser.api_secret);
-    const headers = getHeaders(loginUser, ERP_ENV.PROD);
+    const fetchMeta = async () => {
+      if (!loginUser?.user?.sessionActive) return;
 
-    const url = `${baseURL}/api/resource/DocType/${encodeURIComponent("Money Transfer")}`;
+      try {
+        const url = buildApiUrl(
+          `api/resource/DocType/${encodeURIComponent("Money Transfer")}`
+        );
 
-    console.log("🔥 Fetching URL:", url);
-    console.log("🔥 Headers:", headers);
+        console.log("🔥 Fetching Money Transfer DocType URL:", url);
 
-    const res = await fetch(url, {
-      method: "GET",
-      headers: {
-        ...headers,
-        Accept: "application/json",
-      },
-    });
+        const res = await fetch(
+          url,
+          getFetchOptions({
+            method: "GET",
+          })
+        );
 
-    const data = await res.json();
+        const data = await res.json().catch(() => ({}));
 
-    console.log("🔥 FULL RESPONSE STATUS:", res.status);
-    console.log("🔥 FULL DOCTYPE RESPONSE:", data);
+        console.log("🔥 FULL RESPONSE STATUS:", res.status);
+        console.log("🔥 FULL DOCTYPE RESPONSE:", data);
 
-    if (!res.ok) {
-      console.error("❌ Meta fetch failed:", data);
-      return;
-    }
+        if (!res.ok) {
+          const message =
+            res.status === 401
+              ? "Your ERPNext login session is not active. Please log in again."
+              : data?.exception || data?.message || "Unable to load Money Transfer fields.";
 
-    if (!data?.data?.fields) {
-      console.error("❌ Invalid meta response:", data);
-      return;
-    }
+          setSubmitError(message);
+          console.error("❌ Meta fetch failed:", data);
+          return;
+        }
 
-    setMetaFields(data.data.fields);
+        if (!data?.data?.fields) {
+          setSubmitError("Money Transfer DocType metadata response is invalid.");
+          console.error("❌ Invalid meta response:", data);
+          return;
+        }
 
-    console.log("✅ FIELDS:", data.data.fields);
-  } catch (err) {
-    console.error("❌ Meta fetch error:", err);
-  }
-};
+        const fields = (data.data.fields || []).map((f) =>
+          f.fieldname === "amount" ? { ...f, reqd: 1, depends_on: "" } : f
+        );
+        setMetaFields(fields);
+        setSubmitError("");
 
-  fetchMeta();
-}, [loginUser]);
+        console.log("✅ FIELDS:", data.data.fields);
+      } catch (err) {
+        setSubmitError(err.message || "Unable to load Money Transfer fields.");
+        console.error("❌ Meta fetch error:", err);
+      }
+    };
+
+    fetchMeta();
+  }, [loginUser?.user?.sessionActive]);
 
 
 
-useEffect(() => {
-  const amount = parseFloat(form.amount || 0);
-  const fee = parseFloat(form.transfer_fee || 0);
+  useEffect(() => {
+    const amount = parseFloat(form.amount || 0);
+    const fee = parseFloat(form.transfer_fee || 0);
 
-  setForm(prev => ({
-    ...prev,
-    total_amount: amount + fee
-  }));
-}, [form.amount, form.transfer_fee]);
-
-const getOptions = (fieldname) => {
-  const field = metaFields.find(f => f.fieldname === fieldname);
-  if (!field || !field.options) return [];
-
-  return field.options.split("\n").map(opt => ({
-    label: opt,
-    value: opt,
-  }));
-};
-
-useEffect(() => {
-  const enabled =
-    form.enable_currency_denomination === 1 ||
-    form.enable_currency_denomination === "1" ||
-    form.enable_currency_denomination === true;
-
-  if (!enabled && form.amount) {
-    setForm((prev) => ({
+    setForm(prev => ({
       ...prev,
-      amount: "",
+      total_amount: amount + fee
     }));
-  }
-}, [form.enable_currency_denomination]);
+  }, [form.amount, form.transfer_fee]);
 
-const formatLocalDate = (date) => {
-  if (!date) return "";
+  const getOptions = (fieldname) => {
+    const field = metaFields.find(f => f.fieldname === fieldname);
+    if (!field || !field.options) return [];
 
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
+    return field.options.split("\n").map(opt => ({
+      label: opt,
+      value: opt,
+    }));
+  };
 
-  return `${y}-${m}-${d}`;
-};
 
-const formatDate = (date) => {
-  if (!date) return null;
+  const formatLocalDate = (date) => {
+    if (!date) return "";
 
-  const d = new Date(date);
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
 
-  if (isNaN(d.getTime())) {
-    console.error("❌ Invalid date:", date);
-    return null;
-  }
+    return `${y}-${m}-${d}`;
+  };
 
-  return d.toISOString().split("T")[0];
-};
-useEffect(() => {
-  const fetchCustomer = async () => {
-    if (!form.full_name || !form.dob) return;
+  const formatDate = (date) => {
+    if (!date) return null;
 
-    const formattedDate = formatDate(form.dob);
-    if (!formattedDate) return;
+    const d = new Date(date);
 
-    const cleanName = form.full_name.trim().replace(/\s+/g, " ");
-    const customerId = `${cleanName}_${formattedDate}`;
+    if (isNaN(d.getTime())) {
+      console.error("❌ Invalid date:", date);
+      return null;
+    }
 
-    console.log("Searching customer:", customerId);
+    return d.toISOString().split("T")[0];
+  };
+  // useEffect(() => {
+  //   const fetchCustomer = async () => {
+  //     if (!form.full_name || !form.dob) return;
+
+  //     const formattedDate = formatDate(form.dob);
+  //     if (!formattedDate) return;
+
+  //     const cleanName = form.full_name.trim().replace(/\s+/g, " ");
+  //     const customerId = `${cleanName}_${formattedDate}`;
+
+  //     console.log("Searching customer:", customerId);
+
+  //     try {
+  //       const customer = await getCustomerById(customerId, loginUser);
+
+  //       if (customer) {
+  //         console.log("Customer Auto-filled:", customer);
+
+  //         setForm((prev) => ({
+  //           ...prev,
+  //           full_name: customer.custom_full_name || customer.full_name || prev.full_name,
+  //           custom_full_name: customer.custom_full_name || customer.full_name || "",
+  //           dob: customer.custom_date_of_birth || customer.dob || prev.dob,
+  //           custom_date_of_birth: customer.custom_date_of_birth || customer.dob || "",
+  //           passport_number: customer.custom_passport_number || customer.passport_number || "",
+  //           custom_passport_number: customer.custom_passport_number || customer.passport_number || "",
+  //           document_upload:
+  //             customer.custom_government_document || customer.document_upload || "",
+  //           custom_government_document: customer.custom_government_document || "",
+
+  //           // government_id_type: customer.custom_government_id || customer.government_id_type || "",
+  //           custom_government_id: customer.custom_government_id || customer.government_id_type || "",
+
+  //           government_id_type:
+  //             customer.custom_government_id ||
+  //             customer.government_id_type ||
+  //             "",
+
+  //           government_id_number:
+  //             customer.custom_passport_number ||
+  //             customer.custom_drivers_licence_number ||
+  //             customer.custom_tin_number ||
+  //             customer.custom_voter_id_number ||
+  //             prev.government_id_number ||
+  //             "",
+
+
+  //           customer: customer.name || "",
+  //         }));
+  //       } else {
+  //         console.log("Customer not found");
+  //       }
+  //     } catch (err) {
+  //       console.error("Customer fetch error:", err);
+  //     }
+  //   };
+
+  //   const delay = setTimeout(fetchCustomer, 500);
+  //   return () => clearTimeout(delay);
+  // }, [form.full_name, form.dob]);
+  useEffect(() => {
+    const fetchCustomer = async () => {
+      if (!form.full_name || !form.dob) {
+        setCustomerLookupDone(false);
+        setCustomerFound(false);
+
+        setForm((prev) => ({
+          ...prev,
+          customer: "",
+          custom_available_currency_transfer_balance: "",
+          custom_annual_fx_and_moneygram_limit: "",
+          custom_annual_compliance_limit: "",
+        }));
+
+        return;
+      }
+
+      const formattedDate = formatDate(form.dob);
+      if (!formattedDate) return;
+
+      const cleanName = form.full_name.trim().replace(/\s+/g, " ");
+      const customerId = `${cleanName}_${formattedDate}`;
+
+      console.log("🔎 Searching customer:", customerId);
+
+      try {
+        const customerResponse = await getCustomerById(
+          customerId,
+          loginUser
+        );
+
+        console.log("🔥 CUSTOMER RESPONSE:", customerResponse);
+
+        /*
+         * This makes the code work whether getCustomerById returns:
+         *
+         * { name: "...", custom_...: ... }
+         *
+         * OR
+         *
+         * { data: { name: "...", custom_...: ... } }
+         */
+        const customer =
+          customerResponse?.data || customerResponse;
+
+        // =====================================================
+        // EXISTING CUSTOMER
+        // =====================================================
+        if (customer?.name) {
+          console.log("✅ CUSTOMER FOUND:", customer);
+
+          console.log("💰 LIMITS FROM CUSTOMER:", {
+            available:
+              customer.custom_available_currency_transfer_balance,
+            fx_moneygram:
+              customer.custom_annual_fx_and_moneygram_limit,
+            compliance:
+              customer.custom_annual_compliance_limit,
+          });
+
+          setCustomerFound(true);
+          setCustomerLookupDone(true);
+
+          setForm((prev) => ({
+            ...prev,
+
+            full_name:
+              customer.custom_full_name ||
+              customer.full_name ||
+              prev.full_name,
+
+            custom_full_name:
+              customer.custom_full_name ||
+              customer.full_name ||
+              "",
+
+            dob:
+              customer.custom_date_of_birth ||
+              customer.dob ||
+              prev.dob,
+
+            custom_date_of_birth:
+              customer.custom_date_of_birth ||
+              customer.dob ||
+              "",
+
+            passport_number:
+              customer.custom_passport_number ||
+              customer.passport_number ||
+              "",
+
+            custom_passport_number:
+              customer.custom_passport_number ||
+              customer.passport_number ||
+              "",
+
+            document_upload:
+              customer.custom_government_document ||
+              customer.document_upload ||
+              "",
+
+            custom_government_document:
+              customer.custom_government_document ||
+              "",
+
+            custom_government_id:
+              customer.custom_government_id ||
+              customer.government_id_type ||
+              "",
+
+            government_id_type:
+              customer.custom_government_id ||
+              customer.government_id_type ||
+              "",
+
+            government_id_number:
+              customer.custom_passport_number ||
+              customer.custom_drivers_licence_number ||
+              customer.custom_tin_number ||
+              customer.custom_voter_id_number ||
+              prev.government_id_number ||
+              "",
+
+            // IMPORTANT
+            customer: customer.name,
+
+            // ==========================================
+            // CUSTOMER LIMITS
+            // ==========================================
+            custom_available_currency_transfer_balance:
+              customer.custom_available_currency_transfer_balance ?? 0,
+
+            custom_annual_fx_and_moneygram_limit:
+              customer.custom_annual_fx_and_moneygram_limit ?? 0,
+
+            custom_annual_compliance_limit:
+              customer.custom_annual_compliance_limit ?? 0,
+          }));
+
+          return;
+        }
+
+        // =====================================================
+        // NEW CUSTOMER
+        // =====================================================
+        console.log("ℹ️ Customer not found");
+
+        setCustomerFound(false);
+
+        const limits = await getDefaultCustomerLimits();
+
+        console.log("💰 DEFAULT LIMITS:", limits);
+
+        setForm((prev) => ({
+          ...prev,
+
+          customer: "",
+
+          custom_available_currency_transfer_balance:
+            limits?.annual_fx_limit ?? 0,
+
+          custom_annual_fx_and_moneygram_limit:
+            limits?.annual_fx_and_moneygram_limit ?? 0,
+
+          custom_annual_compliance_limit:
+            limits?.annual_compliance_limit ?? 0,
+        }));
+
+        setCustomerLookupDone(true);
+
+      } catch (err) {
+        console.error("❌ Customer fetch error:", err);
+
+        /*
+         * If your getCustomerById throws a 404 instead of
+         * returning null, treat that as a new customer.
+         */
+        try {
+          const limits = await getDefaultCustomerLimits();
+
+          console.log(
+            "💰 Customer lookup failed/not found. Using defaults:",
+            limits
+          );
+
+          setCustomerFound(false);
+
+          setForm((prev) => ({
+            ...prev,
+
+            customer: "",
+
+            custom_available_currency_transfer_balance:
+              limits?.annual_fx_limit ?? 0,
+
+            custom_annual_fx_and_moneygram_limit:
+              limits?.annual_fx_and_moneygram_limit ?? 0,
+
+            custom_annual_compliance_limit:
+              limits?.annual_compliance_limit ?? 0,
+          }));
+
+          setCustomerLookupDone(true);
+
+        } catch (limitErr) {
+          console.error(
+            "❌ Could not load default limits:",
+            limitErr
+          );
+
+          setCustomerLookupDone(true);
+        }
+      }
+    };
+
+    const delay = setTimeout(fetchCustomer, 500);
+
+    return () => clearTimeout(delay);
+  }, [form.full_name, form.dob]);
+
+  useEffect(() => {
+    console.log("🔥 FORM CUSTOMER LIMIT STATE:", {
+      customer: form.customer,
+
+      available:
+        form.custom_available_currency_transfer_balance,
+
+      fx_moneygram:
+        form.custom_annual_fx_and_moneygram_limit,
+
+      compliance:
+        form.custom_annual_compliance_limit,
+    });
+  }, [
+    form.customer,
+    form.custom_available_currency_transfer_balance,
+    form.custom_annual_fx_and_moneygram_limit,
+    form.custom_annual_compliance_limit,
+  ]);
+
+  // Replace your existing warehouse extraction logic in MoneyTransfer.jsx
+  // inside runStockCheck() with the following:
+
+
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    setSuccessInfo(null);
+    setSubmitError("");
+
+    if (!validateForm()) {
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
-      const customer = await getCustomerById(customerId, loginUser);
+      let documentUrl = "";
 
-      if (customer) {
-        console.log("Customer Auto-filled:", customer);
-
-       setForm((prev) => ({
-  ...prev,
-  full_name: customer.custom_full_name || customer.full_name || prev.full_name,
-  custom_full_name: customer.custom_full_name || customer.full_name || "",
-  dob: customer.custom_date_of_birth || customer.dob || prev.dob,
-  custom_date_of_birth: customer.custom_date_of_birth || customer.dob || "",
-  passport_number: customer.custom_passport_number || customer.passport_number || "",
-  custom_passport_number: customer.custom_passport_number || customer.passport_number || "",
-  document_upload:
-    customer.custom_government_document || customer.document_upload || "",
-  custom_government_document: customer.custom_government_document || "",
-
-  // government_id_type: customer.custom_government_id || customer.government_id_type || "",
-  custom_government_id: customer.custom_government_id || customer.government_id_type || "",
-
-  government_id_type:
-  customer.custom_government_id ||
-  customer.government_id_type ||
-  "",
-
-government_id_number:
-  customer.custom_passport_number ||
-  customer.custom_drivers_licence_number ||
-  customer.custom_tin_number ||
-  customer.custom_voter_id_number ||
-  prev.government_id_number ||
-  "",
-
-  
-  customer: customer.name || "",
-}));
-      } else {
-        console.log("Customer not found");
+      if (form.document_upload instanceof File) {
+        documentUrl = await uploadFile(form.document_upload, { isPrivate: 1 });
       }
+
+      console.log("Using loginUser for createCustomer:", loginUser);
+      console.log("Currency Denomination Rows:", currencyDenominationRows);
+
+      // If the user disables denomination, make sure rows are cleared before submitting.
+      const denominationsEnabled =
+        form.enable_currency_denomination === 1 ||
+        form.enable_currency_denomination === "1" ||
+        form.enable_currency_denomination === true;
+
+      // const rowsToSubmit = denominationsEnabled ? currencyDenominationRows : [];
+      const rowsToSubmit = denominationsEnabled ? currencyDenominationRows : [];
+
+      // Run stock validation only when denomination is enabled
+      if (denominationsEnabled && rowsToSubmit.length > 0) {
+        const stockOk = await runStockCheck();
+
+        if (!stockOk) {
+          setIsSubmitting(false);
+          return; // Stop submission if stock is insufficient
+        }
+      }
+
+      // Create / Fetch Customer
+      let customerId = "";
+      let customerFullName = "";
+
+      const formattedDate = formatDate(form.dob);
+      const cleanName = form.full_name ? form.full_name.trim().replace(/\s+/g, " ") : "";
+      const expectedCustomerId = cleanName && formattedDate ? `${cleanName}_${formattedDate}` : "";
+
+      if (customerFound && form.customer && form.customer === expectedCustomerId) {
+        // Existing customer was autofetched: reuse directly without creating a new one
+        customerId = form.customer;
+        customerFullName = form.custom_full_name || form.full_name;
+        console.log("Reusing existing fetched customer:", customerId);
+
+        // If a new document file was uploaded, update the existing customer document
+        if (form.document_upload instanceof File && documentUrl) {
+          updateCustomer(customerId, { custom_government_document: documentUrl }, loginUser).catch((err) => {
+            console.warn("Non-critical: could not update customer document:", err);
+          });
+        }
+      } else {
+        // Customer not yet fetched or new: createCustomer will check if customer exists or create new
+        const customer = await createCustomer(form, documentUrl, loginUser);
+        customerId = customer.name;
+        customerFullName = customer.custom_full_name || customer.customer_name || form.full_name;
+      }
+
+      // Create Transaction
+      const transfer = await createMoneyTransfer(
+        form,
+        customerId,
+        loginUser,
+        documentUrl,
+        rowsToSubmit,
+        selectedWarehouse
+      );
+
+      // success info
+      setSuccessInfo({
+        customer: customerId,
+        customerFullName,
+        transaction: transfer.name,
+        amount: Number(form.amount || 0),
+        transfer,
+        message:
+          form.enable_currency_denomination === 1 ||
+            form.enable_currency_denomination === "1" ||
+            form.enable_currency_denomination === true
+            ? `Your transfer of ${Number(form.amount || 0)} has been securely processed. Your transaction ${transfer.name} is confirmed.`
+            : `Your transaction ${transfer.name} has been securely processed and confirmed.`,
+      });
+
+      resetForm();
+      setCurrencyDenominationRows([]);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
-      console.error("Customer fetch error:", err);
+      console.error(err);
+      setSubmitError(err.message || "Error processing transfer. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const delay = setTimeout(fetchCustomer, 500);
-  return () => clearTimeout(delay);
-}, [form.full_name, form.dob]);
-
-// Replace your existing warehouse extraction logic in MoneyTransfer.jsx
-// inside runStockCheck() with the following:
-
-
-
-const handleSubmit = async () => {
-  setIsSubmitting(true);
-  setSuccessInfo(null);
-  setSubmitError("");
-
-  if (!validateForm()) {
-    setIsSubmitting(false);
-    return;
-  }
-
-  try {
-    let documentUrl = "";
-
-    if (form.document_upload instanceof File) {
-      documentUrl = await uploadFile(form.document_upload, { isPrivate: 1 });
-    }
-
-    console.log("Using loginUser for createCustomer:", loginUser);
-    console.log("Currency Denomination Rows:", currencyDenominationRows);
-
-    // If the user disables denomination, make sure rows are cleared before submitting.
+  useEffect(() => {
     const denominationsEnabled =
       form.enable_currency_denomination === 1 ||
       form.enable_currency_denomination === "1" ||
       form.enable_currency_denomination === true;
 
-    // const rowsToSubmit = denominationsEnabled ? currencyDenominationRows : [];
-    const rowsToSubmit = denominationsEnabled ? currencyDenominationRows : [];
+    if (!denominationsEnabled && currencyDenominationRows.length > 0) {
+      setCurrencyDenominationRows([]);
+    }
+  }, [form.enable_currency_denomination]);
 
-// Run stock validation only when denomination is enabled
-if (denominationsEnabled && rowsToSubmit.length > 0) {
-  const stockOk = await runStockCheck();
+  const shouldShowField = (field) => {
+    if (field.fieldname === "amount") return true;
+    if (!field.depends_on) return true;
 
-  if (!stockOk) {
-    setIsSubmitting(false);
-    return; // Stop submission if stock is insufficient
-  }
-}
+    try {
+      const condition = field.depends_on.replace("eval:", "");
+      const fn = new Function("doc", `return ${condition}`);
+      return fn(form);
+    } catch (e) {
+      console.warn("depends_on error:", field.fieldname);
+      return true;
+    }
+  };
 
-    // Create / Fetch Customer
-    const customer = await createCustomer(form, documentUrl, loginUser);
-    const customerId = customer.name;
-    const customerFullName = customer.custom_full_name;
+  const resetForm = () => {
+    setForm({});
+    setFieldErrors({});
+    setSubmitError("");
+    setCustomerFound(false);
+    setCustomerLookupDone(false);
+  };
 
-    // Create Transaction
-    const transfer = await createMoneyTransfer(
-      form,
-      customerId,
-      loginUser,
-      documentUrl,
-      rowsToSubmit,
-      selectedWarehouse
-    );
+  const buildMoneyTransferInvoiceData = (transfer) => {
+    if (!transfer) return null;
 
-    // success info
-    setSuccessInfo({
-      customer: customerId,
-      customerFullName,
-      transaction: transfer.name,
-      amount: Number(form.amount || 0),
-      transfer,
-      message:
-        form.enable_currency_denomination === 1 ||
-        form.enable_currency_denomination === "1" ||
-        form.enable_currency_denomination === true
-          ? `Your transfer of ${Number(form.amount || 0)} has been securely processed. Your transaction ${transfer.name} is confirmed.`
-          : `Your transaction ${transfer.name} has been securely processed and confirmed.`,
-    });
-
-    resetForm();
-    setCurrencyDenominationRows([]);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  } catch (err) {
-    console.error(err);
-    setSubmitError(err.message || "Error processing transfer. Please try again.");
-  } finally {
-    setIsSubmitting(false);
-  }
-};
-
-useEffect(() => {
-  const denominationsEnabled =
-    form.enable_currency_denomination === 1 ||
-    form.enable_currency_denomination === "1" ||
-    form.enable_currency_denomination === true;
-
-  if (!denominationsEnabled && currencyDenominationRows.length > 0) {
-    setCurrencyDenominationRows([]);
-  }
-}, [form.enable_currency_denomination]);
-
-const shouldShowField = (field) => {
-  if (!field.depends_on) return true;
-
-  try {
-    const condition = field.depends_on.replace("eval:", "");
-    const fn = new Function("doc", `return ${condition}`);
-    return fn(form);
-  } catch (e) {
-    console.warn("depends_on error:", field.fieldname);
-    return true;
-  }
-};
-
-const resetForm = () => {
-  setForm({});
-  setFieldErrors({});
-  setSubmitError("");
-};
-
-const buildMoneyTransferInvoiceData = (transfer) => {
-  if (!transfer) return null;
-
-  const amount = Number(transfer.amount || 0);
-  const rows = Array.isArray(transfer.currency_denomination)
-    ? transfer.currency_denomination.map((row, idx) => ({
+    const amount = Number(transfer.amount || 0);
+    const rows = Array.isArray(transfer.currency_denomination)
+      ? transfer.currency_denomination.map((row, idx) => ({
         item_code: row.denomination || row.item_name || `Denomination ${idx + 1}`,
         qty: Number(row.qty || 0),
         rate:
@@ -566,49 +853,49 @@ const buildMoneyTransferInvoiceData = (transfer) => {
             : Number(row.amount || 0),
         amount: Number(row.amount || 0),
       }))
-    : [];
+      : [];
 
-  return {
-    ...transfer,
-    company: transfer.company || "MoneyGram",
-    currency: transfer.currency || "FJD",
-    customer_name: transfer.full_name || transfer.customer_name || transfer.customer_id,
-    customer: transfer.customer_id || transfer.customer || "",
-    name: transfer.name || transfer.transaction_id || "",
-    posting_date:
-      transfer.posting_date || transfer.modified || transfer.creation || new Date().toISOString().split("T")[0],
-    posting_time: transfer.posting_time || transfer.modified_time || "",
-    net_total: amount,
-    grand_total: amount,
-    rounded_total: amount,
-    total_taxes_and_charges: Number(transfer.total_taxes_and_charges || 0),
-    items: rows,
+    return {
+      ...transfer,
+      company: transfer.company || "MoneyGram",
+      currency: transfer.currency || "FJD",
+      customer_name: transfer.full_name || transfer.customer_name || transfer.customer_id,
+      customer: transfer.customer_id || transfer.customer || "",
+      name: transfer.name || transfer.transaction_id || "",
+      posting_date:
+        transfer.posting_date || transfer.modified || transfer.creation || new Date().toISOString().split("T")[0],
+      posting_time: transfer.posting_time || transfer.modified_time || "",
+      net_total: amount,
+      grand_total: amount,
+      rounded_total: amount,
+      total_taxes_and_charges: Number(transfer.total_taxes_and_charges || 0),
+      items: rows,
+    };
   };
-};
 
-const handlePrintInvoice = (transfer) => {
-  if (!transfer) {
-    setSubmitError("Cannot print invoice: transfer data is unavailable.");
-    return;
-  }
+  const handlePrintInvoice = (transfer) => {
+    if (!transfer) {
+      setSubmitError("Cannot print invoice: transfer data is unavailable.");
+      return;
+    }
 
-  const printData = buildMoneyTransferInvoiceData(transfer);
-  const hidden = document.getElementById("invoice-print-area");
+    const printData = buildMoneyTransferInvoiceData(transfer);
+    const hidden = document.getElementById("invoice-print-area");
 
-  if (!hidden) {
-    setSubmitError("Print template is not ready yet. Please try again.");
-    return;
-  }
+    if (!hidden) {
+      setSubmitError("Print template is not ready yet. Please try again.");
+      return;
+    }
 
-  const invoiceHTML = hidden.innerHTML;
-  const printWindow = window.open("", "_blank", "width=900,height=700");
+    const invoiceHTML = hidden.innerHTML;
+    const printWindow = window.open("", "_blank", "width=900,height=700");
 
-  if (!printWindow) {
-    setSubmitError("Unable to open print window. Please allow pop-ups.");
-    return;
-  }
+    if (!printWindow) {
+      setSubmitError("Unable to open print window. Please allow pop-ups.");
+      return;
+    }
 
-  printWindow.document.write(`
+    printWindow.document.write(`
     <!DOCTYPE html>
     <html>
       <head>
@@ -626,376 +913,537 @@ const handlePrintInvoice = (transfer) => {
     </html>
   `);
 
-  printWindow.document.close();
-  printWindow.onload = () => {
-    printWindow.focus();
-    printWindow.print();
+    printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.focus();
+      printWindow.print();
+    };
   };
-};
 
-const validateForm = () => {
-  const errors = {};
+  const validateForm = () => {
+    const errors = {};
 
-  usableFields.forEach((field) => {
-    if (!field.reqd || !shouldShowField(field)) return;
+    usableFields.forEach((field) => {
+      if (!field.reqd || !shouldShowField(field)) return;
 
-    const value = form[field.fieldname];
-    const isEmpty =
-      value === undefined ||
-      value === null ||
-      value === "" ||
-      (field.fieldtype === "Attach" && !value);
+      const value = form[field.fieldname];
+      const isEmpty =
+        value === undefined ||
+        value === null ||
+        value === "" ||
+        (field.fieldtype === "Attach" && !value);
 
-    if (isEmpty) {
-      errors[field.fieldname] = `${field.label || field.fieldname} is required.`;
-      return;
+      if (isEmpty) {
+        errors[field.fieldname] = `${field.label || field.fieldname} is required.`;
+        return;
+      }
+
+      if (field.fieldname === "amount") {
+        const amount = Number(value);
+        if (Number.isNaN(amount) || amount <= 0) {
+          errors[field.fieldname] = "Amount must be greater than zero.";
+        }
+      }
+
+      if (field.fieldtype === "Date" && !formatDate(value)) {
+        errors[field.fieldname] = `${field.label || "Date"} is required.`;
+      }
+    });
+
+    const denominationsEnabled =
+      form.enable_currency_denomination === 1 ||
+      form.enable_currency_denomination === "1" ||
+      form.enable_currency_denomination === true;
+
+    if (denominationsEnabled && currencyDenominationRows.length === 0) {
+      errors.currency_denomination =
+        "Please enter at least one currency denomination row or disable denomination.";
     }
 
-    if (field.fieldname === "amount") {
-      const amount = Number(value);
-      if (Number.isNaN(amount) || amount <= 0) {
-        errors[field.fieldname] = "Amount must be greater than zero.";
+    // Explicitly validate required amount
+    const amountVal = form.amount;
+    if (
+      amountVal === undefined ||
+      amountVal === null ||
+      amountVal === "" ||
+      String(amountVal).trim() === ""
+    ) {
+      errors.amount = "Amount is required.";
+    } else {
+      const num = Number(amountVal);
+      if (Number.isNaN(num) || num <= 0) {
+        errors.amount = "Amount must be greater than zero.";
       }
     }
 
-    if (field.fieldtype === "Date" && !formatDate(value)) {
-      errors[field.fieldname] = `${field.label || "Date"} is required.`;
-    }
-  });
+    setFieldErrors(errors);
+    setSubmitError(
+      Object.keys(errors).length
+        ? "Please complete the highlighted required fields before saving."
+        : ""
+    );
 
-  const denominationsEnabled =
-    form.enable_currency_denomination === 1 ||
-    form.enable_currency_denomination === "1" ||
-    form.enable_currency_denomination === true;
-
-  if (denominationsEnabled && currencyDenominationRows.length === 0) {
-    errors.currency_denomination =
-      "Please enter at least one currency denomination row or disable denomination.";
-  }
-
-  setFieldErrors(errors);
-  setSubmitError(
-    Object.keys(errors).length
-      ? "Please complete the highlighted required fields before saving."
-      : ""
-  );
-
-  return Object.keys(errors).length === 0;
-};
-
-/**
- * Render field label with red mandatory asterisk
- */
-const renderLabel = (field) => (
-  <label className={labelStyle}>
-    {field.label}
-    {field.reqd ? (
-      <span className="text-red-500 ml-1">*</span>
-    ) : null}
-  </label>
-);
-
-const renderFieldError = (fieldname) =>
-  fieldErrors[fieldname] ? (
-    <p className="mt-2 text-sm text-red-600">{fieldErrors[fieldname]}</p>
-  ) : null;
-
-const renderField = (field) => {
-  if (!shouldShowField(field)) return null;
-
-  const commonProps = {
-    className: inputStyle,
-    value: form[field.fieldname] || "",
-    onChange: (e) =>
-      handleChange(field.fieldname, e.target.value),
+    return Object.keys(errors).length === 0;
   };
 
-  switch (field.fieldtype) {
-    case "Data":
-      return (
-        <div key={field.fieldname}>
-          {renderLabel(field)}
-          <input {...commonProps} />
-          {renderFieldError(field.fieldname)}
-        </div>
-      );
-
-    case "Check":
-      return (
-        <div key={field.fieldname} className="col-span-2 flex items-center gap-3 py-1">
-          <input
-            id={field.fieldname}
-            type="checkbox"
-            className="h-4 w-4 rounded border-gray-300 text-[#E00000] focus:ring-[#E00000]"
-            checked={
-              form[field.fieldname] === 1 ||
-              form[field.fieldname] === "1" ||
-              form[field.fieldname] === true
-            }
-            onChange={(e) =>
-              handleChange(field.fieldname, e.target.checked ? 1 : 0)
-            }
-          />
-          <label htmlFor={field.fieldname} className="text-sm font-semibold text-gray-700">
-            {field.label}
-          </label>
-        </div>
-      );
-
-    case "Date":
-  return (
-    <div key={field.fieldname}>
-      {renderLabel(field)}
-      <DatePicker
-        selected={
-          form[field.fieldname]
-            ? new Date(form[field.fieldname])
-            : null
-        }
-        onChange={(date) =>
-          handleChange(field.fieldname, formatLocalDate(date))
-        }
-        className={inputStyle}
-        dateFormat="yyyy-MM-dd"
-
-        // ✅ KEY FIXES
-        showYearDropdown
-        showMonthDropdown
-        dropdownMode="select"
-
-        // ✅ Open to past (DOB friendly)
-        maxDate={new Date()} // no future dates
-        yearDropdownItemNumber={100} // last 100 years
-        scrollableYearDropdown
-
-        // ✅ Optional: open calendar around 2000 instead of today
-        openToDate={new Date(2000, 0, 1)}
-      />
-      {renderFieldError(field.fieldname)}
-    </div>
+  /**
+   * Render field label with red mandatory asterisk
+   */
+  const renderLabel = (field) => (
+    <label className={labelStyle}>
+      {field.label}
+      {field.reqd || field.fieldname === "amount" ? (
+        <span className="text-red-500 ml-1">*</span>
+      ) : null}
+    </label>
   );
 
-    case "Select":
-      const options = field.options?.split("\n") || [];
+  const renderFieldError = (fieldname) =>
+    fieldErrors[fieldname] ? (
+      <p className="mt-2 text-sm text-red-600">{fieldErrors[fieldname]}</p>
+    ) : null;
 
-      return (
-        <div key={field.fieldname}>
-          {renderLabel(field)}
-          <select {...commonProps}>
-            <option value="">Select <>
-  {field.label}
-  {field.reqd ? (
-    <span className="text-red-500 ml-1">*</span>
-  ) : null}
-</></option>
-            {options.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-          {renderFieldError(field.fieldname)}
-        </div>
-      );
+  const renderField = (field) => {
+    if (!shouldShowField(field)) return null;
 
-   case "Attach":
-  return (
-    <div key={field.fieldname}>
-      {/* Do NOT render renderLabel(field) here because FileUploadBox
+    const commonProps = {
+      className: inputStyle,
+      value: form[field.fieldname] || "",
+      onChange: (e) =>
+        handleChange(field.fieldname, e.target.value),
+    };
+
+    switch (field.fieldtype) {
+      case "Data":
+        return (
+          <div key={field.fieldname}>
+            {renderLabel(field)}
+            <input
+              {...commonProps}
+              type={field.fieldname === "amount" ? "number" : "text"}
+              step={field.fieldname === "amount" ? "0.01" : undefined}
+              min={field.fieldname === "amount" ? "0" : undefined}
+              placeholder={field.fieldname === "amount" ? "Enter transfer amount" : ""}
+            />
+            {renderFieldError(field.fieldname)}
+          </div>
+        );
+
+      case "Check":
+        return (
+          <div key={field.fieldname} className="col-span-2 flex items-center gap-3 py-1">
+            <input
+              id={field.fieldname}
+              type="checkbox"
+              className="h-4 w-4 rounded border-gray-300 text-[#E00000] focus:ring-[#E00000]"
+              checked={
+                form[field.fieldname] === 1 ||
+                form[field.fieldname] === "1" ||
+                form[field.fieldname] === true
+              }
+              onChange={(e) =>
+                handleChange(field.fieldname, e.target.checked ? 1 : 0)
+              }
+            />
+            <label htmlFor={field.fieldname} className="text-sm font-semibold text-gray-700">
+              {field.label}
+            </label>
+          </div>
+        );
+
+      case "Date":
+        return (
+          <div key={field.fieldname}>
+            {renderLabel(field)}
+            <DatePicker
+              selected={
+                form[field.fieldname]
+                  ? new Date(form[field.fieldname])
+                  : null
+              }
+              onChange={(date) =>
+                handleChange(field.fieldname, formatLocalDate(date))
+              }
+              className={inputStyle}
+              dateFormat="yyyy-MM-dd"
+
+              // ✅ KEY FIXES
+              showYearDropdown
+              showMonthDropdown
+              dropdownMode="select"
+
+              // ✅ Open to past (DOB friendly)
+              maxDate={new Date()} // no future dates
+              yearDropdownItemNumber={100} // last 100 years
+              scrollableYearDropdown
+
+              // ✅ Optional: open calendar around 2000 instead of today
+              openToDate={new Date(2000, 0, 1)}
+            />
+            {renderFieldError(field.fieldname)}
+          </div>
+        );
+
+      case "Select":
+        const options = field.options?.split("\n") || [];
+
+        return (
+          <div key={field.fieldname}>
+            {renderLabel(field)}
+            <select {...commonProps}>
+              <option value="">Select <>
+                {field.label}
+                {field.reqd ? (
+                  <span className="text-red-500 ml-1">*</span>
+                ) : null}
+              </></option>
+              {options.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+            {renderFieldError(field.fieldname)}
+          </div>
+        );
+
+      case "Attach":
+        return (
+          <div key={field.fieldname}>
+            {/* Do NOT render renderLabel(field) here because FileUploadBox
           already displays the label internally. Instead, pass the
           mandatory asterisk directly in the label prop. */}
-      <FileUploadBox
-        label={
-          field.reqd
-            ? `${field.label} *`
-            : field.label
-        }
-        file={form[field.fieldname]}
-        existingFileUrl={
-          typeof form[field.fieldname] === "string"
-            ? form[field.fieldname]
-            : null
-        }
-        setFile={(file) =>
-          handleChange(field.fieldname, file)
-        }
-      />
+            <FileUploadBox
+              label={
+                field.reqd
+                  ? `${field.label} *`
+                  : field.label
+              }
+              file={form[field.fieldname]}
+              existingFileUrl={
+                typeof form[field.fieldname] === "string"
+                  ? form[field.fieldname]
+                  : null
+              }
+              setFile={(file) =>
+                handleChange(field.fieldname, file)
+              }
+            />
 
-      {renderFieldError(field.fieldname)}
-    </div>
-  );
+            {renderFieldError(field.fieldname)}
+          </div>
+        );
 
 
-    case "Section Break":
-      return (
-        <div key={field.fieldname} className="col-span-2 mt-6">
-          <h3 className="text-lg font-bold text-gray-700">
-            {field.label}
-          </h3>
-        </div>
+      case "Section Break":
+        return (
+          <div key={field.fieldname} className="col-span-2 mt-6">
+            <h3 className="text-lg font-bold text-gray-700">
+              {field.label}
+            </h3>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+
+  const getDefaultCustomerLimits = async () => {
+    try {
+      const url = buildApiUrl(
+        "api/method/moneygram.moneygram.api.app_configuration.get_annual_compliance_limit"
       );
 
-    default:
+      const res = await fetch(
+        url,
+        getFetchOptions({
+          method: "GET",
+        })
+      );
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(
+          data?.exception ||
+          data?.message ||
+          "Unable to fetch annual compliance limits."
+        );
+      }
+
+      console.log("Default annual limits:", data);
+
+      // frappe whitelisted methods normally return inside `message`
+      return data?.message || {};
+    } catch (err) {
+      console.error("Unable to fetch annual compliance limits:", err);
+
+      return {
+        annual_fx_limit: 0,
+        annual_fx_and_moneygram_limit: 0,
+        annual_compliance_limit: 0,
+      };
+    }
+  };
+
+  const renderCustomerLimitsCard = () => {
+    const shouldShow = Boolean(customerLookupDone && customerFound && form?.customer);
+    console.log("🔍 [renderCustomerLimitsCard called]:", {
+      shouldShow,
+      customerLookupDone,
+      customerFound,
+      customer: form?.customer || "(none)",
+    });
+
+    if (!customerLookupDone || !customerFound || !form.customer) {
       return null;
-  }
-};
+    }
+
+    const rawBalance =
+      form.custom_available_currency_transfer_balance ?? null;
+
+    const rawFxMg =
+      form.custom_annual_fx_and_moneygram_limit ?? null;
+
+    const rawCompliance =
+      form.custom_annual_compliance_limit ?? null;
+
+    const formatLimit = (val) => {
+      if (val === null || val === undefined || val === "" || isNaN(Number(val))) return "—";
+      return Number(val).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    };
+
+    return (
+      <div className="col-span-1 md:col-span-2 mt-2 mb-2 p-4 bg-gray-50/80 border border-gray-200 rounded-2xl shadow-sm">
+        <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200/70">
+          <div className="flex items-center gap-2">
+            <Wallet size={16} className="text-[#E00000]" />
+            <span className="text-xs uppercase font-bold text-gray-700 tracking-wider">
+              Customer Currency Limits
+            </span>
+          </div>
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-green-50 text-green-700 border border-green-200">
+            Existing Customer
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label className="text-[11px] uppercase font-bold text-gray-500 mb-1 flex items-center gap-1.5">
+              <Wallet size={13} className="text-[#E00000]" />
+              Available FX Balance
+            </label>
+            <input
+              type="text"
+              readOnly
+              value={formatLimit(rawBalance)}
+              className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 font-bold cursor-not-allowed shadow-inner focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="text-[11px] uppercase font-bold text-gray-500 mb-1 flex items-center gap-1.5">
+              <Wallet size={13} className="text-[#E00000]" />
+              Annual FX &amp; MG Limit
+            </label>
+            <input
+              type="text"
+              readOnly
+              value={formatLimit(rawFxMg)}
+              className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 font-bold cursor-not-allowed shadow-inner focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="text-[11px] uppercase font-bold text-gray-500 mb-1 flex items-center gap-1.5">
+              <Wallet size={13} className="text-[#E00000]" />
+              Annual Compliance Limit
+            </label>
+            <input
+              type="text"
+              readOnly
+              value={formatLimit(rawCompliance)}
+              className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 font-bold cursor-not-allowed shadow-inner focus:outline-none"
+            />
+          </div>
+        </div>
+      </div>
+    );
+  };
+  return (
+    <div className="min-h-screen flex flex-col bg-gray-50">
+      <Navbar />
+
+      <main className="grow py-10 px-4 sm:px-6 lg:px-12">
+        <div className="max-w-6xl mx-auto flex flex-col gap-10">
 
 
-
- return (
-  <div className="min-h-screen flex flex-col bg-gray-50">
-    <Navbar />
-
-    <main className="grow py-10 px-4 sm:px-6 lg:px-12">
-      <div className="max-w-6xl mx-auto flex flex-col gap-10">
-     
-
-        {/* HEADER */}
-       <div>
-  <h1 className="text-gray-900 text-3xl sm:text-5xl font-black tracking-tight leading-none">
-    Money{" "}
-    <span className="text-[#E00000] italic">
-      Transfer
-    </span>
-  </h1>
-{/* 
+          {/* HEADER */}
+          <div>
+            <h1 className="text-gray-900 text-3xl sm:text-5xl font-black tracking-tight leading-none">
+              Money{" "}
+              <span className="text-[#E00000] italic">
+                Transfer
+              </span>
+            </h1>
+            {/* 
   <p className="text-xs font-semibold text-gray-400 mt-2">
     Enter customer details to securely send or receive funds
   </p> */}
-</div>
+          </div>
 
-        {/* FORM CARD */}
-        <div className="rounded-3xl border border-gray-100 bg-white shadow-[0_10px_40px_rgba(0,0,0,0.06)] p-8 sm:p-10">
+          {/* FORM CARD */}
+          <div className="rounded-3xl border border-gray-100 bg-white shadow-[0_10px_40px_rgba(0,0,0,0.06)] p-8 sm:p-10">
 
-          {successInfo && (
-            <div className="mb-6 rounded-2xl border border-green-100 bg-linear-to-r from-white to-green-50 p-6 shadow-sm">
-              <div className="flex items-start gap-4">
-                <div className="text-green-600 text-3xl">✓</div>
-                <div className="flex-1">
-                  <h2 className="text-lg font-extrabold text-gray-800">Transfer Complete</h2>
-                  <p className="text-sm text-gray-600 mt-1">{successInfo.message}</p>
-                  <p className="mt-3 text-sm text-gray-700">
-                    <strong>Customer:</strong> {successInfo.customerFullName} &nbsp;•&nbsp; <strong>Transaction:</strong> {successInfo.transaction}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    onClick={() => handlePrintInvoice(successInfo.transfer)}
-                    className="rounded-2xl bg-[#E00000] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#c70000]"
-                  >
-                    Print Invoice
-                  </button>
-                  <button
-                    onClick={() => setSuccessInfo(null)}
-                    className="rounded-2xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-                  >
-                    Dismiss
-                  </button>
+            {successInfo && (
+              <div className="mb-6 rounded-2xl border border-green-100 bg-linear-to-r from-white to-green-50 p-6 shadow-sm">
+                <div className="flex items-start gap-4">
+                  <div className="text-green-600 text-3xl">✓</div>
+                  <div className="flex-1">
+                    <h2 className="text-lg font-extrabold text-gray-800">Transfer Complete</h2>
+                    <p className="text-sm text-gray-600 mt-1">{successInfo.message}</p>
+                    <p className="mt-3 text-sm text-gray-700">
+                      <strong>Customer:</strong> {successInfo.customerFullName} &nbsp;•&nbsp; <strong>Transaction:</strong> {successInfo.transaction}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() => handlePrintInvoice(successInfo.transfer)}
+                      className="rounded-2xl bg-[#E00000] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#c70000]"
+                    >
+                      Print Invoice
+                    </button>
+                    <button
+                      onClick={() => setSuccessInfo(null)}
+                      className="rounded-2xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-
-          {submitError && (
-            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {submitError}
-            </div>
-          )}
-
-          <div className="grid md:grid-cols-2 gap-6">
-  {orderedFields.map((field) => renderField(field))}
-</div>
-
-          {/* CURRENCY DENOMINATION PANEL */}
-          
-{form.enable_currency_denomination === 1 ||
- form.enable_currency_denomination === "1" ||
- form.enable_currency_denomination === true ? (
-  <div className="mt-8 col-span-2">
-    <div className="mb-4">
-      <h3 className="text-lg font-bold text-gray-700">
-        Currency Denomination
-      </h3>
-    </div>
-
-    {baseDenomLoading ? (
-      <div className="rounded-3xl border border-gray-200 bg-white p-8 text-center text-gray-500">
-        Loading denomination panel...
-      </div>
-    ) : baseDenomError ? (
-      <div className="rounded-3xl border border-red-200 bg-red-50 p-8 text-center text-red-600">
-        {baseDenomError}
-      </div>
-    ) : baseCurrencyData ? (
-      <DenominationPanel
-        title="Local FJD Denomination"
-        subtitle="Enter note counts for Fiji Dollars"
-        flag={baseCurrencyData.flag}
-        symbol={baseCurrencyData.symbol}
-        currency={baseCurrencyData.currency}
-        notes={baseCurrencyData.notes}
-        coins={baseCurrencyData.coins}
-        targetAmount={parseFloat(form.amount || 0)}
-        onRowsChange={handleDenominationRowsChange}
-        accentColor="#E00000"
-      />
-    ) : (
-      <div className="rounded-3xl border border-gray-200 bg-white p-8 text-center text-gray-500">
-        Fiji denomination data is not available.
-      </div>
-    )}
-
-    {fieldErrors.currency_denomination ? (
-      <div className="mt-4 text-sm text-red-600">
-        {fieldErrors.currency_denomination}
-      </div>
-    ) : null}
-
-    {stockError ? (
-      <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-        <div className="font-semibold">Stock validation issue</div>
-        <p>{stockError}</p>
-      </div>
-    ) : null}
-  </div>
-) : null}
-
-          {/* BUTTON */}
-          <button
-            onClick={handleSubmit}
-            disabled={isSubmitting || stockLoading}
-            className={`mt-10 w-full bg-[#E00000] ${isSubmitting || stockLoading ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-90'} text-white rounded-2xl py-4 font-black transition`}
-          >
-            {isSubmitting ? (
-              <span className="flex items-center justify-center gap-3">
-                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                </svg>
-                Processing Transfer...
-              </span>
-            ) : (
-              'Submit Transfer'
             )}
-          </button>
+
+            {submitError && (
+              <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {submitError}
+              </div>
+            )}
+
+            <div className="grid md:grid-cols-2 gap-6">
+              {orderedFields.map((field) => (
+                <React.Fragment key={field.fieldname}>
+                  {renderField(field)}
+
+                  {field.fieldname === "dob" &&
+                    customerLookupDone &&
+                    customerFound &&
+                    Boolean(form.customer) &&
+                    renderCustomerLimitsCard()}
+                </React.Fragment>
+              ))}
+
+              {!orderedFields.some((f) => f.fieldname === "dob") &&
+                customerLookupDone &&
+                customerFound &&
+                Boolean(form.customer) &&
+                renderCustomerLimitsCard()}
+            </div>
+            {/* CURRENCY DENOMINATION PANEL */}
+
+            {form.enable_currency_denomination === 1 ||
+              form.enable_currency_denomination === "1" ||
+              form.enable_currency_denomination === true ? (
+              <div className="mt-8 col-span-2">
+                <div className="mb-4">
+                  <h3 className="text-lg font-bold text-gray-700">
+                    Currency Denomination
+                  </h3>
+                </div>
+
+                {baseDenomLoading ? (
+                  <div className="rounded-3xl border border-gray-200 bg-white p-8 text-center text-gray-500">
+                    Loading denomination panel...
+                  </div>
+                ) : baseDenomError ? (
+                  <div className="rounded-3xl border border-red-200 bg-red-50 p-8 text-center text-red-600">
+                    {baseDenomError}
+                  </div>
+                ) : baseCurrencyData ? (
+                  <DenominationPanel
+                    title="Local FJD Denomination"
+                    subtitle="Enter note counts for Fiji Dollars"
+                    flag={baseCurrencyData.flag}
+                    symbol={baseCurrencyData.symbol}
+                    currency={baseCurrencyData.currency}
+                    notes={baseCurrencyData.notes}
+                    coins={baseCurrencyData.coins}
+                    targetAmount={parseFloat(form.amount || 0)}
+                    onRowsChange={handleDenominationRowsChange}
+                    accentColor="#E00000"
+                  />
+                ) : (
+                  <div className="rounded-3xl border border-gray-200 bg-white p-8 text-center text-gray-500">
+                    Fiji denomination data is not available.
+                  </div>
+                )}
+
+                {fieldErrors.currency_denomination ? (
+                  <div className="mt-4 text-sm text-red-600">
+                    {fieldErrors.currency_denomination}
+                  </div>
+                ) : null}
+
+                {stockError ? (
+                  <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    <div className="font-semibold">Stock validation issue</div>
+                    <p>{stockError}</p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {/* BUTTON */}
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitting || stockLoading}
+              className={`mt-10 w-full bg-[#E00000] ${isSubmitting || stockLoading ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-90'} text-white rounded-2xl py-4 font-black transition`}
+            >
+              {isSubmitting ? (
+                <span className="flex items-center justify-center gap-3">
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                  </svg>
+                  Processing Transfer...
+                </span>
+              ) : (
+                'Submit'
+              )}
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Hidden print template for Money Transfer invoice */}
-      <div className="hidden">
-        <InvoiceDocument
-          invoiceData={
-            successInfo?.transfer
-              ? buildMoneyTransferInvoiceData(successInfo.transfer)
-              : {}
-          }
-        />
-      </div>
-    </main>
+        {/* Hidden print template for Money Transfer invoice */}
+        <div className="hidden">
+          <InvoiceDocument
+            invoiceData={
+              successInfo?.transfer
+                ? buildMoneyTransferInvoiceData(successInfo.transfer)
+                : {}
+            }
+          />
+        </div>
+      </main>
 
-    <Footer />
-  </div>
-);
+      <Footer />
+    </div>
+  );
 };
 
 export default MoneyTransfer;

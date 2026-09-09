@@ -1,19 +1,12 @@
-import { getBaseURL, getHeaders, ERP_ENV } from "../config/erpConfig";
-
-// you can use same env as money transfer
-const ENV = ERP_ENV.DEMO;
+import { buildApiUrl, getFetchOptions } from "../config/erpConfig";
 
 export const getCurrencyMaster = async (loginUser) => {
   try {
-    const baseURL = getBaseURL(ENV);
-    const headers = getHeaders(loginUser, ENV);
-
     const res = await fetch(
-      `${baseURL}/api/resource/Currency Master Data/vj7mf5sure`,
-      {
+      buildApiUrl("api/resource/Currency Master Data/vj7mf5sure"),
+      getFetchOptions({
         method: "GET",
-        headers,
-      }
+      })
     );
 
     const data = await res.json();

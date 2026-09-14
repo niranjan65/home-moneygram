@@ -21,14 +21,16 @@ export function useCurrentUser() {
     const API_URL =
       "/api/method/frappe.auth.get_logged_user";
 
-    const HEADERS = {
+    const headers = {
       "Content-Type": "application/json",
-      Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
+      ...(loginUser?.user?.api_key && loginUser?.user?.api_secret && {
+        Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
+      }),
     };
     try {
       const response = await fetch(API_URL, {
         method: "GET",
-        headers: HEADERS,
+        headers,
         credentials: "include",
       });
 
@@ -39,9 +41,26 @@ export function useCurrentUser() {
       }
 
       const result = await response.json();
+      const userEmail = typeof result.message === "string" ? result.message : loginUser?.user?.email;
 
-      console.log(`current logged in user ${result}`)
-      setUser(result.message || {});
+      if (userEmail) {
+        const userDocRes = await fetch(
+          `/api/resource/User/${encodeURIComponent(userEmail)}`,
+          {
+            method: "GET",
+            headers,
+            credentials: "include",
+          }
+        );
+
+        if (userDocRes.ok) {
+          const userDoc = await userDocRes.json();
+          setUser(userDoc.data || {});
+          return;
+        }
+      }
+
+      setUser(typeof result.message === "object" ? result.message : { email: userEmail });
     } catch (err) {
   console.error("Failed to fetch user", err);
 

@@ -112,7 +112,7 @@ export const SenderCard = () => {
             Full Name
           </span>
           <span className="text-sm font-bold text-gray-900">
-            {user?.full_name || "Unknown User"}
+            {user?.full_name || user?.first_name || "Unknown User"}
           </span>
         </div>
 
@@ -130,7 +130,7 @@ export const SenderCard = () => {
             Mobile Number
           </span>
           <span className="text-sm font-bold text-gray-900">
-            {user?.mobile_no || "Not Available"}
+            {user?.mobile_no || user?.phone || "Not Available"}
           </span>
         </div>
 

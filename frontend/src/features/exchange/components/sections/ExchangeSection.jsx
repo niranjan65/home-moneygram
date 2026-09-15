@@ -49,8 +49,8 @@ export const ExchangeSection = ({
                 <button key={key} type="button"
                   onClick={() => setValue('exchangeType', key, { shouldValidate: true })}
                   className={`relative py-4 px-4 rounded-xl border-2 text-sm font-medium transition-all flex flex-col items-center gap-2 ${active
-                      ? 'border-[#E00000] bg-[#E00000]/5 text-[#B70000]'
-                      : 'border-gray-200 bg-white text-gray-400 hover:border-gray-300'
+                    ? 'border-[#E00000] bg-[#E00000]/5 text-[#B70000]'
+                    : 'border-gray-200 bg-white text-gray-400 hover:border-gray-300'
                     }`}>
                   {active && <CheckCircle2 size={13} className="absolute top-2.5 right-2.5 text-[#E00000]" strokeWidth={2.5} />}
                   <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${active ? 'bg-[#E00000] text-white' : 'bg-gray-100 text-gray-400'}`}>
@@ -76,11 +76,11 @@ export const ExchangeSection = ({
 
         <div className="px-5 py-5 flex flex-col gap-4">
           {effectiveRate && toCurrency && (
-            <div className="flex items-center gap-2 px-3 py-2.5 bg-gray-50 border border-gray-100 rounded-lg text-sm">
+            <div className="flex items-center gap-2 px-3 py-2.5 bg-gray-50 border border-gray-100 rounded-lg text-sm flex-wrap">
               <TrendingUp size={13} className="text-[#E00000] flex-shrink-0" />
               <span className="text-gray-500 text-xs">Rate:</span>
               <span className="font-semibold text-gray-800 text-xs">
-                1 {toCurrency.code} = {FJD.symbol}{effectiveRate}
+                1 {FJD.symbol} = {effectiveRate} {toCurrency.code}
               </span>
               <span className="ml-auto text-[10px] font-medium text-[#E00000] bg-[#E00000]/5 border border-[#E00000]/10 px-1.5 py-0.5 rounded uppercase tracking-wide">
                 {exchangeType === 'BUY' ? 'Buy Rate' : 'Sell Rate'}

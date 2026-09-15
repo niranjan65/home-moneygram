@@ -88,7 +88,7 @@ export function SettingsProvider({ children }) {
             Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
           },
           credentials: "include",
-          body: JSON.stringify({ user: userData.message }),
+          body: JSON.stringify({ user: userData.message.username || userData.message }),
         }
       );
 

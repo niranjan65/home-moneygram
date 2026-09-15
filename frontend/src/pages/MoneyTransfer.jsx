@@ -1189,26 +1189,8 @@ const MoneyTransfer = () => {
   };
 
   const renderCustomerLimitsCard = () => {
-    const shouldShow = Boolean(customerLookupDone && customerFound && form?.customer);
-    console.log("🔍 [renderCustomerLimitsCard called]:", {
-      shouldShow,
-      customerLookupDone,
-      customerFound,
-      customer: form?.customer || "(none)",
-    });
-
-    if (!customerLookupDone || !customerFound || !form.customer) {
-      return null;
-    }
-
-    const rawBalance =
-      form.custom_available_currency_transfer_balance ?? null;
-
-    const rawFxMg =
-      form.custom_annual_fx_and_moneygram_limit ?? null;
-
-    const rawCompliance =
-      form.custom_annual_compliance_limit ?? null;
+    const rawFxMg = form.custom_annual_fx_and_moneygram_limit ?? null;
+    const rawCompliance = form.custom_annual_compliance_limit ?? null;
 
     const formatLimit = (val) => {
       if (val === null || val === undefined || val === "" || isNaN(Number(val))) return "—";
@@ -1218,58 +1200,68 @@ const MoneyTransfer = () => {
       });
     };
 
-    return (
-      <div className="col-span-1 md:col-span-2 mt-2 mb-2 p-4 bg-gray-50/80 border border-gray-200 rounded-2xl shadow-sm">
-        <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200/70">
-          <div className="flex items-center gap-2">
-            <Wallet size={16} className="text-[#E00000]" />
-            <span className="text-xs uppercase font-bold text-gray-700 tracking-wider">
-              Customer Currency Limits
-            </span>
+    const isCustomerActive = Boolean(customerLookupDone && customerFound && form.customer);
+
+    if (!isCustomerActive) {
+      return (
+        <div className="rounded-3xl border border-dashed border-gray-200 bg-white/70 p-6 sm:p-7 shadow-sm">
+          <div className="w-11 h-11 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400 mb-3">
+            <Wallet size={20} />
           </div>
-          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-green-50 text-green-700 border border-green-200">
+          <h3 className="font-bold text-gray-700 text-sm mb-1">Customer Currency Limits</h3>
+          <p className="text-xs text-gray-400 leading-relaxed">
+            Enter customer Full Name and Date of Birth to verify customer and display live limits.
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="rounded-3xl border border-gray-100 bg-white shadow-[0_10px_40px_rgba(0,0,0,0.06)] p-6 sm:p-7 flex flex-col gap-5">
+        <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[#E00000]/10 flex items-center justify-center text-[#E00000]">
+              <Wallet size={18} />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-gray-800">Customer Limits</h3>
+              <p className="text-[11px] text-gray-400">Live compliance thresholds</p>
+            </div>
+          </div>
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-green-50 text-green-700 border border-green-200">
             Existing Customer
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <label className="text-[11px] uppercase font-bold text-gray-500 mb-1 flex items-center gap-1.5">
-              <Wallet size={13} className="text-[#E00000]" />
-              Available FX Balance
-            </label>
-            <input
-              type="text"
-              readOnly
-              value={formatLimit(rawBalance)}
-              className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 font-bold cursor-not-allowed shadow-inner focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label className="text-[11px] uppercase font-bold text-gray-500 mb-1 flex items-center gap-1.5">
+        <div className="flex flex-col gap-3.5">
+          <div className="p-4 bg-gray-50/80 border border-gray-200/80 rounded-2xl">
+            <span className="text-[11px] uppercase font-bold text-gray-500 mb-1 flex items-center gap-1.5">
               <Wallet size={13} className="text-[#E00000]" />
               Annual FX &amp; MG Limit
-            </label>
-            <input
-              type="text"
-              readOnly
-              value={formatLimit(rawFxMg)}
-              className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 font-bold cursor-not-allowed shadow-inner focus:outline-none"
-            />
+            </span>
+            <div className="text-xl font-black text-gray-900 mt-1">
+              {formatLimit(rawFxMg)}
+            </div>
+            {Number(rawFxMg) < 0 && (
+              <span className="text-[10px] font-semibold text-orange-600 mt-1 block">
+                Limit threshold reached
+              </span>
+            )}
           </div>
 
-          <div>
-            <label className="text-[11px] uppercase font-bold text-gray-500 mb-1 flex items-center gap-1.5">
+          <div className="p-4 bg-gray-50/80 border border-gray-200/80 rounded-2xl">
+            <span className="text-[11px] uppercase font-bold text-gray-500 mb-1 flex items-center gap-1.5">
               <Wallet size={13} className="text-[#E00000]" />
               Annual Compliance Limit
-            </label>
-            <input
-              type="text"
-              readOnly
-              value={formatLimit(rawCompliance)}
-              className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm text-gray-800 font-bold cursor-not-allowed shadow-inner focus:outline-none"
-            />
+            </span>
+            <div className="text-xl font-black text-gray-900 mt-1">
+              {formatLimit(rawCompliance)}
+            </div>
+            {Number(rawCompliance) < 0 && (
+              <span className="text-[10px] font-semibold text-orange-600 mt-1 block">
+                Compliance threshold reached
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -1280,8 +1272,7 @@ const MoneyTransfer = () => {
       <Navbar />
 
       <main className="grow py-10 px-4 sm:px-6 lg:px-12">
-        <div className="max-w-6xl mx-auto flex flex-col gap-10">
-
+        <div className="max-w-7xl mx-auto flex flex-col gap-8">
 
           {/* HEADER */}
           <div>
@@ -1291,141 +1282,135 @@ const MoneyTransfer = () => {
                 Transfer
               </span>
             </h1>
-            {/* 
-  <p className="text-xs font-semibold text-gray-400 mt-2">
-    Enter customer details to securely send or receive funds
-  </p> */}
           </div>
 
-          {/* FORM CARD */}
-          <div className="rounded-3xl border border-gray-100 bg-white shadow-[0_10px_40px_rgba(0,0,0,0.06)] p-8 sm:p-10">
+          {/* MAIN CONTENT: FORM ON LEFT, CUSTOMER LIMITS ON RIGHT */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* LEFT: FORM CARD */}
+            <div className="lg:col-span-8">
+              <div className="rounded-3xl border border-gray-100 bg-white shadow-[0_10px_40px_rgba(0,0,0,0.06)] p-8 sm:p-10">
 
-            {successInfo && (
-              <div className="mb-6 rounded-2xl border border-green-100 bg-linear-to-r from-white to-green-50 p-6 shadow-sm">
-                <div className="flex items-start gap-4">
-                  <div className="text-green-600 text-3xl">✓</div>
-                  <div className="flex-1">
-                    <h2 className="text-lg font-extrabold text-gray-800">Transfer Complete</h2>
-                    <p className="text-sm text-gray-600 mt-1">{successInfo.message}</p>
-                    <p className="mt-3 text-sm text-gray-700">
-                      <strong>Customer:</strong> {successInfo.customerFullName} &nbsp;•&nbsp; <strong>Transaction:</strong> {successInfo.transaction}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-3">
-                    <button
-                      onClick={() => handlePrintInvoice(successInfo.transfer)}
-                      className="rounded-2xl bg-[#E00000] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#c70000]"
-                    >
-                      Print Invoice
-                    </button>
-                    <button
-                      onClick={() => setSuccessInfo(null)}
-                      className="rounded-2xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-                    >
-                      Dismiss
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {submitError && (
-              <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {submitError}
-              </div>
-            )}
-
-            <div className="grid md:grid-cols-2 gap-6">
-              {orderedFields.map((field) => (
-                <React.Fragment key={field.fieldname}>
-                  {renderField(field)}
-
-                  {field.fieldname === "dob" &&
-                    customerLookupDone &&
-                    customerFound &&
-                    Boolean(form.customer) &&
-                    renderCustomerLimitsCard()}
-                </React.Fragment>
-              ))}
-
-              {!orderedFields.some((f) => f.fieldname === "dob") &&
-                customerLookupDone &&
-                customerFound &&
-                Boolean(form.customer) &&
-                renderCustomerLimitsCard()}
-            </div>
-            {/* CURRENCY DENOMINATION PANEL */}
-
-            {form.enable_currency_denomination === 1 ||
-              form.enable_currency_denomination === "1" ||
-              form.enable_currency_denomination === true ? (
-              <div className="mt-8 col-span-2">
-                <div className="mb-4">
-                  <h3 className="text-lg font-bold text-gray-700">
-                    Currency Denomination
-                  </h3>
-                </div>
-
-                {baseDenomLoading ? (
-                  <div className="rounded-3xl border border-gray-200 bg-white p-8 text-center text-gray-500">
-                    Loading denomination panel...
-                  </div>
-                ) : baseDenomError ? (
-                  <div className="rounded-3xl border border-red-200 bg-red-50 p-8 text-center text-red-600">
-                    {baseDenomError}
-                  </div>
-                ) : baseCurrencyData ? (
-                  <DenominationPanel
-                    title="Local FJD Denomination"
-                    subtitle="Enter note counts for Fiji Dollars"
-                    flag={baseCurrencyData.flag}
-                    symbol={baseCurrencyData.symbol}
-                    currency={baseCurrencyData.currency}
-                    notes={baseCurrencyData.notes}
-                    coins={baseCurrencyData.coins}
-                    targetAmount={parseFloat(form.amount || 0)}
-                    onRowsChange={handleDenominationRowsChange}
-                    accentColor="#E00000"
-                  />
-                ) : (
-                  <div className="rounded-3xl border border-gray-200 bg-white p-8 text-center text-gray-500">
-                    Fiji denomination data is not available.
+                {successInfo && (
+                  <div className="mb-6 rounded-2xl border border-green-100 bg-linear-to-r from-white to-green-50 p-6 shadow-sm">
+                    <div className="flex items-start gap-4">
+                      <div className="text-green-600 text-3xl">✓</div>
+                      <div className="flex-1">
+                        <h2 className="text-lg font-extrabold text-gray-800">Transfer Complete</h2>
+                        <p className="text-sm text-gray-600 mt-1">{successInfo.message}</p>
+                        <p className="mt-3 text-sm text-gray-700">
+                          <strong>Customer:</strong> {successInfo.customerFullName} &nbsp;•&nbsp; <strong>Transaction:</strong> {successInfo.transaction}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          onClick={() => handlePrintInvoice(successInfo.transfer)}
+                          className="rounded-2xl bg-[#E00000] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#c70000]"
+                        >
+                          Print Invoice
+                        </button>
+                        <button
+                          onClick={() => setSuccessInfo(null)}
+                          className="rounded-2xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
 
-                {fieldErrors.currency_denomination ? (
-                  <div className="mt-4 text-sm text-red-600">
-                    {fieldErrors.currency_denomination}
+                {submitError && (
+                  <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    {submitError}
+                  </div>
+                )}
+
+                <div className="grid md:grid-cols-2 gap-6">
+                  {orderedFields.map((field) => (
+                    <React.Fragment key={field.fieldname}>
+                      {renderField(field)}
+                    </React.Fragment>
+                  ))}
+                </div>
+                {/* CURRENCY DENOMINATION PANEL */}
+
+                {form.enable_currency_denomination === 1 ||
+                  form.enable_currency_denomination === "1" ||
+                  form.enable_currency_denomination === true ? (
+                  <div className="mt-8 col-span-2">
+                    <div className="mb-4">
+                      <h3 className="text-lg font-bold text-gray-700">
+                        Currency Denomination
+                      </h3>
+                    </div>
+
+                    {baseDenomLoading ? (
+                      <div className="rounded-3xl border border-gray-200 bg-white p-8 text-center text-gray-500">
+                        Loading denomination panel...
+                      </div>
+                    ) : baseDenomError ? (
+                      <div className="rounded-3xl border border-red-200 bg-red-50 p-8 text-center text-red-600">
+                        {baseDenomError}
+                      </div>
+                    ) : baseCurrencyData ? (
+                      <DenominationPanel
+                        title="Local FJD Denomination"
+                        subtitle="Enter note counts for Fiji Dollars"
+                        flag={baseCurrencyData.flag}
+                        symbol={baseCurrencyData.symbol}
+                        currency={baseCurrencyData.currency}
+                        notes={baseCurrencyData.notes}
+                        coins={baseCurrencyData.coins}
+                        targetAmount={parseFloat(form.amount || 0)}
+                        onRowsChange={handleDenominationRowsChange}
+                        accentColor="#E00000"
+                      />
+                    ) : (
+                      <div className="rounded-3xl border border-gray-200 bg-white p-8 text-center text-gray-500">
+                        Fiji denomination data is not available.
+                      </div>
+                    )}
+
+                    {fieldErrors.currency_denomination ? (
+                      <div className="mt-4 text-sm text-red-600">
+                        {fieldErrors.currency_denomination}
+                      </div>
+                    ) : null}
+
+                    {stockError ? (
+                      <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                        <div className="font-semibold">Stock validation issue</div>
+                        <p>{stockError}</p>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
 
-                {stockError ? (
-                  <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    <div className="font-semibold">Stock validation issue</div>
-                    <p>{stockError}</p>
-                  </div>
-                ) : null}
+                {/* BUTTON */}
+                <button
+                  onClick={handleSubmit}
+                  disabled={isSubmitting || stockLoading}
+                  className={`mt-10 w-full bg-[#E00000] ${isSubmitting || stockLoading ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-90'} text-white rounded-2xl py-4 font-black transition`}
+                >
+                  {isSubmitting ? (
+                    <span className="flex items-center justify-center gap-3">
+                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                      </svg>
+                      Processing Transfer...
+                    </span>
+                  ) : (
+                    'Submit'
+                  )}
+                </button>
               </div>
-            ) : null}
+            </div>
 
-            {/* BUTTON */}
-            <button
-              onClick={handleSubmit}
-              disabled={isSubmitting || stockLoading}
-              className={`mt-10 w-full bg-[#E00000] ${isSubmitting || stockLoading ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-90'} text-white rounded-2xl py-4 font-black transition`}
-            >
-              {isSubmitting ? (
-                <span className="flex items-center justify-center gap-3">
-                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                  </svg>
-                  Processing Transfer...
-                </span>
-              ) : (
-                'Submit'
-              )}
-            </button>
+            {/* RIGHT: CUSTOMER CURRENCY LIMITS SIDEBAR */}
+            <div className="lg:col-span-4 lg:sticky lg:top-8">
+              {renderCustomerLimitsCard()}
+            </div>
           </div>
         </div>
 

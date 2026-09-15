@@ -200,9 +200,9 @@ export default function Navbar() {
                   <Link
                     key={item.label}
                     to={item.href}
-                    className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                    className={`px-3.5 py-2 rounded-lg text-sm font-bold transition-all duration-200 ${
                       isActive
-                        ? "bg-primary/10 text-primary dark:bg-primary/20"
+                        ? "bg-white text-[#E00000] shadow-sm dark:bg-white dark:text-[#E00000]"
                         : "text-gray-700 hover:text-primary hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
                     }`}
                   >
@@ -262,8 +262,8 @@ export default function Navbar() {
                     key={item.label}
                     to={item.href}
                     onClick={() => setMenuOpen(false)}
-                    className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${isActive
-                      ? "bg-primary/10 text-primary dark:bg-primary/20"
+                    className={`px-3.5 py-2 rounded-lg text-sm font-bold transition-all duration-200 ${isActive
+                      ? "bg-white text-[#E00000] shadow-sm dark:bg-white dark:text-[#E00000]"
                       : "text-gray-700 hover:text-primary hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
                       }`}
                   >

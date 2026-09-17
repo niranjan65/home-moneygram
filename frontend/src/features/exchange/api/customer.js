@@ -308,7 +308,7 @@ export const createCustomer = async (
     const payload = {
       customer_name: customerId,
       customer_type: "Individual",
-      customer_group: "All Customer Groups",
+      customer_group: "Individual",
       territory: "All Territories",
 
       custom_full_name: form.full_name,

@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import mhlogo from "../assets/MH.png"; 
+import mhlogo from "../assets/MH.png";
 
 // ─── Number helpers ───────────────────────────────────────────────────────────
 const fmt = (val, decimals = 2) =>
@@ -63,7 +63,7 @@ export const InvoiceDocument = ({ invoiceData }) => {
   const outstandingAmount = d.outstanding_amount ?? roundedTotal;
 
   const isUnpaid = txnStatus?.toLowerCase() === 'unpaid';
-const isCancelled = txnStatus?.toLowerCase() === 'cancelled';
+  const isCancelled = txnStatus?.toLowerCase() === 'cancelled';
 
   return (
     <div id="invoice-print-area" className="bg-white font-sans text-slate-900 w-full p-6 print:p-4" style={{ fontSize: '12px' }}>
@@ -158,11 +158,10 @@ const isCancelled = txnStatus?.toLowerCase() === 'cancelled';
             <div className="h-6 w-px bg-slate-200" />
             <div className="text-center">
               <p className="text-[10px] uppercase font-bold text-slate-500 mb-0.5">Status</p>
-              <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full uppercase ${
-  isCancelled ? 'bg-red-100 text-red-600' :
-  isUnpaid ? 'bg-yellow-100 text-yellow-600' :
-  'bg-green-100 text-green-600'
-}`}>
+              <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full uppercase ${isCancelled ? 'bg-red-100 text-red-600' :
+                isUnpaid ? 'bg-yellow-100 text-yellow-600' :
+                  'bg-green-100 text-green-600'
+                }`}>
                 {txnStatus}
               </span>
             </div>
@@ -173,9 +172,9 @@ const isCancelled = txnStatus?.toLowerCase() === 'cancelled';
             </div>
           </div>
           <div className={`p-2.5 border-l-4 rounded-r-lg ${isCancelled ? 'border-red-500 bg-red-50' : 'border-blue-600 bg-blue-50'}`}>
-  <p className={`text-[10px] font-semibold uppercase mb-0.5 ${isCancelled ? 'text-red-600' : 'text-blue-600'}`}>
-    {isCancelled ? 'Cancellation Notice' : 'Payment Instructions'}
-  </p>
+            <p className={`text-[10px] font-semibold uppercase mb-0.5 ${isCancelled ? 'text-red-600' : 'text-blue-600'}`}>
+              {isCancelled ? 'Cancellation Notice' : 'Payment Instructions'}
+            </p>
             <p className="text-[10px] text-slate-600">
               Please include the Invoice # in your transfer description for faster processing.
             </p>
@@ -188,8 +187,8 @@ const isCancelled = txnStatus?.toLowerCase() === 'cancelled';
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className={`text-white text-[10px] uppercase tracking-wider ${isCancelled ? 'bg-red-700' : 'bg-slate-900'}`}>
-              <th className="p-2 rounded-tl-lg">Item Code</th>
-              <th className="p-2">Item Name</th>
+              <th className="p-2 rounded-tl-lg">Currency Code</th>
+              <th className="p-2">Denomination</th>
               <th className="p-2 text-center">Qty</th>
               <th className="p-2 text-right">Rate</th>
               <th className="p-2 text-right">Amount</th>

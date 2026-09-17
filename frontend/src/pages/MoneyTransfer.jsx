@@ -1240,7 +1240,7 @@ const MoneyTransfer = () => {
               Annual FX &amp; MG Limit
             </span>
             <div className="text-xl font-black text-gray-900 mt-1">
-              {formatLimit(rawFxMg)}
+              {formatLimit(rawFxMg)} FJD
             </div>
             {Number(rawFxMg) < 0 && (
               <span className="text-[10px] font-semibold text-orange-600 mt-1 block">

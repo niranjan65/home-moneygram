@@ -12,63 +12,63 @@ import { printThermalReceipt } from "../components/ThermalReceiptPrint";
 
 // ── Stock tab constants ─────────────────────────────────────────────────────
 const CURRENCY_CODE = {
-  Australia:         "AUD",
-  Canada:            "CAD",
-  China:             "CNY",
-  Euro:              "EUR",
-  Fiji:              "FJD",
-  "French Pacific":  "XPF",
-  HongKong:          "HKD",
-  Japan:             "JPY",
-  Korea:             "KRW",
-  Malaysia:          "MYR",
-  "New Zealand":     "NZD",
-  "Papua New Guinea":"PGK",
-  Philippines:       "PHP",
-  Samoa:             "WST",
-  Singapore:         "SGD",
-  Switzerland:       "CHF",
-  Thailand:          "THB",
-  Tonga:             "TOP",
-  UK:                "GBP",
-  USA:               "USD",
-  Vanuatu:           "VUV",
+  Australia: "AUD",
+  Canada: "CAD",
+  China: "CNY",
+  Euro: "EUR",
+  Fiji: "FJD",
+  "French Pacific": "XPF",
+  HongKong: "HKD",
+  Japan: "JPY",
+  Korea: "KRW",
+  Malaysia: "MYR",
+  "New Zealand": "NZD",
+  "Papua New Guinea": "PGK",
+  Philippines: "PHP",
+  Samoa: "WST",
+  Singapore: "SGD",
+  Switzerland: "CHF",
+  Thailand: "THB",
+  Tonga: "TOP",
+  UK: "GBP",
+  USA: "USD",
+  Vanuatu: "VUV",
 };
 
 const FLAG = {
-  Australia:          "🇦🇺",
-  Canada:             "🇨🇦",
-  China:              "🇨🇳",
-  Euro:               "🇪🇺",
-  Fiji:               "🇫🇯",
-  "French Pacific":   "🇵🇫",
-  HongKong:           "🇭🇰",
-  Japan:              "🇯🇵",
-  Korea:              "🇰🇷",
-  Malaysia:           "🇲🇾",
-  "New Zealand":      "🇳🇿",
+  Australia: "🇦🇺",
+  Canada: "🇨🇦",
+  China: "🇨🇳",
+  Euro: "🇪🇺",
+  Fiji: "🇫🇯",
+  "French Pacific": "🇵🇫",
+  HongKong: "🇭🇰",
+  Japan: "🇯🇵",
+  Korea: "🇰🇷",
+  Malaysia: "🇲🇾",
+  "New Zealand": "🇳🇿",
   "Papua New Guinea": "🇵🇬",
-  Philippines:        "🇵🇭",
-  Samoa:              "🇼🇸",
-  Singapore:          "🇸🇬",
-  Switzerland:        "🇨🇭",
-  Thailand:           "🇹🇭",
-  Tonga:              "🇹🇴",
-  UK:                 "🇬🇧",
-  USA:                "🇺🇸",
-  Vanuatu:            "🇻🇺",
+  Philippines: "🇵🇭",
+  Samoa: "🇼🇸",
+  Singapore: "🇸🇬",
+  Switzerland: "🇨🇭",
+  Thailand: "🇹🇭",
+  Tonga: "🇹🇴",
+  UK: "🇬🇧",
+  USA: "🇺🇸",
+  Vanuatu: "🇻🇺",
 };
 
 // ── Status Badge ───────────────────────────────────────────────────────────
 function StatusBadge({ status }) {
   const map = {
-    Paid:        "bg-green-50 text-green-700 border-green-200",
-    Unpaid:      "bg-yellow-50 text-yellow-700 border-yellow-200",
-    Overdue:     "bg-red-50 text-red-500 border-red-200",
+    Paid: "bg-green-50 text-green-700 border-green-200",
+    Unpaid: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    Overdue: "bg-red-50 text-red-500 border-red-200",
     "Part Paid": "bg-blue-50 text-blue-600 border-blue-200",
-    Cancelled:   "bg-gray-100 text-gray-400 border-gray-200",
-    Draft:       "bg-gray-50 text-gray-500 border-gray-200",
-    Return:      "bg-purple-50 text-purple-600 border-purple-200",
+    Cancelled: "bg-gray-100 text-gray-400 border-gray-200",
+    Draft: "bg-gray-50 text-gray-500 border-gray-200",
+    Return: "bg-purple-50 text-purple-600 border-purple-200",
   };
   const cls = map[status] ?? "bg-gray-100 text-gray-400 border-gray-200";
   return (
@@ -142,11 +142,11 @@ function TabButton({ label, active, onClick, count }) {
 
 // ── Transactions Tab ───────────────────────────────────────────────────────
 function TransactionsTab({ warehouse, loginUser }) {
-  const [rows, setRows]       = useState([]);
+  const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [search, setSearch]   = useState("");
+  const [search, setSearch] = useState("");
   const [cancellingRowId, setCancellingRowId] = useState(null);
-  const [printingRowId, setPrintingRowId]   = useState(null);
+  const [printingRowId, setPrintingRowId] = useState(null);
 
   const fetchData = useCallback(async () => {
     if (!loginUser?.user) return;
@@ -154,14 +154,14 @@ function TransactionsTab({ warehouse, loginUser }) {
     try {
       const res = await axios.post(
         "/api/method/moneygram.moneygram.api.get_transactions.get_all_transactions",
-        { 
-            //  from_date: "2026-04-01",
-//   to_date: "2026-04-08",
-  warehouse: warehouse?.warehouse,
-//   party: "ABC Pvt Ltd",
-  limit_start: 0,
-  limit_page_length: 20
-         },
+        {
+          //  from_date: "2026-04-01",
+          //   to_date: "2026-04-08",
+          warehouse: warehouse?.warehouse,
+          //   party: "ABC Pvt Ltd",
+          limit_start: 0,
+          limit_page_length: 20
+        },
         {
           headers: {
             "Content-Type": "application/json",
@@ -295,7 +295,7 @@ function TransactionsTab({ warehouse, loginUser }) {
       }
 
       alert(`Transaction has been successfully cancelled.`);
-      
+
       // Update local state to reflect cancellation immediately
       setRows((prevRows) =>
         prevRows.map((r) => (r.name === row.name ? { ...r, status: "Cancelled" } : r))
@@ -321,9 +321,9 @@ function TransactionsTab({ warehouse, loginUser }) {
           },
         }
       );
-      
+
       const fullInvoiceData = response.data.data;
-      
+
       // Print using the imported thermal receipt utility
       printThermalReceipt(fullInvoiceData);
     } catch (error) {
@@ -342,8 +342,8 @@ function TransactionsTab({ warehouse, loginUser }) {
 
   console.log("filtered.....", rows)
 
-  const totalGrand       = filtered.reduce((s, r) => s + (parseFloat(r.grand_total) || 0), 0);
-  const totalPaid        = filtered.reduce((s, r) => s + (parseFloat(r.paid_amount) || 0), 0);
+  const totalGrand = filtered.reduce((s, r) => s + (parseFloat(r.grand_total) || 0), 0);
+  const totalPaid = filtered.reduce((s, r) => s + (parseFloat(r.paid_amount) || 0), 0);
   const totalOutstanding = filtered.reduce((s, r) => s + (parseFloat(r.outstanding_amount) || 0), 0);
 
   return (
@@ -417,7 +417,7 @@ function TransactionsTab({ warehouse, loginUser }) {
                         {row.oet_code}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5 font-medium text-gray-800 whitespace-nowrap">{row.custom_customer_full_name ? row.custom_customer_full_name : row.party }</td>
+                    <td className="px-4 py-3.5 font-medium text-gray-800 whitespace-nowrap">{row.custom_customer_full_name ? row.custom_customer_full_name : row.party}</td>
                     <td className="px-4 py-3.5 text-right"><AmtCell value={row.grand_total} /></td>
                     {/* <td className="px-4 py-3.5 text-right"><AmtCell value={row.paid_amount} /></td> */}
                     <td className="px-4 py-3.5 text-right"><AmtCell value={row.outstanding_amount} /></td>
@@ -432,11 +432,10 @@ function TransactionsTab({ warehouse, loginUser }) {
                         <button
                           onClick={() => handleCancelRow(row)}
                           disabled={row.status === "Cancelled" || row.status === "Draft" || cancellingRowId === row.name}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1 border ${
-                            row.status === "Cancelled" || row.status === "Draft"
-                              ? "bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed"
-                              : "bg-white text-red-600 border-red-200 hover:bg-red-50"
-                          }`}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1 border ${row.status === "Cancelled" || row.status === "Draft"
+                            ? "bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed"
+                            : "bg-white text-red-600 border-red-200 hover:bg-red-50"
+                            }`}
                           title="Cancel Transaction"
                         >
                           {cancellingRowId === row.name ? (
@@ -496,23 +495,24 @@ function TransactionsTab({ warehouse, loginUser }) {
 
 // ── Day End Closing Report Tab ─────────────────────────────────────────────
 function DayEndClosingTab({ warehouse, loginUser }) {
-  const [report, setReport]   = useState(null);
+  const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [date, setDate]       = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [oetCode, setOetCode] = useState("")
   const { potOptions, loading: potLoading, error: potError } = useAppConfiguration();
 
   const fetchReport = useCallback(async () => {
-    
+
     if (!loginUser?.user) return;
     setLoading(true);
     try {
       const res = await axios.post(
         "/api/method/frappe.desk.query_report.run",
-        { report_name: "MH Day End Report",
-          filters: {"company":"MH Money Express","from_date":date,"to_date":date, "oet_code": oetCode}
+        {
+          report_name: "MH Day End Report",
+          filters: { "company": "MH Money Express", "from_date": date, "to_date": date, "oet_code": oetCode }
 
-         },
+        },
         {
           headers: {
             "Content-Type": "application/json",
@@ -529,6 +529,23 @@ function DayEndClosingTab({ warehouse, loginUser }) {
   }, [warehouse, loginUser, date, oetCode]);
 
   useEffect(() => { fetchReport(); }, [fetchReport]);
+  // Reorder columns so 'currency' appears immediately after 'invoice_amount' (or by label/fieldname)
+  const orderedColumns = (() => {
+    if (!report?.columns) return [];
+    const cols = [...report.columns];
+    const currencyIdx = cols.findIndex(c => c.fieldname?.toLowerCase().includes('currency') || c.label?.toLowerCase().includes('currency'));
+    if (currencyIdx === -1) return cols;
+
+    const [currencyCol] = cols.splice(currencyIdx, 1);
+    const invoiceAmountIdx = cols.findIndex(c => c.fieldname?.toLowerCase().includes('invoice_amount') || c.label?.toLowerCase().includes('invoice amount'));
+
+    if (invoiceAmountIdx !== -1) {
+      cols.splice(invoiceAmountIdx + 1, 0, currencyCol);
+    } else {
+      cols.push(currencyCol);
+    }
+    return cols;
+  })();
 
   return (
     <div className="flex flex-col gap-5">
@@ -598,8 +615,8 @@ function DayEndClosingTab({ warehouse, loginUser }) {
               <thead>
                 <tr className="border-b border-gray-100">
                   {
-                    report?.columns?.map((col) => (
-                      <th key={col.fieldname} className="px-5 py-3 text-right text-[11px] font-bold uppercase tracking-widest text-gray-400">
+                    orderedColumns.map((col) => (
+                      <th key={col.fieldname} className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-widest text-gray-400">
                         {col.label}
                       </th>
                     ))
@@ -607,24 +624,23 @@ function DayEndClosingTab({ warehouse, loginUser }) {
                 </tr>
               </thead>
               <tbody>
-                
                 {
                   report?.result?.map((row, idx) => (
                     <tr key={idx} className={`border-b border-gray-100 ${idx % 2 === 1 ? "bg-gray-50/40" : "bg-white"}`}>
-                      {report.columns.map((col) => (
-                        <td key={col.fieldname} className="px-5 py-3 text-right text-sm">
+                      {orderedColumns.map((col) => (
+                        <td key={col.fieldname} className="px-5 py-3 text-left text-sm text-gray-700">
                           {row[col.fieldname] ?? "-"}
                         </td>
                       ))}
                     </tr>
                   ))
-
                 }
               </tbody>
             </table>
+
           </div>
 
-          
+
         </div>
       )}
     </div>
@@ -634,10 +650,10 @@ function DayEndClosingTab({ warehouse, loginUser }) {
 // ── Stock Tab ──────────────────────────────────────────────────────────────
 function StatCard({ label, value, sub, type = "default" }) {
   const styles = {
-    default: { card: "bg-white border-gray-200",     label: "text-gray-500",  val: "text-gray-900",  sub: "text-gray-400"  },
-    green:   { card: "bg-green-50 border-green-200", label: "text-green-600", val: "text-green-700", sub: "text-green-400" },
-    red:     { card: "bg-red-50 border-red-200",     label: "text-red-500",   val: "text-red-600",   sub: "text-red-400"   },
-    muted:   { card: "bg-gray-50 border-gray-100",   label: "text-gray-400",  val: "text-gray-400",  sub: "text-gray-300"  },
+    default: { card: "bg-white border-gray-200", label: "text-gray-500", val: "text-gray-900", sub: "text-gray-400" },
+    green: { card: "bg-green-50 border-green-200", label: "text-green-600", val: "text-green-700", sub: "text-green-400" },
+    red: { card: "bg-red-50 border-red-200", label: "text-red-500", val: "text-red-600", sub: "text-red-400" },
+    muted: { card: "bg-gray-50 border-gray-100", label: "text-gray-400", val: "text-gray-400", sub: "text-gray-300" },
   };
   const s = styles[type];
   return (
@@ -657,12 +673,12 @@ function QtyBadge({ qty }) {
   return <span className="inline-block text-xs font-bold px-3 py-1 rounded-full tabular-nums bg-green-50 text-green-700 border border-green-200">{qty.toLocaleString()}</span>;
 }
 
-function totalQty(items)   { return items?.reduce((s, i) => s + i.stock_qty, 0); }
+function totalQty(items) { return items?.reduce((s, i) => s + i.stock_qty, 0); }
 function inStockQty(items) { return items?.filter(i => i.stock_qty > 0).reduce((s, i) => s + i.stock_qty, 0); }
 function totalValue(items) { return items?.reduce((sum, i) => sum + (i.stock_value || 0), 0); }
 
 function StockTab({ warehouse, loginUser }) {
-  const [data, setData]   = useState({});
+  const [data, setData] = useState({});
   const [active, setActive] = useState(null);
 
   const countries = Object.keys(data).filter((c) => data[c]?.length > 0);
@@ -691,10 +707,10 @@ function StockTab({ warehouse, loginUser }) {
     if (countries.length > 0 && !active) setActive(countries[0]);
   }, [data]);
 
-  const items         = data[active];
-  const total         = totalQty(items);
-  const positive      = inStockQty(items);
-  const inStockCount  = items?.filter(i => i.stock_qty > 0).length ?? 0;
+  const items = data[active];
+  const total = totalQty(items);
+  const positive = inStockQty(items);
+  const inStockCount = items?.filter(i => i.stock_qty > 0).length ?? 0;
   const totalValueAmt = totalValue(items);
 
   return (
@@ -742,9 +758,9 @@ function StockTab({ warehouse, loginUser }) {
         <>
           {/* Stat cards */}
           <div className="flex flex-wrap gap-3">
-            <StatCard label="Total Qty"    value={total?.toLocaleString()}    sub={`${CURRENCY_CODE[active]} · all denominations`} type="default" />
-            <StatCard label="In Stock"     value={positive?.toLocaleString()} sub={`${inStockCount} denomination${inStockCount !== 1 ? "s" : ""}`} type="green" />
-            <StatCard label="Total Value"  value={totalValueAmt?.toLocaleString()} sub={`${CURRENCY_CODE[active]} · total worth`} type="default" />
+            <StatCard label="Total Qty" value={total?.toLocaleString()} sub={`${CURRENCY_CODE[active]} · all denominations`} type="default" />
+            <StatCard label="In Stock" value={positive?.toLocaleString()} sub={`${inStockCount} denomination${inStockCount !== 1 ? "s" : ""}`} type="green" />
+            <StatCard label="Total Value" value={totalValueAmt?.toLocaleString()} sub={`${CURRENCY_CODE[active]} · total worth`} type="default" />
           </div>
 
           <div className="border-t border-gray-100" />
@@ -806,14 +822,14 @@ function StockTab({ warehouse, loginUser }) {
 
 // ── Main Page ──────────────────────────────────────────────────────────────
 export default function Reports() {
-  const [tab, setTab]         = useState("transactions");
-  const loginUser             = useUser();
+  const [tab, setTab] = useState("transactions");
+  const loginUser = useUser();
   const { selectedWarehouse } = useSettings();
 
   const sectionLabel = {
     transactions: "Transaction Records",
-    dayend:       "Day End Closing Report",
-    stock:        "Currency Stock",
+    dayend: "Day End Closing Report",
+    stock: "Currency Stock",
   };
 
   return (

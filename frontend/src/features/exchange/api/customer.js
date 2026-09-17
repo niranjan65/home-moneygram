@@ -309,7 +309,7 @@ export const createCustomer = async (
       customer_name: customerId,
       customer_type: "Individual",
       customer_group: "Individual",
-      territory: "All Territories",
+      // territory: "All Territories",
 
       custom_full_name: form.full_name,
       custom_date_of_birth: form.dob,

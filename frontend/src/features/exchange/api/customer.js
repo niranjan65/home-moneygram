@@ -113,37 +113,198 @@ export const getCustomerById = async (customerId, loginUser) => {
 /**
  * Create Customer
  */
+// export const createCustomer = async (
+//   form,
+//   documentUrl,
+//   loginUser
+// ) => {
+//   try {
+//     // Generate Customer ID
+//     const cleanName = form.full_name
+//       .trim()
+//       .replace(/\s+/g, " ");
+
+//     const customerId = `${cleanName}_${formatDate(form.dob)}`;
+
+//     // Check if customer already exists before creating
+//     const existing = await getCustomerById(customerId, loginUser);
+//     const existingCustomer = existing?.data || existing;
+//     if (existingCustomer?.name) {
+//       console.log("Customer already exists, reusing existing customer:", existingCustomer.name);
+//       return existingCustomer;
+//     }
+
+//     // Normalize Government ID Type
+//     const normalizedGovId = normalizeGovId(
+//       form.government_id_type
+//     );
+
+//     // Government ID Number
+//     const idNumber =
+//       (form.government_id_number || "").trim();
+
+//     // Base Payload
+//     const payload = {
+//       customer_name: customerId,
+//       customer_type: "Individual",
+//       customer_group: "All Customer Groups",
+//       territory: "All Territories",
+
+//       custom_full_name: form.full_name,
+//       custom_date_of_birth: form.dob,
+//       custom_government_id: normalizedGovId,
+//       custom_government_document:
+//         documentUrl || form.document_upload || "",
+//     };
+
+//     /**
+//      * Map Government ID Number to the correct custom field
+//      */
+//     if (idNumber) {
+//       switch (normalizedGovId) {
+//         case "Passport":
+//           payload.custom_passport_number = idNumber;
+//           break;
+
+//         case "Driver's Licence":
+//           payload.custom_drivers_licence_number =
+//             idNumber;
+//           break;
+
+//         case "TIN Card":
+//           payload.custom_tin_number = idNumber;
+//           break;
+
+//         case "Voter ID Card":
+//           payload.custom_voter_id_number = idNumber;
+//           break;
+
+//         default:
+//           break;
+//       }
+//     }
+
+//     console.log(
+//       "Creating Customer Payload:",
+//       JSON.stringify(payload, null, 2)
+//     );
+
+//     console.log("Creating customer using active Frappe session:", {
+//       email: loginUser?.user?.email,
+//       sessionActive: loginUser?.user?.sessionActive,
+//     });
+
+//     const res = await fetch(
+//       buildApiUrl("api/resource/Customer"),
+//       getFetchOptions({
+//         method: "POST",
+//         body: JSON.stringify(payload),
+//       })
+//     );
+
+//     const data = await res.json();
+
+//     if (!res.ok) {
+//       console.error("Create customer failed:", data);
+
+//       throw new Error(
+//         data?.exception ||
+//           data?.message ||
+//           data?._server_messages ||
+//           "Customer creation failed"
+//       );
+//     }
+
+
+//     console.log("Customer created successfully:", data);
+
+//     return data.data;
+//   } catch (err) {
+//     console.error("Error creating customer:", err);
+//     throw err;
+//   }
+// };
 export const createCustomer = async (
   form,
   documentUrl,
   loginUser
 ) => {
   try {
-    // Generate Customer ID
+    // --------------------------------------------------
+    // 1. Generate Customer ID
+    // --------------------------------------------------
     const cleanName = form.full_name
       .trim()
       .replace(/\s+/g, " ");
 
     const customerId = `${cleanName}_${formatDate(form.dob)}`;
 
-    // Check if customer already exists before creating
-    const existing = await getCustomerById(customerId, loginUser);
+    // --------------------------------------------------
+    // 2. Check if customer already exists
+    // --------------------------------------------------
+    const existing = await getCustomerById(
+      customerId,
+      loginUser
+    );
+
     const existingCustomer = existing?.data || existing;
+
     if (existingCustomer?.name) {
-      console.log("Customer already exists, reusing existing customer:", existingCustomer.name);
+      console.log(
+        "Customer already exists, reusing existing customer:",
+        existingCustomer.name
+      );
+
       return existingCustomer;
     }
 
-    // Normalize Government ID Type
+    // --------------------------------------------------
+    // 3. Fetch App Configuration
+    // --------------------------------------------------
+    console.log("Fetching App Configuration...");
+
+    const configRes = await fetch(
+      buildApiUrl(
+        "api/resource/App Configuration/App Configuration"
+      ),
+      getFetchOptions({
+        method: "GET",
+      })
+    );
+
+    const configData = await configRes.json();
+
+    if (!configRes.ok) {
+      console.error(
+        "Failed to fetch App Configuration:",
+        configData
+      );
+
+      throw new Error(
+        configData?.exception ||
+        configData?.message ||
+        configData?._server_messages ||
+        "Failed to fetch App Configuration"
+      );
+    }
+
+    const appConfig = configData?.data || {};
+
+    console.log("App Configuration:", appConfig);
+
+    // --------------------------------------------------
+    // 4. Normalize Government ID Type
+    // --------------------------------------------------
     const normalizedGovId = normalizeGovId(
       form.government_id_type
     );
 
-    // Government ID Number
     const idNumber =
       (form.government_id_number || "").trim();
 
-    // Base Payload
+    // --------------------------------------------------
+    // 5. Create Customer Payload
+    // --------------------------------------------------
     const payload = {
       customer_name: customerId,
       customer_type: "Individual",
@@ -153,13 +314,26 @@ export const createCustomer = async (
       custom_full_name: form.full_name,
       custom_date_of_birth: form.dob,
       custom_government_id: normalizedGovId,
+
       custom_government_document:
         documentUrl || form.document_upload || "",
+
+      // ----------------------------------------------
+      // Customer limits from App Configuration
+      // ----------------------------------------------
+      custom_available_currency_transfer_balance:
+        Number(appConfig.annual_fx_limit) || 0,
+
+      custom_annual_fx_and_moneygram_limit:
+        Number(appConfig.annual_fx_and_moneygram_limit) || 0,
+
+      custom_annual_compliance_limit:
+        Number(appConfig.annual_compliance_limit) || 0,
     };
 
-    /**
-     * Map Government ID Number to the correct custom field
-     */
+    // --------------------------------------------------
+    // 6. Map Government ID Number
+    // --------------------------------------------------
     if (idNumber) {
       switch (normalizedGovId) {
         case "Passport":
@@ -189,11 +363,17 @@ export const createCustomer = async (
       JSON.stringify(payload, null, 2)
     );
 
-    console.log("Creating customer using active Frappe session:", {
-      email: loginUser?.user?.email,
-      sessionActive: loginUser?.user?.sessionActive,
-    });
+    console.log(
+      "Creating customer using active Frappe session:",
+      {
+        email: loginUser?.user?.email,
+        sessionActive: loginUser?.user?.sessionActive,
+      }
+    );
 
+    // --------------------------------------------------
+    // 7. Create Customer
+    // --------------------------------------------------
     const res = await fetch(
       buildApiUrl("api/resource/Customer"),
       getFetchOptions({
@@ -205,26 +385,34 @@ export const createCustomer = async (
     const data = await res.json();
 
     if (!res.ok) {
-      console.error("Create customer failed:", data);
+      console.error(
+        "Create customer failed:",
+        data
+      );
 
       throw new Error(
         data?.exception ||
-          data?.message ||
-          data?._server_messages ||
-          "Customer creation failed"
+        data?.message ||
+        data?._server_messages ||
+        "Customer creation failed"
       );
     }
 
-
-    console.log("Customer created successfully:", data);
+    console.log(
+      "Customer created successfully:",
+      data
+    );
 
     return data.data;
   } catch (err) {
-    console.error("Error creating customer:", err);
+    console.error(
+      "Error creating customer:",
+      err
+    );
+
     throw err;
   }
 };
-
 /**
  * Update Customer
  */

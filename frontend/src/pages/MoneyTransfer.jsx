@@ -1248,25 +1248,11 @@ const MoneyTransfer = () => {
               </span>
             )}
           </div>
-
-          <div className="p-4 bg-gray-50/80 border border-gray-200/80 rounded-2xl">
-            <span className="text-[11px] uppercase font-bold text-gray-500 mb-1 flex items-center gap-1.5">
-              <Wallet size={13} className="text-[#E00000]" />
-              Annual Compliance Limit
-            </span>
-            <div className="text-xl font-black text-gray-900 mt-1">
-              {formatLimit(rawCompliance)}
-            </div>
-            {Number(rawCompliance) < 0 && (
-              <span className="text-[10px] font-semibold text-orange-600 mt-1 block">
-                Compliance threshold reached
-              </span>
-            )}
-          </div>
         </div>
       </div>
     );
   };
+  const isFormLocked = Boolean(successInfo);
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Navbar />
@@ -1325,85 +1311,94 @@ const MoneyTransfer = () => {
                   </div>
                 )}
 
-                <div className="grid md:grid-cols-2 gap-6">
-                  {orderedFields.map((field) => (
-                    <React.Fragment key={field.fieldname}>
-                      {renderField(field)}
-                    </React.Fragment>
-                  ))}
-                </div>
-                {/* CURRENCY DENOMINATION PANEL */}
-
-                {form.enable_currency_denomination === 1 ||
-                  form.enable_currency_denomination === "1" ||
-                  form.enable_currency_denomination === true ? (
-                  <div className="mt-8 col-span-2">
-                    <div className="mb-4">
-                      <h3 className="text-lg font-bold text-gray-700">
-                        Currency Denomination
-                      </h3>
-                    </div>
-
-                    {baseDenomLoading ? (
-                      <div className="rounded-3xl border border-gray-200 bg-white p-8 text-center text-gray-500">
-                        Loading denomination panel...
-                      </div>
-                    ) : baseDenomError ? (
-                      <div className="rounded-3xl border border-red-200 bg-red-50 p-8 text-center text-red-600">
-                        {baseDenomError}
-                      </div>
-                    ) : baseCurrencyData ? (
-                      <DenominationPanel
-                        title="Local FJD Denomination"
-                        subtitle="Enter note counts for Fiji Dollars"
-                        flag={baseCurrencyData.flag}
-                        symbol={baseCurrencyData.symbol}
-                        currency={baseCurrencyData.currency}
-                        notes={baseCurrencyData.notes}
-                        coins={baseCurrencyData.coins}
-                        targetAmount={parseFloat(form.amount || 0)}
-                        onRowsChange={handleDenominationRowsChange}
-                        accentColor="#E00000"
-                      />
-                    ) : (
-                      <div className="rounded-3xl border border-gray-200 bg-white p-8 text-center text-gray-500">
-                        Fiji denomination data is not available.
-                      </div>
-                    )}
-
-                    {fieldErrors.currency_denomination ? (
-                      <div className="mt-4 text-sm text-red-600">
-                        {fieldErrors.currency_denomination}
-                      </div>
-                    ) : null}
-
-                    {stockError ? (
-                      <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                        <div className="font-semibold">Stock validation issue</div>
-                        <p>{stockError}</p>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-
-                {/* BUTTON */}
-                <button
-                  onClick={handleSubmit}
-                  disabled={isSubmitting || stockLoading}
-                  className={`mt-10 w-full bg-[#E00000] ${isSubmitting || stockLoading ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-90'} text-white rounded-2xl py-4 font-black transition`}
+                <fieldset
+                  disabled={isFormLocked}
+                  className={
+                    isFormLocked
+                      ? "opacity-50 cursor-not-allowed select-none"
+                      : ""
+                  }
                 >
-                  {isSubmitting ? (
-                    <span className="flex items-center justify-center gap-3">
-                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                      </svg>
-                      Processing Transfer...
-                    </span>
-                  ) : (
-                    'Submit'
-                  )}
-                </button>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    {orderedFields.map((field) => (
+                      <React.Fragment key={field.fieldname}>
+                        {renderField(field)}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                  {/* CURRENCY DENOMINATION PANEL */}
+
+                  {form.enable_currency_denomination === 1 ||
+                    form.enable_currency_denomination === "1" ||
+                    form.enable_currency_denomination === true ? (
+                    <div className="mt-8 col-span-2">
+                      <div className="mb-4">
+                        <h3 className="text-lg font-bold text-gray-700">
+                          Currency Denomination
+                        </h3>
+                      </div>
+
+                      {baseDenomLoading ? (
+                        <div className="rounded-3xl border border-gray-200 bg-white p-8 text-center text-gray-500">
+                          Loading denomination panel...
+                        </div>
+                      ) : baseDenomError ? (
+                        <div className="rounded-3xl border border-red-200 bg-red-50 p-8 text-center text-red-600">
+                          {baseDenomError}
+                        </div>
+                      ) : baseCurrencyData ? (
+                        <DenominationPanel
+                          title="Local FJD Denomination"
+                          subtitle="Enter note counts for Fiji Dollars"
+                          flag={baseCurrencyData.flag}
+                          symbol={baseCurrencyData.symbol}
+                          currency={baseCurrencyData.currency}
+                          notes={baseCurrencyData.notes}
+                          coins={baseCurrencyData.coins}
+                          targetAmount={parseFloat(form.amount || 0)}
+                          onRowsChange={handleDenominationRowsChange}
+                          accentColor="#E00000"
+                        />
+                      ) : (
+                        <div className="rounded-3xl border border-gray-200 bg-white p-8 text-center text-gray-500">
+                          Fiji denomination data is not available.
+                        </div>
+                      )}
+
+                      {fieldErrors.currency_denomination ? (
+                        <div className="mt-4 text-sm text-red-600">
+                          {fieldErrors.currency_denomination}
+                        </div>
+                      ) : null}
+
+                      {stockError ? (
+                        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                          <div className="font-semibold">Stock validation issue</div>
+                          <p>{stockError}</p>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {/* BUTTON */}
+                  <button
+                    onClick={handleSubmit}
+                    disabled={isSubmitting || stockLoading}
+                    className={`mt-10 w-full bg-[#E00000] ${isSubmitting || stockLoading ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-90'} text-white rounded-2xl py-4 font-black transition`}
+                  >
+                    {isSubmitting ? (
+                      <span className="flex items-center justify-center gap-3">
+                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                        </svg>
+                        Processing Transfer...
+                      </span>
+                    ) : (
+                      'Submit'
+                    )}
+                  </button>
+                </fieldset>
               </div>
             </div>
 

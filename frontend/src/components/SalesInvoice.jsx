@@ -44,6 +44,7 @@ export const InvoiceDocument = ({ invoiceData }) => {
   // const txnStatus = d.status ?? 'Unpaid';
   const txnStatus = invoiceData?.docstatus === 2 ? 'Cancelled' : 'Paid';
   const remarks = d.remarks ?? 'No Remarks';
+  const inWords = d.in_words;
 
   const rows = (d.items ?? []).map(item => ({
     code: item.item_code ?? '—',
@@ -114,17 +115,17 @@ export const InvoiceDocument = ({ invoiceData }) => {
           </h2>
           <div className="space-y-0.5 text-xs">
             <p className="text-slate-900">
-              <span className="font-bold">Invoice #:</span>
+              <span className="font-bold">Invoice ID:</span>
               <span className="font-normal text-slate-600 ml-1">{txnId}</span>
             </p>
             <p className="text-slate-900">
-              <span className="font-bold">Posting Date:</span>
+              <span className="font-bold">Date:</span>
               <span className="font-normal text-slate-600 ml-1">{postingDate}</span>
             </p>
-            <p className="text-slate-900">
+            {/* <p className="text-slate-900">
               <span className="font-bold">Due Date:</span>
               <span className="font-normal text-slate-600 ml-1">{dueDate}</span>
-            </p>
+            </p> */}
           </div>
         </div>
       </div>
@@ -139,8 +140,8 @@ export const InvoiceDocument = ({ invoiceData }) => {
           <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 text-xs">
             <span className="text-slate-500">Name:</span>
             <span className="font-semibold text-slate-900">{customerName}</span>
-            <span className="text-slate-500">Customer ID:</span>
-            <span className="font-semibold text-slate-900">{customerId}</span>
+            {/* <span className="text-slate-500">Customer ID:</span> */}
+            {/* <span className="font-semibold text-slate-900">{customerId}</span> */}
             <span className="text-slate-500">Email:</span>
             <span className="font-semibold text-slate-900">{contactEmail}</span>
             <span className="text-slate-500">Mobile:</span>
@@ -187,23 +188,21 @@ export const InvoiceDocument = ({ invoiceData }) => {
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className={`text-white text-[10px] uppercase tracking-wider ${isCancelled ? 'bg-red-700' : 'bg-slate-900'}`}>
-              <th className="p-2 rounded-tl-lg">Currency Code</th>
-              <th className="p-2">Denomination</th>
+              <th className="p-2 rounded-tl-lg">Currency Code with Denomination</th>
               <th className="p-2 text-center">Qty</th>
-              <th className="p-2 text-right">Rate</th>
-              <th className="p-2 text-right">Amount</th>
-              <th className="p-2 rounded-tr-lg">Warehouse</th>
+              <th className="p-2 text-right">Rate (FJD)</th>
+              <th className="p-2 text-right">Amount (FJD)</th>
+              {/* <th className="p-2 rounded-tr-lg">Warehouse</th> */}
             </tr>
           </thead>
           <tbody className="text-xs">
             {rows.map((row, i) => (
               <tr key={i} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                 <td className="p-2 font-medium">{row.code}</td>
-                <td className="p-2 text-slate-600">{row.name}</td>
                 <td className="p-2 text-center">{row.qty}</td>
                 <td className="p-2 text-right">{fmt(row.rate)}</td>
                 <td className="p-2 text-right font-bold">{fmt(row.amount)}</td>
-                <td className="p-2 text-slate-500">{row.warehouse}</td>
+                {/* <td className="p-2 text-slate-500">{row.warehouse}</td> */}
               </tr>
             ))}
           </tbody>
@@ -213,7 +212,7 @@ export const InvoiceDocument = ({ invoiceData }) => {
       {/* ── Totals & Taxes ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-6 items-start mb-4">
         {/* Tax table */}
-        <div>
+        {/* <div>
           <h4 className="text-[10px] font-bold uppercase text-slate-500 mb-2 tracking-widest">
             Tax Breakdown
           </h4>
@@ -241,35 +240,35 @@ export const InvoiceDocument = ({ invoiceData }) => {
               )}
             </tbody>
           </table>
-        </div>
+        </div> */}
 
         {/* Summary */}
         <div className="bg-slate-50 p-4 rounded-lg space-y-1.5">
           <div className="flex justify-between text-xs">
             <span className="text-slate-500">Net Total:</span>
-            <span className="font-semibold text-slate-900">{fmt(netTotal)}</span>
+            <span className="font-semibold text-slate-900">FJD {fmt(netTotal)}</span>
           </div>
-          <div className="flex justify-between text-xs">
+          {/* <div className="flex justify-between text-xs">
             <span className="text-slate-500">Taxes &amp; Charges:</span>
             <span className="font-semibold text-slate-900">{fmt(totalTaxes)}</span>
           </div>
           <div className="flex justify-between text-xs">
             <span className="text-slate-500">Discount:</span>
             <span className="font-semibold text-emerald-600">{fmt(discountAmount)}</span>
-          </div>
+          </div> */}
           <div className="h-px bg-slate-200 my-1" />
           <div className="flex justify-between text-sm font-black text-slate-900">
             <span>Grand Total:</span>
-            <span>{fmt(grandTotal)}</span>
+            <span>FJD {fmt(grandTotal)}</span>
           </div>
           <div className="flex justify-between text-xs font-bold text-slate-900 pt-0.5">
             <span>Rounded Total:</span>
             <span className={isCancelled ? 'text-red-600' : 'text-blue-600'}>{currency} {fmt(roundedTotal)}</span>
           </div>
-          <div className="flex justify-between text-xs font-bold text-red-600 pt-1 border-t border-red-100">
+          {/* <div className="flex justify-between text-xs font-bold text-red-600 pt-1 border-t border-red-100">
             <span>Outstanding:</span>
             <span>{fmt(outstandingAmount)}</span>
-          </div>
+          </div> */}
         </div>
       </div>
 
@@ -277,28 +276,28 @@ export const InvoiceDocument = ({ invoiceData }) => {
       <div className="border-t border-slate-100 pt-4 mt-4">
         <div className="mb-4">
           <p className="text-[10px] font-bold text-slate-400 uppercase mb-0.5">Total Amount in Words</p>
-          <p className="text-xs font-medium text-slate-800">{toWords(Math.round(roundedTotal))}</p>
+          <p className="text-xs font-medium text-slate-800">{inWords || toWords(Math.round(roundedTotal))}</p>
         </div>
         <div className="flex justify-between items-end">
           <div className="space-y-0.5">
             <p className="text-[10px] font-bold text-slate-400 uppercase">Generated Date</p>
             <p className="text-[10px] text-slate-600">{generatedAt}</p>
           </div>
-          <div className="text-center w-48">
-            <div className="border-b border-slate-900 h-10 flex items-end justify-center pb-1 italic text-slate-300 text-[10px]">
-              {/* signature space */}
-            </div>
-            <p className="mt-1 text-[10px] font-bold text-slate-900 uppercase tracking-widest">
+          {/* <div className="text-center w-48"> */}
+          {/* <div className="border-b border-slate-900 h-10 flex items-end justify-center pb-1 italic text-slate-300 text-[10px]"> */}
+          {/* signature space */}
+          {/* </div> */}
+          {/* <p className="mt-1 text-[10px] font-bold text-slate-900 uppercase tracking-widest">
               Authorized Signature
-            </p>
-          </div>
+            </p> */}
+          {/* </div> */}
         </div>
       </div>
 
       {/* Watermark */}
       <div className="mt-4 text-center">
         <p className="text-[10px] text-slate-300 uppercase tracking-widest">
-          This is a computer generated document. No physical signature required.
+          This is a computer generated document.
         </p>
       </div>
     </div>

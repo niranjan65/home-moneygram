@@ -1657,8 +1657,8 @@ export const TransferSuccess = ({
             <div className="flex flex-col items-center text-center gap-4 mt-6">
 
               <div className={`w-20 h-20 rounded-full text-white flex items-center justify-center ring-8 mt-2 shadow-xl ${txnStatus === 'Cancelled'
-                  ? 'bg-red-500 ring-red-500/30 shadow-red-500/20'
-                  : 'bg-green-500 ring-green-500/30 shadow-green-500/20'
+                ? 'bg-red-500 ring-red-500/30 shadow-red-500/20'
+                : 'bg-green-500 ring-green-500/30 shadow-green-500/20'
                 }`}>
                 <Icon name={txnStatus === 'Cancelled' ? 'cancel' : 'check_circle'} size={48} />
               </div>
@@ -1689,8 +1689,8 @@ export const TransferSuccess = ({
                 <div>
                   <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Status</p>
                   <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${txnStatus === 'Cancelled'
-                      ? 'bg-red-500/20 text-red-500 border border-red-500/30'
-                      : 'bg-[#b5f000]/20 text-[#b5f000] border border-[#b5f000]/30 shadow-sm'
+                    ? 'bg-red-500/20 text-red-500 border border-red-500/30'
+                    : 'bg-[#b5f000]/20 text-[#b5f000] border border-[#b5f000]/30 shadow-sm'
                     }`}>
                     <span className={`w-2 h-2 rounded-full inline-block ${txnStatus === 'Cancelled' ? 'bg-red-500' : 'bg-[#b5f000] animate-pulse'
                       }`} />
@@ -1705,7 +1705,7 @@ export const TransferSuccess = ({
                   <div className="md:text-right col-span-2 md:col-span-1">
                     <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Exchange Rate</p>
                     <p className="font-bold text-white text-sm tracking-wide">
-                      1 {senderCurrency ?? '—'} = {fmt(exchangeRate, 4)} FJD
+                      1 FJD  = {fmt(exchangeRate, 4)} {senderCurrency ?? '—'}
                     </p>
                   </div>
                 )}
@@ -1728,9 +1728,9 @@ export const TransferSuccess = ({
                 <table className="w-full text-left border-collapse min-w-[500px]">
                   <thead className="bg-[#421010]/50 border-b border-[#E00000]/30">
                     <tr>
-                      <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider">Item</th>
+                      <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider">Currency Code with Denomination</th>
                       <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider text-right">Qty</th>
-                      <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider text-right">Rate</th>
+                      <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider text-right">Rate ({currency})</th>
                       <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider text-right">Amount ({currency})</th>
                     </tr>
                   </thead>
@@ -1739,7 +1739,7 @@ export const TransferSuccess = ({
                       <tr key={i} className="hover:bg-white/5 transition-colors">
                         <td className="px-6 py-4 text-sm font-semibold text-white/90">{row.label}</td>
                         <td className="px-6 py-4 text-sm text-white/70 text-right">{row.qty}</td>
-                        <td className="px-6 py-4 text-sm text-white/70 text-right">{fmt(row.rate, 4)}</td>
+                        <td className="px-6 py-4 text-sm text-white/70 text-right">{fmt(row.rate, 4)} FJD</td>
                         <td className="px-6 py-4 text-sm font-bold text-white text-right">{fmt(row.amount, 4)}</td>
                       </tr>
                     ))}
@@ -1787,8 +1787,8 @@ export const TransferSuccess = ({
                   onClick={handleCancelClick}
                   disabled={isCancelling || isCancelled}
                   className={`flex items-center justify-center gap-2 font-bold py-4 px-8 rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 group border-2 ${isCancelled
-                      ? 'bg-gray-600/30 border-gray-600/50 text-gray-500 cursor-not-allowed'
-                      : 'bg-transparent border-red-500 text-red-500 hover:bg-red-500 hover:text-white'
+                    ? 'bg-gray-600/30 border-gray-600/50 text-gray-500 cursor-not-allowed'
+                    : 'bg-transparent border-red-500 text-red-500 hover:bg-red-500 hover:text-white'
                     }`}
                 >
                   {isCancelling ? (

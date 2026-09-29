@@ -269,6 +269,8 @@ export const createMoneyTransfer = async (
       full_name: form.full_name,
       dob: form.dob,
 
+      transfer_type: form.transfer_type,
+
       government_id_type: form.government_id_type,
       government_id_number: form.government_id_number,
 

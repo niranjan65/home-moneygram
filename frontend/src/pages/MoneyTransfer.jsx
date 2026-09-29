@@ -12,7 +12,7 @@ import { ArrowUpRight, ArrowDownLeft, ArrowLeftRight, CheckCircle2, Wallet } fro
 import { createMoneyTransfer } from "../features/exchange/api/createMoneyTransfer";
 import TransferAmountSection from "../features/exchange/components/TransferAmountSection";
 import { DenominationPanel } from "../features/exchange/components/sections/DenominationPanel";
-import { InvoiceDocument } from "../components/SalesInvoice";
+import { MoneyTransferInvoiceDocument } from "../components/MoneyTransferInvoice";
 import { useBaseCurrency } from "../hooks/useDenomination";
 import { buildApiUrl, getFetchOptions } from "../features/exchange/config/erpConfig";
 import { useSettings } from "../context/SettingsContext";
@@ -23,7 +23,7 @@ const MoneyTransfer = () => {
   const { uploadFile } = useERPFileUpload();
   const loginUser = useUser();
   const [metaFields, setMetaFields] = useState([]);
-  const [form, setForm] = useState({});
+  const [form, setForm] = useState({ transfer_type: "Send" });
   const [currencyDenominationRows, setCurrencyDenominationRows] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successInfo, setSuccessInfo] = useState(null);
@@ -92,6 +92,21 @@ const MoneyTransfer = () => {
   }, [customerLookupDone, customerFound, form?.customer]);
 
   const runStockCheck = async () => {
+    // -----------------------------------------
+    // 0. Skip stock validation if transaction_type / transfer_type is "Send"
+    // -----------------------------------------
+    const activeTransferType = (
+      form.transfer_type ||
+      form.transaction_type ||
+      "Send"
+    ).trim();
+
+    if (activeTransferType.toLowerCase() === "send") {
+      console.log("ℹ️ Transaction type is 'Send'. Stock validation skipped.");
+      setStockError("");
+      return true;
+    }
+
     // -----------------------------------------
     // 1. Get warehouse from Settings Context
     // -----------------------------------------
@@ -275,6 +290,44 @@ const MoneyTransfer = () => {
       }
     });
 
+    // Reorder: transfer_type, then amount, and keep check fields (enable_currency_denomination) at the end of all fields
+    const transferTypeField = sorted.find((f) => f.fieldname === "transfer_type");
+    const amountField = sorted.find((f) => f.fieldname === "amount");
+    const checkFields = sorted.filter(
+      (f) => f.fieldname === "enable_currency_denomination" || f.fieldtype === "Check"
+    );
+
+    let result = [...sorted];
+
+    if (transferTypeField) {
+      const anchorIndex = result.findIndex(
+        (f) => f.fieldname === "transfer_type" || f.fieldname === "amount"
+      );
+
+      const remaining = result.filter(
+        (f) =>
+          f.fieldname !== "transfer_type" &&
+          f.fieldname !== "amount" &&
+          !checkFields.some((c) => c.fieldname === f.fieldname)
+      );
+
+      const insertAt =
+        anchorIndex !== -1 ? Math.min(anchorIndex, remaining.length) : remaining.length;
+
+      const orderedGroup = [transferTypeField];
+      if (amountField) orderedGroup.push(amountField);
+
+      remaining.splice(insertAt, 0, ...orderedGroup);
+      remaining.push(...checkFields);
+      return remaining;
+    } else if (checkFields.length > 0) {
+      const remaining = result.filter(
+        (f) => !checkFields.some((c) => c.fieldname === f.fieldname)
+      );
+      remaining.push(...checkFields);
+      return remaining;
+    }
+
     return sorted;
   }, [usableFields]);
 
@@ -289,6 +342,13 @@ const MoneyTransfer = () => {
       ...prev,
       [key]: value,
     }));
+
+    if (
+      (key === "transfer_type" || key === "transaction_type") &&
+      String(value).trim().toLowerCase() === "send"
+    ) {
+      setStockError("");
+    }
 
     setFieldErrors((prev) => {
       if (!prev[key]) return prev;
@@ -344,6 +404,18 @@ const MoneyTransfer = () => {
         setMetaFields(fields);
         setSubmitError("");
 
+        const transferField = fields.find((f) => f.fieldname === "transfer_type");
+        const defaultType =
+          transferField?.options
+            ?.split("\n")
+            .map((s) => s.trim())
+            .filter(Boolean)[0] || "Send";
+
+        setForm((prev) => ({
+          transfer_type: prev.transfer_type || defaultType,
+          ...prev,
+        }));
+
         console.log("✅ FIELDS:", data.data.fields);
       } catch (err) {
         setSubmitError(err.message || "Unable to load Money Transfer fields.");
@@ -353,6 +425,22 @@ const MoneyTransfer = () => {
 
     fetchMeta();
   }, [loginUser?.user?.sessionActive]);
+
+  useEffect(() => {
+    const transferField = metaFields.find((f) => f.fieldname === "transfer_type");
+    const defaultType =
+      transferField?.options
+        ?.split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean)[0] || "Send";
+
+    if (!form.transfer_type) {
+      setForm((prev) => ({
+        ...prev,
+        transfer_type: defaultType,
+      }));
+    }
+  }, [metaFields, form.transfer_type]);
 
 
 
@@ -733,14 +821,23 @@ const MoneyTransfer = () => {
       // const rowsToSubmit = denominationsEnabled ? currencyDenominationRows : [];
       const rowsToSubmit = denominationsEnabled ? currencyDenominationRows : [];
 
-      // Run stock validation only when denomination is enabled
-      if (denominationsEnabled && rowsToSubmit.length > 0) {
+      // Run stock validation only when denomination is enabled and transaction type is Receive
+      const activeTransferType = (
+        form.transfer_type ||
+        form.transaction_type ||
+        "Send"
+      ).trim();
+      const isReceive = activeTransferType.toLowerCase() === "receive";
+
+      if (denominationsEnabled && rowsToSubmit.length > 0 && isReceive) {
         const stockOk = await runStockCheck();
 
         if (!stockOk) {
           setIsSubmitting(false);
           return; // Stop submission if stock is insufficient
         }
+      } else {
+        setStockError("");
       }
 
       // Create / Fetch Customer
@@ -780,19 +877,42 @@ const MoneyTransfer = () => {
         selectedWarehouse
       );
 
+      const currency =
+        transfer.currency ||
+        form.currency ||
+        baseCurrencyData?.currency ||
+        "FJD";
+
+      const formattedAmount = Number(form.amount || transfer.amount || 0).toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+
+      const transferWithDetails = {
+        ...form,
+        ...transfer,
+        currency,
+        full_name: customerFullName || form.full_name || transfer.full_name,
+        customer_name: customerFullName || form.full_name || transfer.customer_name,
+        customerFullName,
+        transfer_type: form.transfer_type || transfer.transfer_type || "Send",
+        transaction_type: form.transfer_type || transfer.transfer_type || "Send",
+        enable_currency_denomination: form.enable_currency_denomination,
+        currency_denomination:
+          currencyDenominationRows.length > 0
+            ? currencyDenominationRows
+            : transfer.currency_denomination || [],
+      };
+
       // success info
       setSuccessInfo({
         customer: customerId,
         customerFullName,
         transaction: transfer.name,
         amount: Number(form.amount || 0),
-        transfer,
-        message:
-          form.enable_currency_denomination === 1 ||
-            form.enable_currency_denomination === "1" ||
-            form.enable_currency_denomination === true
-            ? `Your transfer of ${Number(form.amount || 0)} has been securely processed. Your transaction ${transfer.name} is confirmed.`
-            : `Your transaction ${transfer.name} has been securely processed and confirmed.`,
+        currency,
+        transfer: transferWithDetails,
+        message: `Your transfer of ${currency} ${formattedAmount} has been securely processed. Your transaction ${transfer.name} is confirmed.`,
       });
 
       resetForm();
@@ -832,39 +952,108 @@ const MoneyTransfer = () => {
   };
 
   const resetForm = () => {
-    setForm({});
+    const transferField = metaFields.find((f) => f.fieldname === "transfer_type");
+    const defaultType =
+      transferField?.options
+        ?.split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean)[0] || "Send";
+
+    setForm({ transfer_type: defaultType });
+    setStockError("");
     setFieldErrors({});
     setSubmitError("");
     setCustomerFound(false);
     setCustomerLookupDone(false);
   };
 
-  const buildMoneyTransferInvoiceData = (transfer) => {
+  const buildMoneyTransferInvoiceData = (transfer, info = successInfo) => {
     if (!transfer) return null;
 
-    const amount = Number(transfer.amount || 0);
-    const rows = Array.isArray(transfer.currency_denomination)
-      ? transfer.currency_denomination.map((row, idx) => ({
+    const amount = Number(transfer.amount || info?.amount || form.amount || 0);
+
+    const isDenomEnabled = Boolean(
+      transfer.enable_currency_denomination === 1 ||
+      transfer.enable_currency_denomination === "1" ||
+      transfer.enable_currency_denomination === true ||
+      info?.transfer?.enable_currency_denomination === 1 ||
+      info?.transfer?.enable_currency_denomination === "1" ||
+      info?.transfer?.enable_currency_denomination === true
+    );
+
+    const customerName =
+      transfer.full_name ||
+      info?.customerFullName ||
+      transfer.customer_name ||
+      transfer.custom_customer_full_name ||
+      transfer.custom_full_name ||
+      form.full_name ||
+      transfer.customer_id ||
+      transfer.customer ||
+      "—";
+
+    const transferType =
+      transfer.transfer_type ||
+      transfer.transaction_type ||
+      info?.transfer?.transfer_type ||
+      info?.transfer?.transaction_type ||
+      form.transfer_type ||
+      "Send";
+
+    const rawRows =
+      transfer.currency_denomination ||
+      info?.transfer?.currency_denomination ||
+      currencyDenominationRows ||
+      [];
+
+    const rows = isDenomEnabled && Array.isArray(rawRows)
+      ? rawRows.map((row, idx) => ({
         item_code: row.denomination || row.item_name || `Denomination ${idx + 1}`,
-        qty: Number(row.qty || 0),
+        qty: Number(row.qty || row.quantity || 0),
         rate:
-          Number(row.qty || 0) > 0
-            ? Number(row.amount || 0) / Number(row.qty || 0)
+          Number(row.qty || row.quantity || 0) > 0
+            ? Number(row.amount || 0) / Number(row.qty || row.quantity || 0)
             : Number(row.amount || 0),
         amount: Number(row.amount || 0),
       }))
       : [];
 
+    const rawTimestamp =
+      transfer.posting_date ||
+      transfer.modified ||
+      transfer.creation ||
+      new Date().toISOString();
+
+    const cleanPostingDate = String(rawTimestamp).includes(" ")
+      ? String(rawTimestamp).split(" ")[0]
+      : String(rawTimestamp).includes("T")
+        ? String(rawTimestamp).split("T")[0]
+        : String(rawTimestamp).split(".")[0];
+
+    const cleanPostingTime =
+      (transfer.posting_time ? String(transfer.posting_time).split(".")[0] : "") ||
+      (transfer.modified_time ? String(transfer.modified_time).split(".")[0] : "") ||
+      (String(rawTimestamp).includes(" ")
+        ? String(rawTimestamp).split(" ")[1]?.split(".")[0]
+        : String(rawTimestamp).includes("T")
+          ? String(rawTimestamp).split("T")[1]?.split(".")[0]
+          : "");
+
     return {
       ...transfer,
-      company: transfer.company || "MoneyGram",
+      company: transfer.company || "MH MoneyGram",
       currency: transfer.currency || "FJD",
-      customer_name: transfer.full_name || transfer.customer_name || transfer.customer_id,
-      customer: transfer.customer_id || transfer.customer || "",
-      name: transfer.name || transfer.transaction_id || "",
-      posting_date:
-        transfer.posting_date || transfer.modified || transfer.creation || new Date().toISOString().split("T")[0],
-      posting_time: transfer.posting_time || transfer.modified_time || "",
+      customer_name: customerName,
+      custom_customer_full_name: customerName,
+      custom_full_name: customerName,
+      full_name: customerName,
+      customer: transfer.customer_id || transfer.customer || info?.customer || "",
+      name: transfer.name || transfer.transaction_id || info?.transaction || "",
+      transfer_type: transferType,
+      transaction_type: transferType,
+      enable_currency_denomination: isDenomEnabled ? 1 : 0,
+      posting_date: cleanPostingDate,
+      posting_time: cleanPostingTime,
       net_total: amount,
       grand_total: amount,
       rounded_total: amount,
@@ -879,7 +1068,7 @@ const MoneyTransfer = () => {
       return;
     }
 
-    const printData = buildMoneyTransferInvoiceData(transfer);
+    const printData = buildMoneyTransferInvoiceData(transfer, successInfo);
     const hidden = document.getElementById("invoice-print-area");
 
     if (!hidden) {
@@ -900,7 +1089,7 @@ const MoneyTransfer = () => {
     <html>
       <head>
         <meta charset="utf-8" />
-        <title>Invoice - ${printData.name}</title>
+        <title>Money Transfer - ${printData?.name || ""}</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <style>
           body { margin: 0; padding: 0; background: #fff; }
@@ -1006,6 +1195,64 @@ const MoneyTransfer = () => {
   const renderField = (field) => {
     if (!shouldShowField(field)) return null;
 
+    if (field.fieldname === "transfer_type") {
+      const rawOptions = field.options
+        ? field.options.split("\n").map((opt) => opt.trim()).filter(Boolean)
+        : ["Send", "Receive"];
+
+      const selectedValue = form[field.fieldname] || rawOptions[0];
+
+      return (
+        <div key={field.fieldname} className="col-span-2">
+          {renderLabel(field)}
+          <div className="grid grid-cols-2 gap-3">
+            {rawOptions.map((opt) => {
+              const active = selectedValue === opt;
+              const isSend = opt.toLowerCase().includes("send");
+              const Icon = isSend ? ArrowUpRight : ArrowDownLeft;
+
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  disabled={isFormLocked}
+                  onClick={() => handleChange(field.fieldname, opt)}
+                  className={`relative py-4 px-4 rounded-xl border-2 text-sm font-medium transition-all flex flex-col items-center gap-2 cursor-pointer ${active
+                      ? "border-[#E00000] bg-[#E00000]/5 text-[#B70000]"
+                      : "border-gray-200 bg-white text-gray-400 hover:border-gray-300 hover:text-gray-600"
+                    }`}
+                >
+                  {active && (
+                    <CheckCircle2
+                      size={13}
+                      className="absolute top-2.5 right-2.5 text-[#E00000]"
+                      strokeWidth={2.5}
+                    />
+                  )}
+                  <div
+                    className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${active
+                        ? "bg-[#E00000] text-white"
+                        : "bg-gray-100 text-gray-400"
+                      }`}
+                  >
+                    <Icon size={17} strokeWidth={1.75} />
+                  </div>
+                  <span
+                    className={
+                      active ? "text-[#B70000] font-semibold" : "text-gray-400"
+                    }
+                  >
+                    {opt}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          {renderFieldError(field.fieldname)}
+        </div>
+      );
+    }
+
     const commonProps = {
       className: inputStyle,
       value: form[field.fieldname] || "",
@@ -1015,15 +1262,16 @@ const MoneyTransfer = () => {
 
     switch (field.fieldtype) {
       case "Data":
+        const isAmount = field.fieldname === "amount";
         return (
-          <div key={field.fieldname}>
+          <div key={field.fieldname} className={isAmount ? "col-span-2" : ""}>
             {renderLabel(field)}
             <input
               {...commonProps}
-              type={field.fieldname === "amount" ? "number" : "text"}
-              step={field.fieldname === "amount" ? "0.01" : undefined}
-              min={field.fieldname === "amount" ? "0" : undefined}
-              placeholder={field.fieldname === "amount" ? "Enter transfer amount" : ""}
+              type={isAmount ? "number" : "text"}
+              step={isAmount ? "0.01" : undefined}
+              min={isAmount ? "0" : undefined}
+              placeholder={isAmount ? "Enter transfer amount" : ""}
             />
             {renderFieldError(field.fieldname)}
           </div>
@@ -1284,7 +1532,10 @@ const MoneyTransfer = () => {
                         <h2 className="text-lg font-extrabold text-gray-800">Transfer Complete</h2>
                         <p className="text-sm text-gray-600 mt-1">{successInfo.message}</p>
                         <p className="mt-3 text-sm text-gray-700">
-                          <strong>Customer:</strong> {successInfo.customerFullName} &nbsp;•&nbsp; <strong>Transaction:</strong> {successInfo.transaction}
+                          <strong>Customer:</strong> {successInfo.customerFullName} &nbsp;•
+                          &nbsp; <strong>Transaction:</strong> {successInfo.transaction} &nbsp;
+                          {/* •
+                          &nbsp; <strong>Amount:</strong> {successInfo.currency || "FJD"} {Number(successInfo.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} */}
                         </p>
                       </div>
                       <div className="flex flex-wrap gap-3">
@@ -1411,10 +1662,10 @@ const MoneyTransfer = () => {
 
         {/* Hidden print template for Money Transfer invoice */}
         <div className="hidden">
-          <InvoiceDocument
+          <MoneyTransferInvoiceDocument
             invoiceData={
               successInfo?.transfer
-                ? buildMoneyTransferInvoiceData(successInfo.transfer)
+                ? buildMoneyTransferInvoiceData(successInfo.transfer, successInfo)
                 : {}
             }
           />

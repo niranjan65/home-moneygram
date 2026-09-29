@@ -1,126 +1,156 @@
 import { useState } from "react";
-import { ArrowUpRight, Check } from "lucide-react";
-import about from "../assets/about.jpg"
+import { ArrowUpRight, Check, ShieldCheck, Zap, Globe, Award } from "lucide-react";
+import about from "../assets/about.jpg";
+import { Link } from "react-router-dom";
 
 const menuItems = [
-  { label: "Financial Revenue", active: true },
-  { label: "Private Loan", active: false },
-  { label: "Online Banking", active: false },
-  { label: "Transfer of Funds", active: false },
+  { 
+    label: "Global MoneyGram Transfers", 
+    desc: "Send and receive international remittances across 200+ countries with official RBF regulatory tracking.",
+    icon: <Globe size={18} />
+  },
+  { 
+    label: "Physical Foreign Currency Exchange", 
+    desc: "Buy and sell 15+ major world banknotes over the counter with guaranteed teller vault availability.",
+    icon: <ShieldCheck size={18} />
+  },
+  { 
+    label: "Commercial Dealer Operations", 
+    desc: "High-volume wholesale FX trading for licensed corporate partners and authorized tourism merchants.",
+    icon: <Zap size={18} />
+  },
+  { 
+    label: "RBF Compliance & Audit Security", 
+    desc: "Automated Reserve Bank of Fiji threshold monitoring, TIN enforcement, and tax clearance reconciliation.",
+    icon: <Award size={18} />
+  },
 ];
 
 const features = [
-  "Manage All Your Credit Cards in One Place",
-  "Smart Spending Insights",
-  "Goal-Oriented Financial Planning",
+  "Licensed & Regulated by Reserve Bank of Fiji (RBF)",
+  "Real-Time Vault Cash Inventory Tracking",
+  "Zero Hidden Spreads & Instant Thermal Receipts",
 ];
 
 export default function SoldiAboutSection() {
   const [activeItem, setActiveItem] = useState(0);
 
   return (
-    <div className="bg-white min-h-screen font-sans px-8 md:px-16 py-14">
+    <div className="bg-white dark:bg-gray-950 font-sans px-6 md:px-16 py-20 border-t border-b border-gray-100 dark:border-gray-800">
       {/* Header Row */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-12">
-        <button className="border border-gray-300 rounded-full px-5 py-2 text-xs font-semibold tracking-widest uppercase text-gray-600 hover:border-gray-500 transition-colors">
-          About Moneygram
-        </button>
-
-        <h2 className="text-2xl md:text-3xl font-black text-gray-900 leading-snug tracking-tight max-w-md">
-          Smart Money{" "}
-          <span className="relative inline-block">
-            Transfer
-            <svg
-              className="absolute -bottom-1 left-0 w-full"
-              height="6"
-              viewBox="0 0 100 6"
-              fill="none"
-            >
-              <path
-                d="M0 5 Q25 1 50 3 Q75 5 100 2"
-                stroke="#eab308"
-                strokeWidth="2.5"
-                strokeLinecap="round"
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-14">
+        <div>
+          <span className="inline-block border border-red-200 dark:border-red-900/50 rounded-full px-4 py-1 text-xs font-bold tracking-widest uppercase text-[#E00000] bg-red-50 dark:bg-red-950/40 mb-3">
+            About MH Money Express
+          </span>
+          <h2 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white leading-tight tracking-tight">
+            Fiji's Premier Choice for{" "}
+            <span className="relative inline-block text-[#E00000]">
+              Forex &amp; Remittances
+              <svg
+                className="absolute -bottom-1 left-0 w-full"
+                height="6"
+                viewBox="0 0 100 6"
                 fill="none"
-              />
-            </svg>
-          </span>{" "}
-          Solutions
-  
-          For Your Business
-        </h2>
+              >
+                <path
+                  d="M0 5 Q25 1 50 3 Q75 5 100 2"
+                  stroke="#E00000"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  fill="none"
+                />
+              </svg>
+            </span>
+          </h2>
+        </div>
 
-        <button className="bg-[#E00000] hover:bg-[#a3e000] text-white font-bold px-7 py-3 rounded-xl text-sm transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 whitespace-nowrap">
-          Learn More
-        </button>
+        <Link
+          to="/money-transfer"
+          className="bg-[#E00000] hover:bg-[#C50000] text-white font-bold px-7 py-3 rounded-xl text-sm transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 whitespace-nowrap"
+        >
+          Start a Transfer
+        </Link>
       </div>
 
-      {/* Main 3-column layout */}
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_1.1fr_1.2fr] gap-5 items-stretch">
+      {/* Main Back-and-Forth Layout: Photo/Visual on Left, Features/Tabs on Right */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
         
-        {/* Left: Menu Items */}
-        <div className="flex flex-col gap-3">
-          {menuItems.map((item, i) => (
-            <button
-              key={i}
-              onClick={() => setActiveItem(i)}
-              className={`w-full flex items-center justify-between px-6 py-5 rounded-2xl font-bold text-left text-base transition-all duration-200 ${
-                activeItem === i
-                  ? "bg-[#421010] text-white shadow-lg"
-                  : "bg-[#FCE8E8] text-gray-800 hover:bg-[#e4fad6]"
-              }`}
-            >
-              <span>{item.label}</span>
-              <span
-                className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
+        {/* Left: Photo & Trust Highlights Card */}
+        <div className="lg:col-span-5 relative">
+          <div className="rounded-3xl overflow-hidden shadow-2xl border-4 border-white dark:border-gray-800 relative group">
+            <img 
+              src={about} 
+              alt="MH Money Express Point of Sale" 
+              className="w-full h-[460px] object-cover group-hover:scale-105 transition-transform duration-500" 
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+            
+            {/* Floating Trust Banner */}
+            <div className="absolute bottom-6 left-6 right-6 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md rounded-2xl p-4 shadow-xl border border-red-100 dark:border-gray-700">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-950 flex items-center justify-center text-[#E00000] font-black shrink-0">
+                  25+
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-gray-900 dark:text-white">Years of Financial Trust</h4>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Serving thousands of Fijian families &amp; travelers</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Interactive Service Selector & Detailed Benefit Card */}
+        <div className="lg:col-span-7 flex flex-col gap-6">
+          {/* Menu Selector */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {menuItems.map((item, i) => (
+              <button
+                key={i}
+                onClick={() => setActiveItem(i)}
+                className={`p-4 rounded-2xl font-bold text-left transition-all duration-200 border flex flex-col justify-between gap-2 ${
                   activeItem === i
-                    ? "bg-[#E00000] text-white"
-                    : "bg-white text-gray-500"
+                    ? "bg-[#E00000] text-white border-[#E00000] shadow-lg shadow-red-500/20"
+                    : "bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-800 hover:border-red-300 dark:hover:border-red-900 hover:bg-red-50/50"
                 }`}
               >
-                <ArrowUpRight size={15} />
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {/* Center: Photo */}
-        <div className="rounded-3xl overflow-hidden shadow-xl h-9/12">
-          <img src={about} alt="" />
-        </div>
-
-        {/* Right: Info Card */}
-        <div className="bg-[#fff0f1] rounded-3xl p-8 flex flex-col justify-center relative overflow-hidden h-9/12">
-          {/* Asterisk ornament */}
-          <div className="absolute bottom-8 right-8 opacity-20">
-            <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-              <path d="M20 0v40M0 20h40M6 6l28 28M34 6L6 34" stroke="#334155" strokeWidth="2" />
-            </svg>
-          </div>
-
-          <h3 className="text-xl font-black text-gray-900 leading-snug mb-3 max-w-xs">
-            Receive Early Payments Within 24 Hours
-          </h3>
-
-          <p className="text-gray-500 text-sm leading-relaxed mb-8 max-w-xs">
-            We would like to confirm that the money transfer has been initiated the
-            funds are being processed through our secure payment system
-          </p>
-
-          <div className="flex flex-col gap-3">
-            {features.map((feat, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 bg-white rounded-xl px-4 py-3 shadow-sm w-fit"
-              >
-                <div className="w-6 h-6 rounded-full bg-yellow-400 flex items-center justify-center flex-shrink-0">
-                  <Check size={13} className="text-gray-900" strokeWidth={3} />
+                <div className="flex items-center justify-between">
+                  <div className={`p-2 rounded-xl ${activeItem === i ? "bg-white/20 text-white" : "bg-red-100 dark:bg-red-950/80 text-[#E00000]"}`}>
+                    {item.icon}
+                  </div>
+                  <ArrowUpRight size={16} className={activeItem === i ? "text-white" : "text-gray-400"} />
                 </div>
-                <span className="text-sm font-semibold text-gray-800">{feat}</span>
-              </div>
+                <span className="text-sm font-bold">{item.label}</span>
+              </button>
             ))}
           </div>
+
+          {/* Active Detail Showcase Card */}
+          <div className="bg-gradient-to-br from-red-50/70 via-white to-red-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-red-950/20 rounded-3xl p-7 border border-red-100 dark:border-gray-800 shadow-md">
+            <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2">
+              {menuItems[activeItem].label}
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed mb-6">
+              {menuItems[activeItem].desc}
+            </p>
+
+            <div className="flex flex-col gap-2.5">
+              {features.map((feat, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-3 bg-white dark:bg-gray-800/80 rounded-xl px-4 py-2.5 shadow-xs border border-gray-100 dark:border-gray-700/60"
+                >
+                  <div className="w-5 h-5 rounded-full bg-[#E00000] flex items-center justify-center shrink-0">
+                    <Check size={12} className="text-white" strokeWidth={3} />
+                  </div>
+                  <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">{feat}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
+
       </div>
     </div>
   );

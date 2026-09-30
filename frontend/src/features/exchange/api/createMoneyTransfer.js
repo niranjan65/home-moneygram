@@ -280,6 +280,22 @@ export const createMoneyTransfer = async (
 
       amount: form.amount ? Number(form.amount) : 0,
 
+      // Sender Details
+      address: form.address,
+      address_line_2: form.address_line_2,
+      city: form.city,
+      stateprovince: form.stateprovince,
+      postal_code: form.postal_code,
+      country: form.country,
+
+      // Receiver Details
+      receiver_address: form.receiver_address,
+      receiver_address_line_2: form.receiver_address_line_2,
+      receiver_city: form.receiver_city,
+      receiver_stateprovince: form.receiver_stateprovince,
+      receiver_postal_code: form.receiver_postal_code,
+      receiver_country: form.receiver_country,
+
       currency_denomination: enableCurrencyDenomination
         ? currencyDenomination
         : [],

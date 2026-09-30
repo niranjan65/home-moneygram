@@ -4,7 +4,23 @@ import axios from "axios";
 import { useUser } from "../context/UserContext";
 import { useSettings } from "../context/SettingsContext";
 import { useAppConfiguration } from "../hooks/useAppConfiguration";
-import { ChevronDown, Download, Search, X, User, Check, RefreshCw } from "lucide-react";
+import {
+  ChevronDown,
+  Download,
+  Search,
+  X,
+  User,
+  Check,
+  RefreshCw,
+  FileText,
+  FileSpreadsheet,
+  Printer,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  CalendarRange,
+} from "lucide-react";
 import { printThermalReceipt } from "../components/ThermalReceiptPrint";
 
 // ── CSV Export Helper ──────────────────────────────────────────────────────
@@ -14,7 +30,7 @@ function downloadCSV(filename, headers, rows) {
   const escapeCSV = (val) => {
     if (val === null || val === undefined) return "";
     const str = String(val).trim();
-    if (str.includes('"') || str.includes(',') || str.includes('\n') || str.includes('\r')) {
+    if (str.includes('"') || str.includes(",") || str.includes("\n") || str.includes("\r")) {
       return `"${str.replace(/"/g, '""')}"`;
     }
     return str;
@@ -48,6 +64,635 @@ function downloadCSV(filename, headers, rows) {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+}
+
+// ── Excel Export Helper (.xls XML/HTML format) ──────────────────────────────
+function downloadExcel(filename, headers, rows, sheetTitle = "Report") {
+  if (!rows || rows.length === 0) return;
+
+  const escapeHTML = (val) => {
+    if (val === null || val === undefined) return "";
+    return String(val)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  };
+
+  const headerCells = headers
+    .map(
+      (h) =>
+        `<th style="background-color:#E00000;color:#ffffff;font-weight:bold;padding:9px 12px;border:1px solid #d00000;font-size:11pt;text-align:${
+          h.align === "right" ? "right" : "left"
+        };">${escapeHTML(typeof h === "object" ? h.label : h)}</th>`
+    )
+    .join("");
+
+  const bodyRows = rows
+    .map((row) => {
+      const cells = headers
+        .map((h) => {
+          const key = typeof h === "object" ? (h.key || h.fieldname) : h;
+          const accessor = typeof h === "object" ? h.accessor : null;
+          let val = accessor ? accessor(row) : row[key];
+          const isNum =
+            typeof val === "number" ||
+            (!isNaN(parseFloat(val)) &&
+              isFinite(val) &&
+              (String(key).includes("total") ||
+                String(key).includes("amount") ||
+                String(key).includes("qty") ||
+                String(key).includes("rate") ||
+                String(key).includes("value")));
+          const align = h.align === "right" || isNum ? "right" : "left";
+          const msoFormat = isNum ? 'mso-number-format:"\\#,\\#\\#0.00";' : 'mso-number-format:"\\@";';
+          return `<td style="border:1px solid #e2e8f0;padding:6px 12px;text-align:${align};${msoFormat}">${escapeHTML(
+            val
+          )}</td>`;
+        })
+        .join("");
+      return `<tr>${cells}</tr>`;
+    })
+    .join("");
+
+  const tableHTML = `
+    <html xmlns:o="urn:schemas-microsoft-com:office:office" 
+          xmlns:x="urn:schemas-microsoft-com:office:excel" 
+          xmlns="http://www.w3.org/TR/REC-html40">
+    <head>
+      <meta http-equiv="content-type" content="application/vnd.ms-excel; charset=UTF-8">
+      <!--[if gte mso 9]>
+      <xml>
+        <x:ExcelWorkbook>
+          <x:ExcelWorksheets>
+            <x:ExcelWorksheet>
+              <x:Name>${escapeHTML(sheetTitle.slice(0, 31))}</x:Name>
+              <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+            </x:ExcelWorksheet>
+          </x:ExcelWorksheets>
+        </x:ExcelWorkbook>
+      </xml>
+      <![endif]-->
+      <style>
+        body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; }
+        table { border-collapse: collapse; width: 100%; margin-top: 12px; }
+        h2 { color: #E00000; font-family: Calibri, Arial, sans-serif; margin-bottom: 2px; }
+        h3 { color: #1e293b; font-family: Calibri, Arial, sans-serif; margin-top: 2px; margin-bottom: 4px; }
+        p { color: #64748b; font-size: 10pt; margin-top: 0; }
+      </style>
+    </head>
+    <body>
+      <h2>MH MONEY EXPRESS</h2>
+      <h3>${escapeHTML(sheetTitle)}</h3>
+      <p>Exported: ${new Date().toLocaleString()} · Total Records: ${rows.length}</p>
+      <table>
+        <thead>
+          <tr>${headerCells}</tr>
+        </thead>
+        <tbody>
+          ${bodyRows}
+        </tbody>
+      </table>
+    </body>
+    </html>
+  `;
+
+  const blob = new Blob([tableHTML], { type: "application/vnd.ms-excel;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename.endsWith(".xls") ? filename : `${filename}.xls`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+// ── PDF / Print Export Helper ──────────────────────────────────────────────
+function exportToPDF(title, headers, rows, metadata = {}) {
+  if (!rows || rows.length === 0) return;
+  const printWindow = window.open("", "_blank", "width=1200,height=800");
+  if (!printWindow) {
+    alert("Please allow pop-ups to export report to PDF or print.");
+    return;
+  }
+
+  const escapeHTML = (val) => {
+    if (val === null || val === undefined) return "—";
+    return String(val)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  };
+
+  const totalGrand = rows.reduce(
+    (s, r) => s + (parseFloat(r.grand_total || r.amount || r.stock_value || 0) || 0),
+    0
+  );
+
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>${escapeHTML(title)}</title>
+        <style>
+          @page {
+            size: landscape;
+            margin: 12mm 10mm;
+          }
+          * { box-sizing: border-box; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            color: #1f2937;
+            margin: 0;
+            padding: 16px;
+            font-size: 11px;
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid #E00000;
+            padding-bottom: 10px;
+            margin-bottom: 12px;
+          }
+          .brand { font-size: 20px; font-weight: 800; color: #E00000; letter-spacing: 0.5px; }
+          .subtitle { font-size: 13px; font-weight: 700; color: #374151; margin-top: 2px; }
+          .meta { font-size: 10px; color: #6b7280; text-align: right; }
+          .meta-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-bottom: 12px;
+            font-size: 10px;
+          }
+          .meta-item { display: flex; flex-direction: column; }
+          .meta-item .label { font-weight: 600; color: #6b7280; text-transform: uppercase; font-size: 9px; }
+          .meta-item .val { font-weight: 700; color: #111827; }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10px;
+          }
+          thead { display: table-header-group; }
+          tr { page-break-inside: avoid; }
+          th {
+            background-color: #f3f4f6;
+            color: #374151;
+            font-weight: 700;
+            text-transform: uppercase;
+            padding: 6px 8px;
+            border: 1px solid #e5e7eb;
+            font-size: 9px;
+            letter-spacing: 0.5px;
+          }
+          td {
+            padding: 5px 8px;
+            border: 1px solid #e5e7eb;
+            vertical-align: middle;
+          }
+          tbody tr:nth-child(even) { background-color: #fafafa; }
+          .text-right { text-align: right; }
+          .text-center { text-align: center; }
+          .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+          .badge {
+            display: inline-block;
+            padding: 1px 6px;
+            border-radius: 4px;
+            font-size: 9px;
+            font-weight: 700;
+          }
+          .badge-paid { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+          .badge-cancelled { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+          .tfoot td {
+            font-weight: 800;
+            background: #f9fafb;
+            border-top: 2px solid #E00000;
+            padding: 8px;
+            font-size: 11px;
+          }
+          @media print {
+            body { padding: 0; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <div class="brand">MH MONEY EXPRESS</div>
+            <div class="subtitle">${escapeHTML(title)}</div>
+          </div>
+          <div class="meta">
+            <div><strong>Generated:</strong> ${new Date().toLocaleString()}</div>
+            <div><strong>Total Records:</strong> ${rows.length}</div>
+          </div>
+        </div>
+
+        ${
+          Object.keys(metadata).length > 0
+            ? `
+          <div class="meta-grid">
+            ${Object.entries(metadata)
+              .map(
+                ([k, v]) => `
+              <div class="meta-item">
+                <span class="label">${escapeHTML(k)}</span>
+                <span class="val">${escapeHTML(v)}</span>
+              </div>
+            `
+              )
+              .join("")}
+          </div>
+        `
+            : ""
+        }
+
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 30px;" class="text-center">#</th>
+              ${headers
+                .map(
+                  (h) =>
+                    `<th class="${h.align === "right" ? "text-right" : "text-left"}">${escapeHTML(
+                      typeof h === "object" ? h.label : h
+                    )}</th>`
+                )
+                .join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows
+              .map(
+                (row, idx) => `
+              <tr>
+                <td class="text-center font-mono">${idx + 1}</td>
+                ${headers
+                  .map((h) => {
+                    const key = typeof h === "object" ? (h.key || h.fieldname) : h;
+                    const accessor = typeof h === "object" ? h.accessor : null;
+                    let val = accessor ? accessor(row) : row[key];
+                    const align = h.align === "right" ? "text-right" : "";
+                    const isStatus = key === "status";
+                    if (isStatus) {
+                      const badgeCls =
+                        String(val).toLowerCase() === "paid"
+                          ? "badge-paid"
+                          : "badge-cancelled";
+                      return `<td><span class="badge ${badgeCls}">${escapeHTML(val)}</span></td>`;
+                    }
+                    if (h.align === "right" && val != null && !isNaN(parseFloat(val))) {
+                      val = parseFloat(val).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      });
+                    }
+                    return `<td class="${align}">${escapeHTML(val)}</td>`;
+                  })
+                  .join("")}
+              </tr>
+            `
+              )
+              .join("")}
+          </tbody>
+          ${
+            totalGrand > 0
+              ? `
+            <tfoot class="tfoot">
+              <tr>
+                <td colspan="${Math.max(
+                  1,
+                  headers.findIndex(
+                    (h) =>
+                      (h.key || h) === "grand_total" ||
+                      (h.key || h) === "amount" ||
+                      (h.key || h) === "stock_value"
+                  ) + 1
+                )}" style="text-align: right; text-transform: uppercase; color: #E00000;">
+                  Total Amount:
+                </td>
+                <td class="text-right" style="color: #111827;">
+                  ${totalGrand.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </td>
+                <td colspan="${
+                  headers.length -
+                  (headers.findIndex(
+                    (h) =>
+                      (h.key || h) === "grand_total" ||
+                      (h.key || h) === "amount" ||
+                      (h.key || h) === "stock_value"
+                  ) + 1)
+                }"></td>
+              </tr>
+            </tfoot>
+          `
+              : ""
+          }
+        </table>
+        <script>
+          window.onload = () => {
+            setTimeout(() => {
+              window.print();
+            }, 300);
+          };
+        </script>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+}
+
+// ── Date Range Helper ───────────────────────────────────────────────────────
+function getDateBounds(preset, customFrom = "", customTo = "", selectedMonth = "") {
+  const pad = (n) => String(n).padStart(2, "0");
+  const toYMD = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+  const today = new Date();
+  const todayStr = toYMD(today);
+
+  if (preset === "this_week") {
+    // Current week: Monday to Sunday
+    const day = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    const diffToMonday = today.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(today.getFullYear(), today.getMonth(), diffToMonday);
+    const sunday = new Date(today.getFullYear(), today.getMonth(), diffToMonday + 6);
+    return {
+      fromDate: toYMD(monday),
+      toDate: toYMD(sunday),
+      label: `This Week (${toYMD(monday)} to ${toYMD(sunday)})`,
+    };
+  }
+
+  if (preset === "weekly") {
+    // Last 7 days: 7 days ago to today
+    const past7 = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6);
+    return {
+      fromDate: toYMD(past7),
+      toDate: todayStr,
+      label: `Weekly (${toYMD(past7)} to ${todayStr})`,
+    };
+  }
+
+  if (preset === "monthly") {
+    // Specified month in YYYY-MM format, or fallback to current month
+    const target = selectedMonth || `${today.getFullYear()}-${pad(today.getMonth() + 1)}`;
+    const [y, m] = target.split("-").map(Number);
+    if (y && m) {
+      const firstDay = new Date(y, m - 1, 1);
+      const lastDay = new Date(y, m, 0);
+      const monthName = firstDay.toLocaleString("default", { month: "long" });
+      return {
+        fromDate: toYMD(firstDay),
+        toDate: toYMD(lastDay),
+        label: `${monthName} ${y} (${toYMD(firstDay)} to ${toYMD(lastDay)})`,
+      };
+    }
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    return {
+      fromDate: toYMD(firstDay),
+      toDate: todayStr,
+      label: `Monthly (${toYMD(firstDay)} to ${todayStr})`,
+    };
+  }
+
+  if (preset === "custom") {
+    return {
+      fromDate: customFrom,
+      toDate: customTo,
+      label:
+        customFrom && customTo
+          ? `${customFrom} to ${customTo}`
+          : customFrom
+          ? `From ${customFrom}`
+          : customTo
+          ? `Up to ${customTo}`
+          : "Custom Date Range",
+    };
+  }
+
+  return { fromDate: "", toDate: "", label: "All Time" };
+}
+
+// ── Export Dropdown Component ───────────────────────────────────────────────
+function ExportDropdown({ onExportCSV, onExportExcel, onExportPDF, disabled }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handleOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, []);
+
+  return (
+    <div className="relative inline-block text-left" ref={ref}>
+      <button
+        type="button"
+        onClick={() => !disabled && setOpen((prev) => !prev)}
+        disabled={disabled}
+        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-bold transition-all shadow-xs ${
+          disabled
+            ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed opacity-60"
+            : "border-gray-200 bg-white text-gray-700 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50 cursor-pointer"
+        }`}
+        title="Export Report"
+      >
+        <Download size={14} />
+        <span>Export</span>
+        <ChevronDown size={13} className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-1.5 w-52 bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden py-1 divide-y divide-gray-100 animate-in fade-in duration-100">
+          <div className="px-3.5 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50">
+            Export Format
+          </div>
+          <div className="py-1">
+            <button
+              onClick={() => {
+                setOpen(false);
+                onExportCSV();
+              }}
+              className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-red-50 hover:text-[#E00000] flex items-center gap-2.5 transition-colors cursor-pointer"
+            >
+              <FileText size={15} className="text-gray-400" />
+              <div>
+                <div className="font-bold">Export as CSV</div>
+                <div className="text-[10px] text-gray-400 font-normal">Comma-separated (.csv)</div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                setOpen(false);
+                onExportExcel();
+              }}
+              className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+            >
+              <FileSpreadsheet size={15} className="text-emerald-600" />
+              <div>
+                <div className="font-bold">Export as Excel</div>
+                <div className="text-[10px] text-gray-400 font-normal">Excel Workbook (.xls)</div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                setOpen(false);
+                onExportPDF();
+              }}
+              className="w-full text-left px-3.5 py-2 text-xs font-semibold text-gray-700 hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2.5 transition-colors cursor-pointer"
+            >
+              <Printer size={15} className="text-blue-600" />
+              <div>
+                <div className="font-bold">Export as PDF / Print</div>
+                <div className="text-[10px] text-gray-400 font-normal">Formatted print / PDF document</div>
+              </div>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Reusable Pagination Component ───────────────────────────────────────────
+function Pagination({
+  currentPage,
+  totalPages,
+  totalRecords,
+  pageSize,
+  onPageChange,
+  onPageSizeChange,
+  pageSizeOptions = [10, 25, 50, 100],
+}) {
+  if (totalRecords === 0) return null;
+
+  const startRecord = (currentPage - 1) * pageSize + 1;
+  const endRecord = Math.min(currentPage * pageSize, totalRecords);
+
+  const getPageNumbers = () => {
+    const pages = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (currentPage <= 4) {
+        pages.push(1, 2, 3, 4, 5, "...", totalPages);
+      } else if (currentPage >= totalPages - 3) {
+        pages.push(1, "...", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+      } else {
+        pages.push(1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages);
+      }
+    }
+    return pages;
+  };
+
+  return (
+    <div className="flex items-center justify-between flex-wrap gap-4 py-3 px-4 bg-white border border-gray-200 rounded-2xl shadow-xs text-xs">
+      <div className="flex items-center gap-3">
+        <span className="text-gray-500 font-medium">
+          Showing <span className="font-bold text-gray-800">{startRecord}</span> to{" "}
+          <span className="font-bold text-gray-800">{endRecord}</span> of{" "}
+          <span className="font-bold text-[#E00000]">{totalRecords}</span> records
+        </span>
+
+        <div className="flex items-center gap-1.5 ml-2 border-l border-gray-200 pl-3">
+          <span className="text-gray-400">Rows per page:</span>
+          <select
+            value={pageSize}
+            onChange={(e) => onPageSizeChange(Number(e.target.value))}
+            className="border border-gray-200 rounded-lg px-2 py-1 text-xs font-semibold bg-gray-50 text-gray-700 cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#E00000]"
+          >
+            {pageSizeOptions.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1">
+        {/* First page */}
+        <button
+          onClick={() => onPageChange(1)}
+          disabled={currentPage === 1}
+          className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+          title="First Page"
+        >
+          <ChevronsLeft size={14} />
+        </button>
+        {/* Prev page */}
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+          title="Previous Page"
+        >
+          <ChevronLeft size={14} />
+        </button>
+
+        {/* Page pills */}
+        <div className="flex items-center gap-1 mx-1">
+          {getPageNumbers().map((p, idx) => {
+            if (p === "...") {
+              return (
+                <span key={`ell-${idx}`} className="px-1.5 text-gray-400 font-bold select-none">
+                  …
+                </span>
+              );
+            }
+            const isCurrent = p === currentPage;
+            return (
+              <button
+                key={p}
+                onClick={() => onPageChange(p)}
+                className={`min-w-[28px] h-7 px-2 rounded-lg font-bold transition-all text-xs cursor-pointer ${
+                  isCurrent
+                    ? "bg-[#E00000] text-white shadow-xs"
+                    : "border border-gray-200 bg-white text-gray-700 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50/50"
+                }`}
+              >
+                {p}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Next page */}
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+          title="Next Page"
+        >
+          <ChevronRight size={14} />
+        </button>
+        {/* Last page */}
+        <button
+          onClick={() => onPageChange(totalPages)}
+          disabled={currentPage === totalPages}
+          className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+          title="Last Page"
+        >
+          <ChevronsRight size={14} />
+        </button>
+      </div>
+    </div>
+  );
 }
 
 
@@ -455,6 +1100,14 @@ function CustomerLinkFilter({ customers, selectedCustomer, onSelect, loading }) 
 function TransactionsTab({ warehouse, loginUser }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [totalAmount, setTotalAmount] = useState(0);
+  const [countsByType, setCountsByType] = useState({
+    All: 0,
+    "Currency Exchange": 0,
+    "Dealer Exchange": 0,
+    "Money Transfer": 0,
+  });
   const [search, setSearch] = useState("");
   const [selectedType, setSelectedType] = useState("All"); // "All" | "Currency Exchange" | "Dealer Exchange" | "Money Transfer"
   const [selectedStatus, setSelectedStatus] = useState("All"); // "All" | "Paid" | "Cancelled"
@@ -465,6 +1118,20 @@ function TransactionsTab({ warehouse, loginUser }) {
   const [customersLoading, setCustomersLoading] = useState(false);
   const [cancellingRowId, setCancellingRowId] = useState(null);
   const [printingRowId, setPrintingRowId] = useState(null);
+
+  // Date Range Filters State
+  const [dateFilter, setDateFilter] = useState("all"); // "all" | "this_week" | "weekly" | "monthly" | "custom"
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
+  });
+  const [customFromDate, setCustomFromDate] = useState("");
+  const [customToDate, setCustomToDate] = useState("");
+
+  // Pagination State - 10 records per page by default
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Load customer list for filter
   const fetchCustomers = useCallback(async () => {
@@ -508,11 +1175,14 @@ function TransactionsTab({ warehouse, loginUser }) {
       });
   }, [loginUser]);
 
-  // Fetch unified transactions
+  // Fetch unified transactions page by page directly from backend
   const fetchData = useCallback(async () => {
     if (!loginUser?.user) return;
     setLoading(true);
     try {
+      const { fromDate, toDate } = getDateBounds(dateFilter, customFromDate, customToDate, selectedMonth);
+      const limitStart = (currentPage - 1) * pageSize;
+
       const res = await axios.post(
         "/api/method/moneygram.moneygram.api.get_transactions.get_all_transactions",
         {
@@ -520,8 +1190,11 @@ function TransactionsTab({ warehouse, loginUser }) {
           party: selectedCustomer || undefined,
           transaction_type: selectedType === "All" ? undefined : selectedType,
           status: selectedStatus === "All" ? undefined : selectedStatus,
-          limit_start: 0,
-          limit_page_length: 500,
+          search: search.trim() || undefined,
+          from_date: fromDate || undefined,
+          to_date: toDate || undefined,
+          limit_start: limitStart,
+          limit_page_length: pageSize,
         },
         {
           headers: {
@@ -530,21 +1203,56 @@ function TransactionsTab({ warehouse, loginUser }) {
           },
         }
       );
-      setRows(res.data?.message?.data ?? []);
+      const msg = res.data?.message;
+      setRows(msg?.data ?? []);
+      setTotalRecords(msg?.total_count ?? 0);
+      setTotalAmount(msg?.total_amount ?? 0);
+      if (msg?.counts_by_type) {
+        setCountsByType(msg.counts_by_type);
+      }
     } catch (err) {
       console.error("Error fetching transactions:", err);
     } finally {
       setLoading(false);
     }
-  }, [loginUser, selectedWarehouse, selectedType, selectedCustomer, selectedStatus]);
+  }, [
+    loginUser,
+    selectedWarehouse,
+    selectedType,
+    selectedCustomer,
+    selectedStatus,
+    search,
+    dateFilter,
+    customFromDate,
+    customToDate,
+    selectedMonth,
+    currentPage,
+    pageSize,
+  ]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
+  // Reset pagination to page 1 on any filter criteria changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    search,
+    selectedType,
+    selectedStatus,
+    selectedCustomer,
+    selectedWarehouse,
+    dateFilter,
+    customFromDate,
+    customToDate,
+    selectedMonth,
+    pageSize,
+  ]);
+
   // Cancellation handling
   const handleCancelRow = async (row) => {
-    if (!window.confirm(`Are you sure you want to cancel ${row.type || 'transaction'} ${row.name}?`)) {
+    if (!window.confirm(`Are you sure you want to cancel ${row.type || "transaction"} ${row.name}?`)) {
       return;
     }
 
@@ -621,12 +1329,8 @@ function TransactionsTab({ warehouse, loginUser }) {
         }
       }
 
-      alert(`${row.type || 'Transaction'} has been successfully cancelled.`);
-
-      // Update local state to reflect cancellation immediately
-      setRows((prevRows) =>
-        prevRows.map((r) => (r.name === row.name ? { ...r, status: "Cancelled", docstatus: 2 } : r))
-      );
+      alert(`${row.type || "Transaction"} has been successfully cancelled.`);
+      fetchData();
     } catch (error) {
       console.error("Error cancelling transaction:", error);
       const errMsg =
@@ -671,7 +1375,6 @@ function TransactionsTab({ warehouse, loginUser }) {
           );
           printThermalReceipt(response.data?.data);
         } catch (siErr) {
-          // If Sales Invoice not found directly (e.g. purged test records), print fallback receipt
           printThermalReceipt({
             name: row.name,
             posting_date: row.posting_date,
@@ -692,102 +1395,96 @@ function TransactionsTab({ warehouse, loginUser }) {
     }
   };
 
-  // Defensively filter rows locally across all active filters
-  const filtered = rows.filter((r) => {
-    // 1. Status Filter
-    if (selectedStatus && selectedStatus !== "All") {
-      if ((r.status || "").toLowerCase() !== selectedStatus.toLowerCase()) {
-        return false;
-      }
+  // Pagination calculation
+  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const pageGrand = rows.reduce((s, r) => s + (parseFloat(r.grand_total) || 0), 0);
+
+  // Common Headers for Exports
+  const exportHeaders = [
+    { label: "Reference ID", key: "name" },
+    { label: "Type", key: "type" },
+    { label: "Posting Date", key: "posting_date" },
+    { label: "OET / Txn ID", key: "oet_code" },
+    { label: "Customer", accessor: (r) => r.custom_customer_full_name || r.party || "" },
+    { label: "Customer ID", key: "party" },
+    { label: "Amount", key: "grand_total", align: "right" },
+    { label: "Currency", key: "currency" },
+    { label: "Status", key: "status" },
+    { label: "Branch Location", key: "set_warehouse" },
+    { label: "Owner", key: "owner" },
+    { label: "Company", key: "company" },
+  ];
+
+  // Fetch full filtered records across all pages when user requests export
+  const fetchAllForExport = async () => {
+    try {
+      const { fromDate, toDate } = getDateBounds(dateFilter, customFromDate, customToDate, selectedMonth);
+      const res = await axios.post(
+        "/api/method/moneygram.moneygram.api.get_transactions.get_all_transactions",
+        {
+          warehouse: selectedWarehouse === "All" ? undefined : selectedWarehouse,
+          party: selectedCustomer || undefined,
+          transaction_type: selectedType === "All" ? undefined : selectedType,
+          status: selectedStatus === "All" ? undefined : selectedStatus,
+          search: search.trim() || undefined,
+          from_date: fromDate || undefined,
+          to_date: toDate || undefined,
+          limit_start: 0,
+          limit_page_length: 5000,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
+          },
+        }
+      );
+      return res.data?.message?.data ?? rows;
+    } catch (err) {
+      console.error("Error fetching full dataset for export:", err);
+      return rows;
     }
-
-    // 2. Type Filter
-    if (selectedType && selectedType !== "All") {
-      if (r.type !== selectedType) {
-        return false;
-      }
-    }
-
-    // 3. Customer Filter
-    if (selectedCustomer) {
-      const party = (r.party || "").toLowerCase();
-      const fullName = (r.custom_customer_full_name || "").toLowerCase();
-      const target = selectedCustomer.toLowerCase();
-
-      const selObj = customers.find((c) => c.name === selectedCustomer);
-      const cName = (selObj?.customer_name || "").toLowerCase();
-      const cFullName = (selObj?.custom_full_name || "").toLowerCase();
-
-      const match =
-        party === target ||
-        party.includes(target) ||
-        fullName === target ||
-        fullName.includes(target) ||
-        (cName && (party.includes(cName) || fullName.includes(cName))) ||
-        (cFullName && (party.includes(cFullName) || fullName.includes(cFullName)));
-
-      if (!match) return false;
-    }
-
-    // 4. Warehouse Filter
-    if (selectedWarehouse && selectedWarehouse !== "All") {
-      if (r.set_warehouse !== selectedWarehouse) {
-        return false;
-      }
-    }
-
-    // 5. Search Text Filter
-    if (search) {
-      const q = search.toLowerCase();
-      return [
-        r.name,
-        r.party,
-        r.status,
-        r.currency,
-        r.company,
-        r.owner,
-        r.custom_customer_full_name,
-        r.type,
-        r.oet_code,
-        r.set_warehouse,
-      ].some((v) => v?.toString().toLowerCase().includes(q));
-    }
-
-    return true;
-  });
-
-  const totalGrand = filtered.reduce((s, r) => s + (parseFloat(r.grand_total) || 0), 0);
-
-  // CSV Export with clean fields and NO outstanding amount
-  const handleExportCSV = () => {
-    if (!filtered || filtered.length === 0) return;
-
-    const headers = [
-      { label: "Reference ID", key: "name" },
-      { label: "Type", key: "type" },
-      { label: "Posting Date", key: "posting_date" },
-      { label: "OET / Txn ID", key: "oet_code" },
-      { label: "Customer", accessor: (r) => r.custom_customer_full_name || r.party || "" },
-      { label: "Customer ID", key: "party" },
-      { label: "Amount", key: "grand_total" },
-      { label: "Currency", key: "currency" },
-      { label: "Status", key: "status" },
-      { label: "Branch Location", key: "set_warehouse" },
-      { label: "Owner", key: "owner" },
-      { label: "Company", key: "company" },
-    ];
-
-    const safeDate = new Date().toISOString().slice(0, 10);
-    const typeLabel = selectedType.replace(/\s+/g, "_");
-    downloadCSV(`Transactions_Report_${typeLabel}_${safeDate}`, headers, filtered);
   };
 
-  // Compute counts for dedication pills
-  const countsByType = {
-    All: rows.length,
-    "Currency Exchange": rows.filter((r) => r.type === "Currency Exchange").length,
-    "Dealer Exchange": rows.filter((r) => r.type === "Dealer Exchange").length,
-    "Money Transfer": rows.filter((r) => r.type === "Money Transfer").length,
+  // CSV Export
+  const handleExportCSV = async () => {
+    const dataToExport = await fetchAllForExport();
+    if (!dataToExport || dataToExport.length === 0) return;
+    const safeDate = new Date().toISOString().slice(0, 10);
+    const typeLabel = selectedType.replace(/\s+/g, "_");
+    downloadCSV(`Transactions_Report_${typeLabel}_${safeDate}`, exportHeaders, dataToExport);
+  };
+
+  // Excel Export (.xls)
+  const handleExportExcel = async () => {
+    const dataToExport = await fetchAllForExport();
+    if (!dataToExport || dataToExport.length === 0) return;
+    const safeDate = new Date().toISOString().slice(0, 10);
+    const typeLabel = selectedType.replace(/\s+/g, "_");
+    downloadExcel(
+      `Transactions_Report_${typeLabel}_${safeDate}`,
+      exportHeaders,
+      dataToExport,
+      `Transactions Report (${selectedType})`
+    );
+  };
+
+  // PDF / Print Export
+  const handleExportPDF = async () => {
+    const dataToExport = await fetchAllForExport();
+    if (!dataToExport || dataToExport.length === 0) return;
+    const { label: dateLabel } = getDateBounds(dateFilter, customFromDate, customToDate, selectedMonth);
+    const metadata = {
+      "Transaction Type": selectedType,
+      "Branch Location": selectedWarehouse === "All" ? "All Locations" : selectedWarehouse,
+      "Date Range": dateLabel,
+      "Status Filter": selectedStatus,
+      ...(selectedCustomer ? { Customer: selectedCustomer } : {}),
+      ...(search ? { Search: search } : {}),
+    };
+    exportToPDF(`Transactions Report - ${selectedType}`, exportHeaders, dataToExport, metadata);
   };
 
   return (
@@ -805,7 +1502,7 @@ function TransactionsTab({ warehouse, loginUser }) {
             <button
               key={tab.id}
               onClick={() => setSelectedType(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border transition-all duration-150 ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border transition-all duration-150 cursor-pointer ${
                 active
                   ? "bg-[#E00000] text-white border-[#E00000] shadow-sm shadow-[#E00000]/20"
                   : "bg-white text-gray-600 border-gray-200 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50/50"
@@ -824,6 +1521,100 @@ function TransactionsTab({ warehouse, loginUser }) {
             </button>
           );
         })}
+      </div>
+
+      {/* ── Date Range Presets & Custom/Month Filter Bar ─────────────────── */}
+      <div className="flex items-center gap-2 flex-wrap bg-gray-50/90 p-2.5 rounded-2xl border border-gray-200 shadow-xs">
+        <div className="flex items-center gap-1.5 text-xs font-bold text-gray-600 px-1">
+          <CalendarRange size={15} className="text-[#E00000]" />
+          <span>Date Filter:</span>
+        </div>
+
+        {[
+          { id: "all", label: "All Time" },
+          { id: "this_week", label: "This Week" },
+          { id: "weekly", label: "Weekly (Last 7 Days)" },
+          { id: "monthly", label: "Monthly" },
+          { id: "custom", label: "Custom Range" },
+        ].map((preset) => {
+          const active = dateFilter === preset.id;
+          return (
+            <button
+              key={preset.id}
+              onClick={() => setDateFilter(preset.id)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                active
+                  ? "bg-[#E00000] text-white border-[#E00000] shadow-xs"
+                  : "bg-white text-gray-600 border-gray-200 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50"
+              }`}
+            >
+              {preset.label}
+            </button>
+          );
+        })}
+
+        {/* Month Selector when 'monthly' is active */}
+        {dateFilter === "monthly" && (
+          <div className="flex items-center gap-2 ml-auto flex-wrap animate-in fade-in duration-150">
+            <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-xl px-2.5 py-1 text-xs shadow-xs">
+              <span className="text-gray-400 font-semibold text-[11px]">Select Month:</span>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="text-xs font-semibold text-gray-700 bg-transparent focus:outline-none cursor-pointer"
+              />
+            </div>
+            {selectedMonth && (
+              <span className="text-[11px] text-gray-500 font-semibold hidden md:inline-block pr-1">
+                {getDateBounds("monthly", "", "", selectedMonth).label}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Custom Date Pickers when 'custom' is active */}
+        {dateFilter === "custom" && (
+          <div className="flex items-center gap-2 ml-auto flex-wrap animate-in fade-in duration-150">
+            <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-xl px-2.5 py-1 text-xs shadow-xs">
+              <span className="text-gray-400 font-semibold text-[11px]">Start:</span>
+              <input
+                type="date"
+                value={customFromDate}
+                onChange={(e) => setCustomFromDate(e.target.value)}
+                className="text-xs font-semibold text-gray-700 bg-transparent focus:outline-none cursor-pointer"
+              />
+            </div>
+            <span className="text-gray-400 text-xs font-bold">→</span>
+            <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-xl px-2.5 py-1 text-xs shadow-xs">
+              <span className="text-gray-400 font-semibold text-[11px]">End:</span>
+              <input
+                type="date"
+                value={customToDate}
+                onChange={(e) => setCustomToDate(e.target.value)}
+                className="text-xs font-semibold text-gray-700 bg-transparent focus:outline-none cursor-pointer"
+              />
+            </div>
+            {(customFromDate || customToDate) && (
+              <button
+                onClick={() => {
+                  setCustomFromDate("");
+                  setCustomToDate("");
+                }}
+                className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                title="Clear Dates"
+              >
+                <X size={13} />
+              </button>
+            )}
+          </div>
+        )}
+
+        {dateFilter !== "custom" && dateFilter !== "monthly" && dateFilter !== "all" && (
+          <span className="text-[11px] text-gray-400 font-medium ml-auto pr-2 hidden md:inline-block">
+            Range: <span className="text-gray-700 font-bold">{getDateBounds(dateFilter).label}</span>
+          </span>
+        )}
       </div>
 
       {/* ── Search, Customer Link Filter, Warehouse, Status, Actions ─────────────── */}
@@ -857,7 +1648,7 @@ function TransactionsTab({ warehouse, loginUser }) {
           <option value="All">All Branch Locations</option>
           {warehousesList.map((wh) => (
             <option key={wh.name} value={wh.name}>
-              {wh.warehouse_name || wh.name}
+              {wh.name || wh.warehouse_name}
             </option>
           ))}
         </select>
@@ -884,23 +1675,16 @@ function TransactionsTab({ warehouse, loginUser }) {
           Refresh
         </button>
 
-        {/* Export CSV */}
-        <button
-          onClick={handleExportCSV}
-          disabled={filtered.length === 0}
-          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-bold transition-all shadow-xs ${
-            filtered.length === 0
-              ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed opacity-60"
-              : "border-gray-200 bg-white text-gray-700 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50 cursor-pointer"
-          }`}
-          title="Export CSV"
-        >
-          <Download size={14} />
-          Export CSV
-        </button>
+        {/* Export Dropdown (CSV, Excel, PDF/Print) */}
+        <ExportDropdown
+          onExportCSV={handleExportCSV}
+          onExportExcel={handleExportExcel}
+          onExportPDF={handleExportPDF}
+          disabled={totalRecords === 0}
+        />
 
         <span className="text-xs text-gray-400 font-semibold tabular-nums ml-auto">
-          {filtered.length} {filtered.length === 1 ? "record" : "records"}
+          {totalRecords} {totalRecords === 1 ? "record" : "records"}
         </span>
       </div>
 
@@ -944,14 +1728,14 @@ function TransactionsTab({ warehouse, loginUser }) {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {rows.length === 0 ? (
                 <tr>
                   <td colSpan={12} className="px-5 py-14 text-center text-gray-400 text-sm">
                     No transactions found for the selected filters.
                   </td>
                 </tr>
               ) : (
-                filtered.map((row, idx) => {
+                rows.map((row, idx) => {
                   const isMoneyTransfer = row.type === "Money Transfer";
                   const isDealerExchange = row.type === "Dealer Exchange";
                   const isCurrencyExchange = row.type === "Currency Exchange";
@@ -963,7 +1747,9 @@ function TransactionsTab({ warehouse, loginUser }) {
                         idx % 2 === 1 ? "bg-gray-50/30" : "bg-white"
                       }`}
                     >
-                      <td className="px-4 py-3.5 text-xs text-gray-400 tabular-nums">{idx + 1}</td>
+                      <td className="px-4 py-3.5 text-xs text-gray-400 tabular-nums">
+                        {startIndex + idx + 1}
+                      </td>
 
                       {/* Dedicated Type Badge */}
                       <td className="px-4 py-3.5 whitespace-nowrap">
@@ -1099,14 +1885,25 @@ function TransactionsTab({ warehouse, loginUser }) {
                 })
               )}
             </tbody>
-            {filtered.length > 0 && (
+            {rows.length > 0 && (
               <tfoot>
+                {totalPages > 1 && (
+                  <tr className="bg-gray-50/50 border-t border-gray-200">
+                    <td colSpan={6} className="px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      Page Subtotal ({rows.length} items)
+                    </td>
+                    <td className="px-4 py-2 text-right font-bold text-gray-700 tabular-nums text-xs">
+                      {pageGrand.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td colSpan={5} />
+                  </tr>
+                )}
                 <tr className="bg-gray-50 border-t-2 border-[#E00000]/15">
                   <td colSpan={6} className="px-4 py-3 text-xs font-black uppercase tracking-widest text-[#E00000]">
-                    Total Amount
+                    Total Amount ({totalRecords} {totalRecords === 1 ? "record" : "records"})
                   </td>
                   <td className="px-4 py-3 text-right font-black text-gray-900 tabular-nums text-sm">
-                    {totalGrand.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    {(totalAmount || pageGrand).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                   <td colSpan={5} />
                 </tr>
@@ -1115,6 +1912,16 @@ function TransactionsTab({ warehouse, loginUser }) {
           </table>
         )}
       </div>
+
+      {/* ── Pagination Controls ────────────────────────────────────────── */}
+      <Pagination
+        currentPage={safeCurrentPage}
+        totalPages={totalPages}
+        totalRecords={totalRecords}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={setPageSize}
+      />
     </div>
   );
 }
@@ -1173,8 +1980,23 @@ function DayEndClosingTab({ warehouse, loginUser }) {
     return cols;
   })();
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const resultRows = report?.result || [];
+  const totalRecords = resultRows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalRecords);
+  const paginatedRows = resultRows.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [date, oetCode, pageSize]);
+
   const handleExportCSV = () => {
-    if (!report?.result || report.result.length === 0) return;
+    if (!resultRows || resultRows.length === 0) return;
 
     const headers = orderedColumns.map((col) => ({
       label: col.label || col.fieldname,
@@ -1183,7 +2005,42 @@ function DayEndClosingTab({ warehouse, loginUser }) {
 
     const safeDate = date || new Date().toISOString().slice(0, 10);
     const safeOet = oetCode ? `_${oetCode}` : "";
-    downloadCSV(`Day_End_Report_${safeDate}${safeOet}`, headers, report.result);
+    downloadCSV(`Day_End_Report_${safeDate}${safeOet}`, headers, resultRows);
+  };
+
+  const handleExportExcel = () => {
+    if (!resultRows || resultRows.length === 0) return;
+
+    const headers = orderedColumns.map((col) => ({
+      label: col.label || col.fieldname,
+      key: col.fieldname,
+    }));
+
+    const safeDate = date || new Date().toISOString().slice(0, 10);
+    const safeOet = oetCode ? `_${oetCode}` : "";
+    downloadExcel(
+      `Day_End_Report_${safeDate}${safeOet}`,
+      headers,
+      resultRows,
+      `Day End Closing Report - ${safeDate}`
+    );
+  };
+
+  const handleExportPDF = () => {
+    if (!resultRows || resultRows.length === 0) return;
+
+    const headers = orderedColumns.map((col) => ({
+      label: col.label || col.fieldname,
+      key: col.fieldname,
+    }));
+
+    const metadata = {
+      Date: date,
+      Company: "MH Money Express",
+      ...(oetCode ? { "OET Code": oetCode } : {}),
+      ...(warehouse?.warehouse ? { "Branch Location": warehouse.warehouse } : {}),
+    };
+    exportToPDF(`Day End Closing Report - ${date}`, headers, resultRows, metadata);
   };
 
   return (
@@ -1198,12 +2055,12 @@ function DayEndClosingTab({ warehouse, loginUser }) {
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="bg-transparent text-sm font-semibold text-gray-700 focus:outline-none"
+            className="bg-transparent text-sm font-semibold text-gray-700 focus:outline-none cursor-pointer"
           />
         </div>
         <button
           onClick={fetchReport}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 bg-gray-50 text-sm font-semibold text-gray-600 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50 transition-all"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 bg-gray-50 text-sm font-semibold text-gray-600 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50 transition-all cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1212,37 +2069,27 @@ function DayEndClosingTab({ warehouse, loginUser }) {
         </button>
 
         <div className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 bg-gray-50 text-sm font-semibold text-gray-600 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50 transition-all cursor-pointer">
-          <label htmlFor="oet-code" >
-            OET Code
-          </label>
-
-          <select onChange={(e) => setOetCode(e.target.value)} name="oet-code" id="oet-code">
+          <label htmlFor="oet-code">OET Code</label>
+          <select onChange={(e) => setOetCode(e.target.value)} name="oet-code" id="oet-code" className="bg-transparent focus:outline-none cursor-pointer">
             <option value="">--SELECT--</option>
-            {potOptions.map(pot => (
-              <option
-                key={pot.code} value={pot.code}>
+            {potOptions.map((pot) => (
+              <option key={pot.code} value={pot.code}>
                 {pot.code}
               </option>
             ))}
           </select>
-          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
-            <ChevronDown size={16} />
+          <div className="pointer-events-none pl-1 text-gray-400">
+            <ChevronDown size={14} />
           </div>
         </div>
 
-        <button
-          onClick={handleExportCSV}
-          disabled={!report?.result || report.result.length === 0}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-xl border text-sm font-semibold transition-all ${
-            !report?.result || report.result.length === 0
-              ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed opacity-60"
-              : "border-gray-200 bg-gray-50 text-gray-700 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50 shadow-xs cursor-pointer"
-          }`}
-          title="Export report to CSV"
-        >
-          <Download size={15} />
-          Export CSV
-        </button>
+        {/* Export Dropdown */}
+        <ExportDropdown
+          onExportCSV={handleExportCSV}
+          onExportExcel={handleExportExcel}
+          onExportPDF={handleExportPDF}
+          disabled={!resultRows || resultRows.length === 0}
+        />
       </div>
 
       {loading ? (
@@ -1260,35 +2107,42 @@ function DayEndClosingTab({ warehouse, loginUser }) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Summary Table */}
-          <div className="rounded-2xl border border-gray-200 overflow-hidden md:col-span-2">
+          <div className="rounded-2xl border border-gray-200 overflow-hidden md:col-span-2 bg-white shadow-xs">
             <div className="bg-gray-50 border-b border-gray-200 px-5 py-3 flex items-center justify-between flex-wrap gap-2">
               <p className="text-[11px] font-bold uppercase tracking-widest text-[#E00000]">Day End Summary · {date}</p>
-              <button
-                onClick={handleExportCSV}
-                disabled={!report?.result || report.result.length === 0}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-gray-200 bg-white text-xs font-semibold text-gray-700 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50 transition-all cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Export CSV"
-              >
-                <Download size={14} />
-                Export CSV
-              </button>
+              <ExportDropdown
+                onExportCSV={handleExportCSV}
+                onExportExcel={handleExportExcel}
+                onExportPDF={handleExportPDF}
+                disabled={!resultRows || resultRows.length === 0}
+              />
             </div>
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="border-b border-gray-100">
-                  {
-                    orderedColumns.map((col) => (
-                      <th key={col.fieldname} className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-widest text-gray-400">
-                        {col.label}
-                      </th>
-                    ))
-                  }
+                <tr className="border-b border-gray-100 bg-gray-50/70">
+                  <th className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-widest text-gray-400 w-12">
+                    #
+                  </th>
+                  {orderedColumns.map((col) => (
+                    <th key={col.fieldname} className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-widest text-gray-400">
+                      {col.label}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {
-                  report?.result?.map((row, idx) => (
+                {paginatedRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={orderedColumns.length + 1} className="px-5 py-8 text-center text-gray-400 text-sm">
+                      No records found.
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedRows.map((row, idx) => (
                     <tr key={idx} className={`border-b border-gray-100 ${idx % 2 === 1 ? "bg-gray-50/40" : "bg-white"}`}>
+                      <td className="px-5 py-3 text-left text-xs text-gray-400 tabular-nums">
+                        {startIndex + idx + 1}
+                      </td>
                       {orderedColumns.map((col) => (
                         <td key={col.fieldname} className="px-5 py-3 text-left text-sm text-gray-700">
                           {row[col.fieldname] ?? "-"}
@@ -1296,13 +2150,23 @@ function DayEndClosingTab({ warehouse, loginUser }) {
                       ))}
                     </tr>
                   ))
-                }
+                )}
               </tbody>
             </table>
 
+            {totalPages > 1 && (
+              <div className="p-3 border-t border-gray-100">
+                <Pagination
+                  currentPage={safeCurrentPage}
+                  totalPages={totalPages}
+                  totalRecords={totalRecords}
+                  pageSize={pageSize}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={setPageSize}
+                />
+              </div>
+            )}
           </div>
-
-
         </div>
       )}
     </div>
@@ -1375,21 +2239,58 @@ function StockTab({ warehouse, loginUser }) {
   const inStockCount = items?.filter(i => i.stock_qty > 0).length ?? 0;
   const totalValueAmt = totalValue(items);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const rawItems = items || [];
+  const totalRecords = rawItems.length;
+  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (safeCurrentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalRecords);
+  const paginatedItems = rawItems.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [active, pageSize]);
+
+  const stockHeaders = [
+    { label: "Item Code", key: "item_code" },
+    { label: "Denomination", key: "item_name" },
+    { label: "Branch Location", key: "warehouse" },
+    { label: "Rate", key: "valuation_rate", align: "right" },
+    { label: "Item Value", key: "stock_value", align: "right" },
+    { label: "Stock Qty", key: "stock_qty", align: "right" },
+  ];
+
   const handleExportCSV = () => {
-    if (!items || items.length === 0) return;
-
-    const headers = [
-      { label: "Item Code", key: "item_code" },
-      { label: "Denomination", key: "item_name" },
-      { label: "Branch Location", key: "warehouse" },
-      { label: "Rate", key: "valuation_rate" },
-      { label: "Item Value", key: "stock_value" },
-      { label: "Stock Qty", key: "stock_qty" },
-    ];
-
+    if (!rawItems || rawItems.length === 0) return;
     const safeDate = new Date().toISOString().slice(0, 10);
     const countryName = active || "All";
-    downloadCSV(`Stock_Report_${countryName}_${safeDate}`, headers, items);
+    downloadCSV(`Stock_Report_${countryName}_${safeDate}`, stockHeaders, rawItems);
+  };
+
+  const handleExportExcel = () => {
+    if (!rawItems || rawItems.length === 0) return;
+    const safeDate = new Date().toISOString().slice(0, 10);
+    const countryName = active || "All";
+    downloadExcel(
+      `Stock_Report_${countryName}_${safeDate}`,
+      stockHeaders,
+      rawItems,
+      `Stock Report (${countryName})`
+    );
+  };
+
+  const handleExportPDF = () => {
+    if (!rawItems || rawItems.length === 0) return;
+    const metadata = {
+      Currency: `${active} (${CURRENCY_CODE[active] || ""})`,
+      "Branch Location": warehouse?.warehouse || "All Branches",
+      "Total Quantity": total?.toLocaleString(),
+      "Total Value": totalValueAmt?.toLocaleString(),
+    };
+    exportToPDF(`Currency Stock Report - ${active}`, stockHeaders, rawItems, metadata);
   };
 
   return (
@@ -1403,7 +2304,7 @@ function StockTab({ warehouse, loginUser }) {
             <button
               key={c}
               onClick={() => setActive(c)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E00000]
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E00000] cursor-pointer
                 ${isActive
                   ? "bg-[#E00000] text-white border-[#E00000] shadow-md shadow-[#E00000]/25"
                   : "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50"
@@ -1419,22 +2320,16 @@ function StockTab({ warehouse, loginUser }) {
           );
         })}
         <div className="flex items-center gap-2 ml-auto">
-          <button
-            onClick={handleExportCSV}
-            disabled={!items || items.length === 0}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl border text-sm font-semibold transition-all ${
-              !items || items.length === 0
-                ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed opacity-60"
-                : "border-gray-200 bg-gray-50 text-gray-700 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50 shadow-xs cursor-pointer"
-            }`}
-            title="Export Stock to CSV"
-          >
-            <Download size={15} />
-            Export CSV
-          </button>
+          {/* Export Dropdown */}
+          <ExportDropdown
+            onExportCSV={handleExportCSV}
+            onExportExcel={handleExportExcel}
+            onExportPDF={handleExportPDF}
+            disabled={!rawItems || rawItems.length === 0}
+          />
           <button
             onClick={fetchStock}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 bg-gray-50 text-sm font-semibold text-gray-600 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50 transition-all"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 bg-gray-50 text-sm font-semibold text-gray-600 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50 transition-all cursor-pointer"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1469,12 +2364,12 @@ function StockTab({ warehouse, loginUser }) {
               <span className="text-gray-400">·</span>
               <span>{CURRENCY_CODE[active]}</span>
               <span className="text-gray-400">·</span>
-              <span>{items?.length} items</span>
+              <span>{rawItems.length} items</span>
             </span>
           </div>
 
           {/* Table */}
-          <div className="rounded-2xl border border-gray-200 overflow-x-auto">
+          <div className="rounded-2xl border border-gray-200 overflow-x-auto bg-white shadow-xs">
             <table className="w-full text-sm border-collapse min-w-[700px]">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
@@ -1484,9 +2379,9 @@ function StockTab({ warehouse, loginUser }) {
                 </tr>
               </thead>
               <tbody>
-                {items?.map((row, idx) => (
+                {paginatedItems.map((row, idx) => (
                   <tr key={row.item_code} className={`border-b border-gray-100 transition-colors hover:bg-gray-50 ${idx % 2 === 1 ? "bg-gray-50/40" : "bg-white"}`}>
-                    <td className="px-5 py-3.5 text-xs text-gray-300 tabular-nums">{idx + 1}</td>
+                    <td className="px-5 py-3.5 text-xs text-gray-400 tabular-nums">{startIndex + idx + 1}</td>
                     <td className="px-5 py-3.5">
                       <span className="inline-block border border-gray-200 rounded-xl px-3 py-1.5 text-xs font-medium tracking-wide text-gray-700 bg-gray-50 font-mono">{row.item_code}</span>
                     </td>
@@ -1500,7 +2395,7 @@ function StockTab({ warehouse, loginUser }) {
               </tbody>
               <tfoot>
                 <tr className="bg-gray-50 border-t-2 border-[#E00000]/15">
-                  <td colSpan={4} className="px-5 py-3 text-xs font-black uppercase tracking-widest text-[#E00000]">Total</td>
+                  <td colSpan={4} className="px-5 py-3 text-xs font-black uppercase tracking-widest text-[#E00000]">Total ({rawItems.length} items)</td>
                   <td className="px-5 py-3 text-right font-black text-gray-900 tabular-nums">{total?.toLocaleString()}</td>
                   <td className="px-5 py-3 text-right font-black text-gray-900 tabular-nums">{totalValueAmt?.toLocaleString()}</td>
                   <td className="px-5 py-3 text-right font-black text-gray-900 tabular-nums">{total?.toLocaleString()}</td>
@@ -1508,6 +2403,18 @@ function StockTab({ warehouse, loginUser }) {
               </tfoot>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <Pagination
+              currentPage={safeCurrentPage}
+              totalPages={totalPages}
+              totalRecords={totalRecords}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+            />
+          )}
         </>
       )}
     </div>

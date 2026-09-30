@@ -1,5 +1,5 @@
 //MoneyTransfer.jsx
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import { useERPFileUpload } from "../hooks/useERPFileUpload";
@@ -8,12 +8,13 @@ import { getCustomerById, createCustomer, updateCustomer } from "../features/exc
 import FileUploadBox from "../features/exchange/config/FileUploadBox";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { ArrowUpRight, ArrowDownLeft, ArrowLeftRight, CheckCircle2, Wallet } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, ArrowLeftRight, CheckCircle2, Wallet, ChevronDown } from "lucide-react";
 import { createMoneyTransfer } from "../features/exchange/api/createMoneyTransfer";
 import TransferAmountSection from "../features/exchange/components/TransferAmountSection";
 import { DenominationPanel } from "../features/exchange/components/sections/DenominationPanel";
 import { MoneyTransferInvoiceDocument } from "../components/MoneyTransferInvoice";
 import { useBaseCurrency } from "../hooks/useDenomination";
+import { useCountries } from "../hooks/useCountry";
 import { buildApiUrl, getFetchOptions } from "../features/exchange/config/erpConfig";
 import { useSettings } from "../context/SettingsContext";
 import { validateStockAvailability } from "../hooks/useStockValidation";
@@ -30,7 +31,138 @@ const MoneyTransfer = () => {
   const [fieldErrors, setFieldErrors] = useState({});
   const [submitError, setSubmitError] = useState("");
   const { data: baseCurrencyData, loading: baseDenomLoading, error: baseDenomError } = useBaseCurrency();
-  // const [defaultLimits, setDefaultLimits] = useState(null);
+  const { countries: hookCountries, loading: hookCountriesLoading } = useCountries();
+  const [linkOptionsMap, setLinkOptionsMap] = useState({});
+  const [loadingLinkOptions, setLoadingLinkOptions] = useState({});
+  const fetchedDoctypesRef = useRef(new Set());
+
+  // Populate Country options from useCountries hook whenever it resolves
+  useEffect(() => {
+    if (hookCountries && hookCountries.length > 0) {
+      const mapped = hookCountries.map((c) => ({
+        value: c.name,
+        label: c.country_name || c.name,
+      }));
+      mapped.sort((a, b) => (a.label || a.value).localeCompare(b.label || b.value));
+      fetchedDoctypesRef.current.add("Country");
+      setLinkOptionsMap((prev) => {
+        if (prev["Country"] && prev["Country"].length > 0) return prev;
+        return { ...prev, Country: mapped };
+      });
+    }
+  }, [hookCountries]);
+
+  const fetchLinkOptions = useCallback(
+    async (doctype) => {
+      if (!doctype) return;
+      if (fetchedDoctypesRef.current.has(doctype)) return;
+      fetchedDoctypesRef.current.add(doctype);
+
+      try {
+        setLoadingLinkOptions((prev) => ({ ...prev, [doctype]: true }));
+
+        const headers = {
+          "Content-Type": "application/json",
+          ...(loginUser?.user?.api_key && loginUser?.user?.api_secret
+            ? {
+                Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
+              }
+            : {}),
+          ...getFetchOptions().headers,
+        };
+
+        const isCountry = doctype.toLowerCase() === "country";
+        const url = isCountry
+          ? buildApiUrl(
+              '/api/resource/Country?fields=["name","country_name"]&limit_page_length=300&order_by=name%20asc'
+            )
+          : buildApiUrl(
+              `/api/resource/${encodeURIComponent(doctype)}?fields=["name"]&limit_page_length=300&order_by=name%20asc`
+            );
+
+        const res = await fetch(
+          url,
+          getFetchOptions({
+            method: "GET",
+            headers,
+          })
+        );
+
+        if (res.ok) {
+          const json = await res.json();
+          const records = json.data || [];
+          const mapped = records
+            .map((item) => ({
+              value: item.name,
+              label: item.country_name || item.name,
+            }))
+            .filter((item) => Boolean(item.value));
+
+          mapped.sort((a, b) =>
+            (a.label || a.value).localeCompare(b.label || b.value)
+          );
+
+          setLinkOptionsMap((prev) => ({
+            ...prev,
+            [doctype]: mapped,
+          }));
+        } else {
+          // Fallback if specific fields query failed
+          const fallbackRes = await fetch(
+            buildApiUrl(`/api/resource/${encodeURIComponent(doctype)}?limit_page_length=300`),
+            getFetchOptions({ method: "GET", headers })
+          );
+          if (fallbackRes.ok) {
+            const fallbackJson = await fallbackRes.json();
+            const fallbackRecords = fallbackJson.data || [];
+            const mapped = fallbackRecords
+              .map((item) => ({
+                value: item.name,
+                label: item.country_name || item.name,
+              }))
+              .filter((item) => Boolean(item.value));
+
+            mapped.sort((a, b) =>
+              (a.label || a.value).localeCompare(b.label || b.value)
+            );
+
+            setLinkOptionsMap((prev) => ({
+              ...prev,
+              [doctype]: mapped,
+            }));
+          }
+        }
+      } catch (err) {
+        console.error(`Failed to fetch Link options for ${doctype}:`, err);
+        fetchedDoctypesRef.current.delete(doctype);
+      } finally {
+        setLoadingLinkOptions((prev) => ({ ...prev, [doctype]: false }));
+      }
+    },
+    [loginUser]
+  );
+
+  // Automatically fetch options for any Link fields present in metaFields
+  useEffect(() => {
+    if (!metaFields || metaFields.length === 0) return;
+
+    const linkDoctypes = [
+      ...new Set(
+        metaFields
+          .filter(
+            (f) =>
+              f.fieldtype === "Link" &&
+              f.options &&
+              !["warehouse", "customer_id", "amended_from"].includes(f.fieldname)
+          )
+          .map((f) => f.options)
+      ),
+    ];
+
+    linkDoctypes.forEach((dt) => {
+      fetchLinkOptions(dt);
+    });
+  }, [metaFields, fetchLinkOptions]);
 
   // useEffect(() => {
   //   getDefaultCustomerLimits().then((limits) => {
@@ -50,10 +182,21 @@ const MoneyTransfer = () => {
   const [stockError, setStockError] = useState("");
   const [stockLoading, setStockLoading] = useState(false);
 
+  // Denomination balance validation states matching MoneyExchange
+  const [denomBalanceError, setDenomBalanceError] = useState("");
+  const denomStatusRef = useRef({ total: 0, target: 0 });
+  const denomErrorRef = useRef(null);
+
   const [customerLookupDone, setCustomerLookupDone] = useState(false);
   const [customerFound, setCustomerFound] = useState(false);
 
   const handleDenominationRowsChange = useCallback((rows) => {
+    const total = (rows || []).reduce(
+      (sum, r) => sum + Number(r.denom || 0) * Number(r.count || 0),
+      0
+    );
+    denomStatusRef.current.total = total;
+
     setCurrencyDenominationRows(
       rows
         .filter((row) => row.count > 0)
@@ -70,7 +213,41 @@ const MoneyTransfer = () => {
           };
         })
     );
-  }, []);
+
+    const target = parseFloat(form.amount || 0);
+    denomStatusRef.current.target = target;
+    const diff = total - target;
+
+    if (Math.abs(diff) < 0.01) {
+      setDenomBalanceError("");
+      setFieldErrors((prev) => {
+        if (!prev.currency_denomination) return prev;
+        const next = { ...prev };
+        delete next.currency_denomination;
+        return next;
+      });
+    } else if (diff > 0.01) {
+      const label = "overage";
+      const err = `Currency Denomination has an ${label} of +${diff.toFixed(
+        2
+      )} (counted ${total.toFixed(2)}, expected ${target.toFixed(
+        2
+      )}). Denomination must be Balanced to proceed.`;
+      setDenomBalanceError(err);
+      setFieldErrors((prev) => ({ ...prev, currency_denomination: err }));
+    } else if (total > 0 && diff < -0.01) {
+      const label = "shortfall";
+      const err = `Currency Denomination has a ${label} of -${Math.abs(diff).toFixed(
+        2
+      )} (counted ${total.toFixed(2)}, expected ${target.toFixed(
+        2
+      )}). Denomination must be Balanced to proceed.`;
+      setDenomBalanceError(err);
+      setFieldErrors((prev) => ({ ...prev, currency_denomination: err }));
+    } else {
+      setDenomBalanceError("");
+    }
+  }, [form.amount]);
 
   useEffect(() => {
     console.log("⚙️ Settings Context:", settings);
@@ -237,17 +414,43 @@ const MoneyTransfer = () => {
       setStockLoading(false);
     }
   };
-  const usableFields = metaFields
-    .map((f) => (f.fieldname === "amount" ? { ...f, reqd: 1, depends_on: "" } : f))
-    .filter(
-      (f) =>
-        !f.hidden &&
-        !["Section Break", "Column Break"].includes(f.fieldtype)
-    );
+  const sectionMap = React.useMemo(() => {
+    const map = new Map();
+    let currentSec = null;
+    metaFields.forEach((f) => {
+      if (f.fieldtype === "Section Break") {
+        currentSec = f;
+      } else if (currentSec) {
+        map.set(f.fieldname, currentSec);
+      }
+    });
+    return map;
+  }, [metaFields]);
+
+  const usableFields = React.useMemo(() => {
+    return metaFields
+      .map((f) => (f.fieldname === "amount" ? { ...f, reqd: 1, depends_on: "" } : f))
+      .filter(
+        (f) =>
+          !f.hidden &&
+          f.fieldtype !== "Column Break" &&
+          f.fieldname !== "cash_denomination_section" &&
+          f.fieldname !== "currency_denomination" &&
+          f.fieldname !== "customer_details_section" &&
+          f.fieldname !== "warehouse" &&
+          f.fieldname !== "customer_id" &&
+          f.fieldname !== "amended_from"
+      )
+      .map((f) => ({
+        ...f,
+        section: sectionMap.get(f.fieldname) || null,
+      }));
+  }, [metaFields, sectionMap]);
 
   const orderedFields = React.useMemo(() => {
     const getParentFieldname = (field) => {
       if (field.fieldname === "amount") return null;
+      if (field.fieldtype === "Section Break") return null;
       if (!field.depends_on) return null;
       const condition = field.depends_on.replace("eval:", "");
       const matches = [...condition.matchAll(/doc\.([a-zA-Z0-9_]+)/g)];
@@ -348,6 +551,50 @@ const MoneyTransfer = () => {
       String(value).trim().toLowerCase() === "send"
     ) {
       setStockError("");
+    }
+
+    if (key === "amount") {
+      const target = parseFloat(value || 0);
+      denomStatusRef.current.target = target;
+      const total = denomStatusRef.current.total || 0;
+      if (total > 0) {
+        const diff = total - target;
+        if (Math.abs(diff) < 0.01) {
+          setDenomBalanceError("");
+          setFieldErrors((prev) => {
+            if (!prev.currency_denomination) return prev;
+            const next = { ...prev };
+            delete next.currency_denomination;
+            return next;
+          });
+        } else if (diff > 0.01) {
+          const err = `Currency Denomination has an overage of +${diff.toFixed(
+            2
+          )} (counted ${total.toFixed(2)}, expected ${target.toFixed(
+            2
+          )}). Denomination must be Balanced to proceed.`;
+          setDenomBalanceError(err);
+          setFieldErrors((prev) => ({ ...prev, currency_denomination: err }));
+        } else {
+          const err = `Currency Denomination has a shortfall of -${Math.abs(diff).toFixed(
+            2
+          )} (counted ${total.toFixed(2)}, expected ${target.toFixed(
+            2
+          )}). Denomination must be Balanced to proceed.`;
+          setDenomBalanceError(err);
+          setFieldErrors((prev) => ({ ...prev, currency_denomination: err }));
+        }
+      }
+    }
+
+    if (key === "enable_currency_denomination" && !value) {
+      setDenomBalanceError("");
+      setFieldErrors((prev) => {
+        if (!prev.currency_denomination) return prev;
+        const next = { ...prev };
+        delete next.currency_denomination;
+        return next;
+      });
     }
 
     setFieldErrors((prev) => {
@@ -673,6 +920,37 @@ const MoneyTransfer = () => {
             // IMPORTANT
             customer: customer.name,
 
+            country:
+              customer.custom_country ||
+              customer.country ||
+              prev.country ||
+              "",
+
+            address:
+              customer.custom_address ||
+              customer.address ||
+              prev.address ||
+              "",
+
+            city:
+              customer.custom_city ||
+              customer.city ||
+              prev.city ||
+              "",
+
+            stateprovince:
+              customer.custom_state_province ||
+              customer.custom_stateprovince ||
+              customer.stateprovince ||
+              prev.stateprovince ||
+              "",
+
+            postal_code:
+              customer.custom_postal_code ||
+              customer.postal_code ||
+              prev.postal_code ||
+              "",
+
             // ==========================================
             // CUSTOMER LIMITS
             // ==========================================
@@ -799,7 +1077,58 @@ const MoneyTransfer = () => {
 
     if (!validateForm()) {
       setIsSubmitting(false);
+      if (denomErrorRef.current && (fieldErrors.currency_denomination || denomBalanceError)) {
+        setTimeout(
+          () => denomErrorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
+          50
+        );
+      }
       return;
+    }
+
+    // Denomination balance check matching MoneyExchange approach: block on overage or shortfall
+    const denominationsEnabled =
+      form.enable_currency_denomination === 1 ||
+      form.enable_currency_denomination === "1" ||
+      form.enable_currency_denomination === true;
+
+    if (denominationsEnabled) {
+      const targetAmount = parseFloat(form.amount || 0);
+      const totalCounted = denomStatusRef.current.total !== undefined
+        ? denomStatusRef.current.total
+        : currencyDenominationRows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+      const diff = totalCounted - targetAmount;
+
+      if (currencyDenominationRows.length === 0 && totalCounted === 0) {
+        const msg = "Please enter currency denomination counts or disable denomination.";
+        setDenomBalanceError(msg);
+        setFieldErrors((prev) => ({ ...prev, currency_denomination: msg }));
+        setSubmitError(msg);
+        setIsSubmitting(false);
+        setTimeout(
+          () => denomErrorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
+          50
+        );
+        return;
+      }
+
+      if (Math.abs(diff) >= 0.01) {
+        const label = diff > 0 ? "overage" : "shortfall";
+        const msg = `Currency Denomination has an ${label} of ${diff > 0 ? "+" : ""}${diff.toFixed(
+          2
+        )} (counted ${totalCounted.toFixed(2)}, expected ${targetAmount.toFixed(
+          2
+        )}). Denomination must be Balanced to proceed.`;
+        setDenomBalanceError(msg);
+        setFieldErrors((prev) => ({ ...prev, currency_denomination: msg }));
+        setSubmitError(msg);
+        setIsSubmitting(false);
+        setTimeout(
+          () => denomErrorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
+          50
+        );
+        return;
+      }
     }
 
     try {
@@ -937,18 +1266,65 @@ const MoneyTransfer = () => {
     }
   }, [form.enable_currency_denomination]);
 
-  const shouldShowField = (field) => {
-    if (field.fieldname === "amount") return true;
-    if (!field.depends_on) return true;
-
+  const evalDependsOn = (condition, doc) => {
+    if (!condition) return true;
     try {
-      const condition = field.depends_on.replace("eval:", "");
-      const fn = new Function("doc", `return ${condition}`);
-      return fn(form);
-    } catch (e) {
-      console.warn("depends_on error:", field.fieldname);
+      const expr = condition.replace(/^eval:/, "").trim();
+      const fn = new Function("doc", `return ${expr}`);
+      return Boolean(fn(doc));
+    } catch (err) {
+      console.warn("Error evaluating depends_on:", condition, err);
       return true;
     }
+  };
+
+  const shouldShowField = (field) => {
+    if (field.fieldname === "amount") return true;
+
+    const currentType = (form.transfer_type || form.transaction_type || "Send").trim();
+    const normalizedType = currentType.toLowerCase() === "receive" ? "Receive" : "Send";
+
+    const docContext = {
+      ...form,
+      transfer_type: normalizedType,
+      transaction_type: normalizedType,
+    };
+
+    // 1. If this field is a Section Break itself
+    if (field.fieldtype === "Section Break") {
+      if (field.fieldname === "sender_details_section") {
+        return normalizedType === "Send" && (field.depends_on ? evalDependsOn(field.depends_on, docContext) : true);
+      }
+      if (field.fieldname === "receiver_details_section") {
+        return normalizedType === "Receive" && (field.depends_on ? evalDependsOn(field.depends_on, docContext) : true);
+      }
+      if (field.depends_on) {
+        return evalDependsOn(field.depends_on, docContext);
+      }
+      return true;
+    }
+
+    // 2. The display depends on the section and not on the individual fields
+    const parentSection = field.section || sectionMap.get(field.fieldname);
+    if (parentSection) {
+      if (parentSection.fieldname === "sender_details_section") {
+        if (normalizedType !== "Send") return false;
+      }
+      if (parentSection.fieldname === "receiver_details_section") {
+        if (normalizedType !== "Receive") return false;
+      }
+      if (parentSection.depends_on) {
+        const sectionVisible = evalDependsOn(parentSection.depends_on, docContext);
+        if (!sectionVisible) return false;
+      }
+    }
+
+    // 3. Field's own depends_on (e.g. government_id_number depending on government_id_type)
+    if (field.depends_on) {
+      return evalDependsOn(field.depends_on, docContext);
+    }
+
+    return true;
   };
 
   const resetForm = () => {
@@ -965,6 +1341,9 @@ const MoneyTransfer = () => {
     setSubmitError("");
     setCustomerFound(false);
     setCustomerLookupDone(false);
+    setCurrencyDenominationRows([]);
+    denomStatusRef.current = { total: 0, target: 0 };
+    setDenomBalanceError("");
   };
 
   const buildMoneyTransferInvoiceData = (transfer, info = successInfo) => {
@@ -1018,11 +1397,15 @@ const MoneyTransfer = () => {
       }))
       : [];
 
+    const now = new Date();
+    const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const localTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
+
     const rawTimestamp =
       transfer.posting_date ||
       transfer.modified ||
       transfer.creation ||
-      new Date().toISOString();
+      localDate;
 
     const cleanPostingDate = String(rawTimestamp).includes(" ")
       ? String(rawTimestamp).split(" ")[0]
@@ -1037,7 +1420,8 @@ const MoneyTransfer = () => {
         ? String(rawTimestamp).split(" ")[1]?.split(".")[0]
         : String(rawTimestamp).includes("T")
           ? String(rawTimestamp).split("T")[1]?.split(".")[0]
-          : "");
+          : "") ||
+      localTime;
 
     return {
       ...transfer,
@@ -1113,7 +1497,7 @@ const MoneyTransfer = () => {
     const errors = {};
 
     usableFields.forEach((field) => {
-      if (!field.reqd || !shouldShowField(field)) return;
+      if (field.fieldtype === "Section Break" || !field.reqd || !shouldShowField(field)) return;
 
       const value = form[field.fieldname];
       const isEmpty =
@@ -1144,9 +1528,31 @@ const MoneyTransfer = () => {
       form.enable_currency_denomination === "1" ||
       form.enable_currency_denomination === true;
 
-    if (denominationsEnabled && currencyDenominationRows.length === 0) {
-      errors.currency_denomination =
-        "Please enter at least one currency denomination row or disable denomination.";
+    if (denominationsEnabled) {
+      const targetAmount = parseFloat(form.amount || 0);
+      const totalCounted = denomStatusRef.current.total !== undefined
+        ? denomStatusRef.current.total
+        : currencyDenominationRows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+      const diff = totalCounted - targetAmount;
+
+      if (currencyDenominationRows.length === 0 && totalCounted === 0) {
+        const msg = "Please enter currency denomination counts or disable denomination.";
+        errors.currency_denomination = msg;
+        setDenomBalanceError(msg);
+      } else if (Math.abs(diff) >= 0.01) {
+        const label = diff > 0 ? "overage" : "shortfall";
+        const msg = `Currency Denomination has an ${label} of ${diff > 0 ? "+" : ""}${diff.toFixed(
+          2
+        )} (counted ${totalCounted.toFixed(2)}, expected ${targetAmount.toFixed(
+          2
+        )}). Denomination must be Balanced to proceed.`;
+        errors.currency_denomination = msg;
+        setDenomBalanceError(msg);
+      } else {
+        setDenomBalanceError("");
+      }
+    } else {
+      setDenomBalanceError("");
     }
 
     // Explicitly validate required amount
@@ -1332,28 +1738,33 @@ const MoneyTransfer = () => {
           </div>
         );
 
-      case "Select":
-        const options = field.options?.split("\n") || [];
+      case "Select": {
+        const options = field.options?.split("\n").map((opt) => opt.trim()).filter(Boolean) || [];
 
         return (
           <div key={field.fieldname}>
             {renderLabel(field)}
-            <select {...commonProps}>
-              <option value="">Select <>
-                {field.label}
-                {field.reqd ? (
-                  <span className="text-red-500 ml-1">*</span>
-                ) : null}
-              </></option>
-              {options.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                {...commonProps}
+                disabled={isFormLocked}
+                className={`${inputStyle} appearance-none pr-10`}
+              >
+                <option value="">Select {field.label || field.fieldname}</option>
+                {options.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
+                <ChevronDown size={16} />
+              </div>
+            </div>
             {renderFieldError(field.fieldname)}
           </div>
         );
+      }
 
       case "Attach":
         return (
@@ -1383,12 +1794,89 @@ const MoneyTransfer = () => {
         );
 
 
-      case "Section Break":
+      case "Small Text":
+      case "Text":
         return (
-          <div key={field.fieldname} className="col-span-2 mt-6">
-            <h3 className="text-lg font-bold text-gray-700">
-              {field.label}
-            </h3>
+          <div key={field.fieldname} className="col-span-2">
+            {renderLabel(field)}
+            <textarea
+              {...commonProps}
+              rows={2}
+              placeholder={`Enter ${field.label || field.fieldname}`}
+            />
+            {renderFieldError(field.fieldname)}
+          </div>
+        );
+
+      case "Link": {
+        if (
+          field.fieldname === "warehouse" ||
+          field.fieldname === "customer_id" ||
+          field.fieldname === "amended_from"
+        ) {
+          return null;
+        }
+
+        const doctype = field.options;
+        const rawOptions = (doctype && linkOptionsMap[doctype]) || [];
+        const isLoading =
+          (doctype && loadingLinkOptions[doctype]) ||
+          (doctype === "Country" && hookCountriesLoading && rawOptions.length === 0);
+
+        const currentValue = form[field.fieldname] || "";
+        const hasSelectedNotInList =
+          currentValue && !rawOptions.some((opt) => opt.value === currentValue);
+
+        return (
+          <div key={field.fieldname}>
+            {renderLabel(field)}
+            <div className="relative">
+              <select
+                {...commonProps}
+                disabled={isFormLocked || isLoading}
+                className={`${inputStyle} appearance-none pr-10`}
+                onFocus={() => {
+                  if (doctype && !linkOptionsMap[doctype] && !loadingLinkOptions[doctype]) {
+                    fetchLinkOptions(doctype);
+                  }
+                }}
+              >
+                <option value="">
+                  {isLoading
+                    ? `Loading ${field.label || doctype}...`
+                    : `Select ${field.label || doctype}`}
+                </option>
+                {hasSelectedNotInList && (
+                  <option value={currentValue}>{currentValue}</option>
+                )}
+                {rawOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
+                <ChevronDown size={16} />
+              </div>
+            </div>
+            {renderFieldError(field.fieldname)}
+          </div>
+        );
+      }
+
+      case "Section Break":
+        if (!field.label) return null;
+        if (field.fieldname === "cash_denomination_section" || field.fieldname === "customer_details_section") {
+          return null;
+        }
+        return (
+          <div key={field.fieldname} className="col-span-2 mt-4 pt-4 border-t border-gray-100">
+            <div className="flex items-center gap-2.5">
+              <span className="w-1.5 h-4 bg-[#E00000] rounded-full inline-block shrink-0" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-gray-700">
+                {field.label}
+              </h3>
+            </div>
           </div>
         );
 
@@ -1577,59 +2065,63 @@ const MoneyTransfer = () => {
                       </React.Fragment>
                     ))}
                   </div>
-                  {/* CURRENCY DENOMINATION PANEL */}
+                    {/* CURRENCY DENOMINATION PANEL */}
 
-                  {form.enable_currency_denomination === 1 ||
+                    {form.enable_currency_denomination === 1 ||
                     form.enable_currency_denomination === "1" ||
                     form.enable_currency_denomination === true ? (
-                    <div className="mt-8 col-span-2">
-                      <div className="mb-4">
-                        <h3 className="text-lg font-bold text-gray-700">
-                          Currency Denomination
-                        </h3>
+                      <div ref={denomErrorRef} className="mt-8 col-span-2">
+                        <div className="mb-4">
+                          <h3 className="text-lg font-bold text-gray-700">
+                            Currency Denomination
+                          </h3>
+                        </div>
+
+                        {baseDenomLoading ? (
+                          <div className="rounded-3xl border border-gray-200 bg-white p-8 text-center text-gray-500">
+                            Loading denomination panel...
+                          </div>
+                        ) : baseDenomError ? (
+                          <div className="rounded-3xl border border-red-200 bg-red-50 p-8 text-center text-red-600">
+                            {baseDenomError}
+                          </div>
+                        ) : baseCurrencyData ? (
+                          <DenominationPanel
+                            title="Local FJD Denomination"
+                            subtitle="Enter note counts for Fiji Dollars"
+                            flag={baseCurrencyData.flag}
+                            symbol={baseCurrencyData.symbol}
+                            currency={baseCurrencyData.currency}
+                            notes={baseCurrencyData.notes}
+                            coins={baseCurrencyData.coins}
+                            targetAmount={parseFloat(form.amount || 0)}
+                            onRowsChange={handleDenominationRowsChange}
+                            accentColor="#E00000"
+                          />
+                        ) : (
+                          <div className="rounded-3xl border border-gray-200 bg-white p-8 text-center text-gray-500">
+                            Fiji denomination data is not available.
+                          </div>
+                        )}
+
+                        {(fieldErrors.currency_denomination || denomBalanceError) ? (
+                          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-start gap-2.5">
+                            <span className="font-bold text-red-600 text-base leading-none">⚠</span>
+                            <div>
+                              <div className="font-semibold">Denomination Balance Error</div>
+                              <p className="mt-0.5">{fieldErrors.currency_denomination || denomBalanceError}</p>
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {stockError ? (
+                          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                            <div className="font-semibold">Stock validation issue</div>
+                            <p>{stockError}</p>
+                          </div>
+                        ) : null}
                       </div>
-
-                      {baseDenomLoading ? (
-                        <div className="rounded-3xl border border-gray-200 bg-white p-8 text-center text-gray-500">
-                          Loading denomination panel...
-                        </div>
-                      ) : baseDenomError ? (
-                        <div className="rounded-3xl border border-red-200 bg-red-50 p-8 text-center text-red-600">
-                          {baseDenomError}
-                        </div>
-                      ) : baseCurrencyData ? (
-                        <DenominationPanel
-                          title="Local FJD Denomination"
-                          subtitle="Enter note counts for Fiji Dollars"
-                          flag={baseCurrencyData.flag}
-                          symbol={baseCurrencyData.symbol}
-                          currency={baseCurrencyData.currency}
-                          notes={baseCurrencyData.notes}
-                          coins={baseCurrencyData.coins}
-                          targetAmount={parseFloat(form.amount || 0)}
-                          onRowsChange={handleDenominationRowsChange}
-                          accentColor="#E00000"
-                        />
-                      ) : (
-                        <div className="rounded-3xl border border-gray-200 bg-white p-8 text-center text-gray-500">
-                          Fiji denomination data is not available.
-                        </div>
-                      )}
-
-                      {fieldErrors.currency_denomination ? (
-                        <div className="mt-4 text-sm text-red-600">
-                          {fieldErrors.currency_denomination}
-                        </div>
-                      ) : null}
-
-                      {stockError ? (
-                        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                          <div className="font-semibold">Stock validation issue</div>
-                          <p>{stockError}</p>
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
+                    ) : null}
 
                   {/* BUTTON */}
                   <button

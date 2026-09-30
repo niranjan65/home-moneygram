@@ -57,21 +57,41 @@ const toWords = (num) => {
   return parts.join(' ') + ' Only';
 };
 
-// ─── Helpers for Clean Date & Time (Stripping Microseconds/Macroseconds) ─────
+// ─── Helpers for Clean Date & Time (General Date and Time Format) ─────────────
 const formatInvoiceDate = (rawDate) => {
   if (!rawDate || rawDate === '—') return '—';
   const str = String(rawDate).trim();
-  if (str.includes(' ') || str.includes('T')) {
-    return str.split(/[\sT]/)[0];
+  const datePart = (str.includes(' ') || str.includes('T')) ? str.split(/[\sT]/)[0] : str.split('.')[0];
+
+  // If already in DD/MM/YYYY or DD-MM-YYYY
+  if (/^\d{2}[\/\-]\d{2}[\/\-]\d{4}$/.test(datePart)) {
+    return datePart.replace(/-/g, '/');
   }
-  return str.split('.')[0];
+
+  // If YYYY-MM-DD or YYYY/MM/DD
+  const ymdMatch = datePart.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/);
+  if (ymdMatch) {
+    const [, year, month, day] = ymdMatch;
+    return `${day.padStart(2, '0')}/${month.padStart(2, '0')}/${year}`;
+  }
+
+  // Try parsing with Date
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) {
+    const d = String(parsed.getDate()).padStart(2, '0');
+    const m = String(parsed.getMonth() + 1).padStart(2, '0');
+    const y = parsed.getFullYear();
+    return `${d}/${m}/${y}`;
+  }
+
+  return datePart;
 };
 
 const formatInvoiceTime = (rawTime, fallbackDatetime) => {
   let timeStr = '';
-  if (rawTime && String(rawTime).trim() !== '') {
+  if (rawTime && String(rawTime).trim() !== '' && String(rawTime).trim() !== '—') {
     timeStr = String(rawTime).trim();
-  } else if (fallbackDatetime && String(fallbackDatetime).trim() !== '') {
+  } else if (fallbackDatetime && String(fallbackDatetime).trim() !== '' && String(fallbackDatetime).trim() !== '—') {
     const s = String(fallbackDatetime).trim();
     if (s.includes(' ')) {
       timeStr = s.split(' ')[1] || '';
@@ -80,8 +100,34 @@ const formatInvoiceTime = (rawTime, fallbackDatetime) => {
     }
   }
 
-  if (!timeStr) return '';
-  return timeStr.split('.')[0].replace(/[Zz]$/, '').trim();
+  if (!timeStr || timeStr === '—') return '';
+
+  // Strip microseconds and trailing Z
+  const clean = timeStr.split('.')[0].replace(/[Zz]$/, '').trim();
+
+  // If already formatted with AM/PM
+  if (/am|pm/i.test(clean)) {
+    return clean;
+  }
+
+  // Parse HH:mm:ss or HH:mm into general 12-hour format with AM/PM
+  const parts = clean.split(':');
+  if (parts.length >= 2) {
+    let hours = parseInt(parts[0], 10);
+    const minutes = parts[1].padStart(2, '0');
+    const seconds = parts[2] ? parts[2].padStart(2, '0') : '';
+    if (!isNaN(hours)) {
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      const formattedHours = String(hours).padStart(2, '0');
+      return seconds
+        ? `${formattedHours}:${minutes}:${seconds} ${ampm}`
+        : `${formattedHours}:${minutes} ${ampm}`;
+    }
+  }
+
+  return clean;
 };
 
 // ─── Printable Money Transfer Invoice / Receipt Layout ───────────────────────
@@ -102,11 +148,8 @@ export const MoneyTransferInvoiceDocument = ({ invoiceData }) => {
     d.customer_name ||
     d.full_name ||
     d.customerFullName ||
-    d.customer ||
-    d.customer_id ||
     '—';
 
-  const customerId = d.customer || d.customer_id || '';
   const dob = d.dob || d.custom_date_of_birth || '';
   const contactEmail = d.contact_email || d.email || '';
   const contactMobile = d.contact_mobile || d.phone || d.mobile || '';
@@ -207,17 +250,10 @@ export const MoneyTransferInvoiceDocument = ({ invoiceData }) => {
             <span className="text-slate-500">Name:</span>
             <span className="font-semibold text-slate-900">{customerName}</span>
 
-            {customerId && customerId !== '—' && (
-              <>
-                <span className="text-slate-500">Customer ID:</span>
-                <span className="font-semibold text-slate-900">{customerId}</span>
-              </>
-            )}
-
             {dob && (
               <>
                 <span className="text-slate-500">Date of Birth:</span>
-                <span className="font-semibold text-slate-900">{dob}</span>
+                <span className="font-semibold text-slate-900">{formatInvoiceDate(dob)}</span>
               </>
             )}
 

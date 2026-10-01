@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import Navbar from "../components/layout/Navbar";
 import axios from "axios";
 import { useUser } from "../context/UserContext";
@@ -465,17 +465,21 @@ function getDateBounds(preset, customFrom = "", customTo = "", selectedMonth = "
   }
 
   if (preset === "custom") {
+    const from = customFrom || (customTo ? "" : todayStr);
+    const to = customTo || (customFrom ? "" : todayStr);
     return {
-      fromDate: customFrom,
-      toDate: customTo,
+      fromDate: from,
+      toDate: to,
       label:
-        customFrom && customTo
-          ? `${customFrom} to ${customTo}`
-          : customFrom
-          ? `From ${customFrom}`
-          : customTo
-          ? `Up to ${customTo}`
-          : "Custom Date Range",
+        from && to
+          ? from === to
+            ? `Today (${from})`
+            : `${from} to ${to}`
+          : from
+          ? `From ${from}`
+          : to
+          ? `Up to ${to}`
+          : `Today (${todayStr})`,
     };
   }
 
@@ -960,11 +964,18 @@ function printMoneyTransferReceipt(transfer) {
 }
 
 // ── Searchable ERPNext Customer Link Filter ────────────────────────────────
-function CustomerLinkFilter({ customers, selectedCustomer, onSelect, loading }) {
+// ── Searchable Remote Autocomplete Customer Filter (Server-side Search) ───
+function CustomerLinkFilter({ selectedCustomer, onSelect, loginUser }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedObj, setSelectedObj] = useState(null);
   const ref = useRef(null);
+  const debounceRef = useRef(null);
+  const masterListRef = useRef([]);
 
+  // Close dropdown on outside click
   useEffect(() => {
     const handleOutside = (e) => {
       if (ref.current && !ref.current.contains(e.target)) {
@@ -975,18 +986,103 @@ function CustomerLinkFilter({ customers, selectedCustomer, onSelect, loading }) 
     return () => document.removeEventListener("mousedown", handleOutside);
   }, []);
 
-  const selectedObj = customers.find((c) => c.name === selectedCustomer);
-  const displayName = selectedObj ? (selectedObj.custom_full_name || selectedObj.customer_name) : "";
+  // Fetch customers from backend with limit (20) and search query
+  const searchCustomers = useCallback(
+    async (searchTerm = "") => {
+      if (!loginUser?.user) return;
+      setLoading(true);
+      try {
+        const res = await axios.get(
+          "/api/method/moneygram.moneygram.api.get_transactions.get_customers_list",
+          {
+            params: {
+              search: searchTerm.trim() || undefined,
+              limit: 20,
+              selected: selectedCustomer || undefined,
+            },
+            headers: {
+              Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
+            },
+          }
+        );
+        const list = res.data?.message ?? [];
+        if (Array.isArray(list)) {
+          // If backend returned all records, cache as master list for instant client filtering
+          if (!searchTerm && list.length > 20) {
+            masterListRef.current = list;
+          }
+          setCustomers(list);
+          if (selectedCustomer) {
+            const match =
+              list.find((c) => c.name === selectedCustomer) ||
+              masterListRef.current.find((c) => c.name === selectedCustomer);
+            if (match) setSelectedObj(match);
+          }
+        }
+      } catch (err) {
+        console.error("Error searching customers:", err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loginUser, selectedCustomer]
+  );
 
-  const filtered = customers.filter((c) => {
-    if (!query) return true;
-    const q = query.toLowerCase();
-    return (
-      c.name?.toLowerCase().includes(q) ||
-      c.customer_name?.toLowerCase().includes(q) ||
-      c.custom_full_name?.toLowerCase().includes(q)
-    );
-  }).slice(0, 60);
+  // Initial load
+  useEffect(() => {
+    searchCustomers("");
+  }, [searchCustomers]);
+
+  // Keep selectedObj in sync if selectedCustomer changes externally
+  useEffect(() => {
+    if (!selectedCustomer) {
+      setSelectedObj(null);
+    } else {
+      const match =
+        customers.find((c) => c.name === selectedCustomer) ||
+        masterListRef.current.find((c) => c.name === selectedCustomer);
+      if (match) {
+        setSelectedObj(match);
+      }
+    }
+  }, [selectedCustomer, customers]);
+
+  // Debounced search when user types in the search input
+  const handleQueryChange = (val) => {
+    setQuery(val);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      searchCustomers(val);
+    }, 300);
+  };
+
+  // Only display 10 to 20 customers at once, matching the search query
+  const visibleCustomers = useMemo(() => {
+    const q = (query || "").trim().toLowerCase();
+    const source = masterListRef.current.length > 0 ? masterListRef.current : customers;
+    let list = source;
+    if (q) {
+      list = source.filter((c) => {
+        const id = (c.name || "").toLowerCase();
+        const name = (c.customer_name || "").toLowerCase();
+        const fullName = (c.custom_full_name || "").toLowerCase();
+        return id.includes(q) || name.includes(q) || fullName.includes(q);
+      });
+      if (list.length === 0 && customers.length > 0) {
+        list = customers.filter((c) => {
+          const id = (c.name || "").toLowerCase();
+          const name = (c.customer_name || "").toLowerCase();
+          const fullName = (c.custom_full_name || "").toLowerCase();
+          return id.includes(q) || name.includes(q) || fullName.includes(q);
+        });
+      }
+    }
+    return list.slice(0, 20);
+  }, [customers, query]);
+
+  const displayName = selectedObj
+    ? selectedObj.custom_full_name || selectedObj.customer_name
+    : selectedCustomer;
 
   return (
     <div className="relative min-w-[240px] max-w-[320px] flex-1 sm:flex-initial" ref={ref}>
@@ -1000,7 +1096,9 @@ function CustomerLinkFilter({ customers, selectedCustomer, onSelect, loading }) 
           {selectedCustomer ? (
             <div className="truncate">
               <span className="font-semibold text-gray-800 text-xs">{displayName}</span>
-              <span className="text-[10px] text-gray-400 font-mono ml-1.5">({selectedObj?.name})</span>
+              {selectedObj?.name && (
+                <span className="text-[10px] text-gray-400 font-mono ml-1.5">({selectedObj.name})</span>
+              )}
             </div>
           ) : (
             <span className="text-gray-400 text-xs">All Customers (Filter…)</span>
@@ -1014,7 +1112,9 @@ function CustomerLinkFilter({ customers, selectedCustomer, onSelect, loading }) 
               onClick={(e) => {
                 e.stopPropagation();
                 onSelect("");
+                setSelectedObj(null);
                 setQuery("");
+                searchCustomers("");
               }}
               className="p-1 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
               title="Clear Customer Filter"
@@ -1034,12 +1134,18 @@ function CustomerLinkFilter({ customers, selectedCustomer, onSelect, loading }) 
               type="text"
               autoFocus
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => handleQueryChange(e.target.value)}
               placeholder="Search customer name or ID…"
               className="w-full bg-transparent text-xs text-gray-800 focus:outline-none placeholder-gray-400"
             />
             {query && (
-              <button onClick={() => setQuery("")} className="text-gray-400 hover:text-gray-600">
+              <button
+                onClick={() => {
+                  setQuery("");
+                  searchCustomers("");
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
                 <X size={12} />
               </button>
             )}
@@ -1049,8 +1155,10 @@ function CustomerLinkFilter({ customers, selectedCustomer, onSelect, loading }) 
             <div
               onClick={() => {
                 onSelect("");
+                setSelectedObj(null);
                 setOpen(false);
                 setQuery("");
+                searchCustomers("");
               }}
               className={`px-3 py-2 text-xs flex items-center justify-between cursor-pointer transition-colors
                 ${!selectedCustomer ? "bg-red-50 text-[#E00000] font-bold" : "hover:bg-gray-50 text-gray-700"}`}
@@ -1059,12 +1167,15 @@ function CustomerLinkFilter({ customers, selectedCustomer, onSelect, loading }) 
               {!selectedCustomer && <Check size={14} />}
             </div>
 
-            {loading ? (
-              <div className="px-3 py-4 text-center text-xs text-gray-400">Loading customers…</div>
-            ) : filtered.length === 0 ? (
-              <div className="px-3 py-4 text-center text-xs text-gray-400">No matching customers</div>
+            {loading && visibleCustomers.length === 0 ? (
+              <div className="px-3 py-4 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
+                <RefreshCw size={12} className="animate-spin text-gray-400" />
+                <span>Searching customers…</span>
+              </div>
+            ) : visibleCustomers.length === 0 ? (
+              <div className="px-3 py-4 text-center text-xs text-gray-400">No matching customers found</div>
             ) : (
-              filtered.map((c) => {
+              visibleCustomers.map((c) => {
                 const isSelected = selectedCustomer === c.name;
                 const name = c.custom_full_name || c.customer_name;
                 return (
@@ -1072,6 +1183,7 @@ function CustomerLinkFilter({ customers, selectedCustomer, onSelect, loading }) 
                     key={c.name}
                     onClick={() => {
                       onSelect(c.name);
+                      setSelectedObj(c);
                       setOpen(false);
                       setQuery("");
                     }}
@@ -1109,54 +1221,64 @@ function TransactionsTab({ warehouse, loginUser }) {
     "Money Transfer": 0,
   });
   const [search, setSearch] = useState("");
-  const [selectedType, setSelectedType] = useState("All"); // "All" | "Currency Exchange" | "Dealer Exchange" | "Money Transfer"
+  const [selectedType, setSelectedType] = useState("Currency Exchange"); // Default to Currency Exchange
   const [selectedStatus, setSelectedStatus] = useState("All"); // "All" | "Paid" | "Cancelled"
   const [selectedCustomer, setSelectedCustomer] = useState("");
-  const [selectedWarehouse, setSelectedWarehouse] = useState("All");
+  const isInitialLoad = useRef(true);
+
+  // Resolve active branch location from prop or localStorage
+  const getActiveLocationName = useCallback(() => {
+    if (warehouse?.warehouse) return warehouse.warehouse;
+    if (warehouse?.name) return warehouse.name;
+    if (typeof warehouse === "string" && warehouse) return warehouse;
+    try {
+      const stored = localStorage.getItem("selected_warehouse");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return parsed?.warehouse || parsed?.name || (typeof parsed === "string" ? parsed : "") || "";
+      }
+    } catch {
+      // fallback
+    }
+    return "";
+  }, [warehouse]);
+
+  const userManuallyChangedWarehouse = useRef(false);
+  const [selectedWarehouse, setSelectedWarehouse] = useState(() => {
+    return getActiveLocationName() || "All";
+  });
+
+  // Keep selectedWarehouse in sync with active location if user has not manually changed branch selection
+  useEffect(() => {
+    if (!userManuallyChangedWarehouse.current) {
+      const activeLoc = getActiveLocationName();
+      if (activeLoc) {
+        setSelectedWarehouse(activeLoc);
+      }
+    }
+  }, [warehouse, getActiveLocationName]);
+
   const [warehousesList, setWarehousesList] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [customersLoading, setCustomersLoading] = useState(false);
   const [cancellingRowId, setCancellingRowId] = useState(null);
   const [printingRowId, setPrintingRowId] = useState(null);
 
-  // Date Range Filters State
-  const [dateFilter, setDateFilter] = useState("all"); // "all" | "this_week" | "weekly" | "monthly" | "custom"
+  const getTodayStr = useCallback(() => {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }, []);
+
+  const [dateFilter, setDateFilter] = useState("all");
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     const pad = (n) => String(n).padStart(2, "0");
     return `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
   });
-  const [customFromDate, setCustomFromDate] = useState("");
-  const [customToDate, setCustomToDate] = useState("");
+  const [customFromDate, setCustomFromDate] = useState(getTodayStr);
+  const [customToDate, setCustomToDate] = useState(getTodayStr);
 
-  // Pagination State - 10 records per page by default
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-
-  // Load customer list for filter
-  const fetchCustomers = useCallback(async () => {
-    if (!loginUser?.user) return;
-    setCustomersLoading(true);
-    try {
-      const res = await axios.get(
-        "/api/method/moneygram.moneygram.api.get_transactions.get_customers_list",
-        {
-          headers: {
-            Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
-          },
-        }
-      );
-      setCustomers(res.data?.message ?? []);
-    } catch (err) {
-      console.error("Error fetching customers list:", err);
-    } finally {
-      setCustomersLoading(false);
-    }
-  }, [loginUser]);
-
-  useEffect(() => {
-    fetchCustomers();
-  }, [fetchCustomers]);
 
   // Load warehouses list
   useEffect(() => {
@@ -1204,7 +1326,14 @@ function TransactionsTab({ warehouse, loginUser }) {
         }
       );
       const msg = res.data?.message;
-      setRows(msg?.data ?? []);
+      const loadedRecords = msg?.data ?? [];
+      if (isInitialLoad.current) {
+        console.log("Initial Transaction Records loaded in Reports:", loadedRecords);
+        isInitialLoad.current = false;
+      } else {
+        console.log("Transaction Records loaded:", loadedRecords);
+      }
+      setRows(loadedRecords);
       setTotalRecords(msg?.total_count ?? 0);
       setTotalAmount(msg?.total_amount ?? 0);
       if (msg?.counts_by_type) {
@@ -1533,7 +1662,6 @@ function TransactionsTab({ warehouse, loginUser }) {
         {[
           { id: "all", label: "All Time" },
           { id: "this_week", label: "This Week" },
-          { id: "weekly", label: "Weekly (Last 7 Days)" },
           { id: "monthly", label: "Monthly" },
           { id: "custom", label: "Custom Range" },
         ].map((preset) => {
@@ -1541,7 +1669,14 @@ function TransactionsTab({ warehouse, loginUser }) {
           return (
             <button
               key={preset.id}
-              onClick={() => setDateFilter(preset.id)}
+              onClick={() => {
+                setDateFilter(preset.id);
+                if (preset.id === "custom" && (!customFromDate || !customToDate)) {
+                  const today = getTodayStr();
+                  setCustomFromDate(today);
+                  setCustomToDate(today);
+                }
+              }}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
                 active
                   ? "bg-[#E00000] text-white border-[#E00000] shadow-xs"
@@ -1598,11 +1733,12 @@ function TransactionsTab({ warehouse, loginUser }) {
             {(customFromDate || customToDate) && (
               <button
                 onClick={() => {
-                  setCustomFromDate("");
-                  setCustomToDate("");
+                  const today = getTodayStr();
+                  setCustomFromDate(today);
+                  setCustomToDate(today);
                 }}
                 className="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
-                title="Clear Dates"
+                title="Reset to Today"
               >
                 <X size={13} />
               </button>
@@ -1632,20 +1768,27 @@ function TransactionsTab({ warehouse, loginUser }) {
 
         {/* Customer Link Field Filter */}
         <CustomerLinkFilter
-          customers={customers}
           selectedCustomer={selectedCustomer}
           onSelect={setSelectedCustomer}
-          loading={customersLoading}
+          loginUser={loginUser}
         />
 
         {/* Branch Location Dropdown */}
         <select
           value={selectedWarehouse}
-          onChange={(e) => setSelectedWarehouse(e.target.value)}
+          onChange={(e) => {
+            userManuallyChangedWarehouse.current = true;
+            setSelectedWarehouse(e.target.value);
+          }}
           className="px-3 py-2 rounded-xl border border-gray-200 text-xs font-semibold bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#E00000]/30 cursor-pointer"
           title="Filter by Branch Location"
         >
           <option value="All">All Branch Locations</option>
+          {selectedWarehouse && selectedWarehouse !== "All" && !warehousesList.some((wh) => wh.name === selectedWarehouse) && (
+            <option value={selectedWarehouse}>
+              {selectedWarehouse}
+            </option>
+          )}
           {warehousesList.map((wh) => (
             <option key={wh.name} value={wh.name}>
               {wh.name || wh.warehouse_name}
@@ -2199,9 +2342,35 @@ function QtyBadge({ qty }) {
   return <span className="inline-block text-xs font-bold px-3 py-1 rounded-full tabular-nums bg-green-50 text-green-700 border border-green-200">{qty.toLocaleString()}</span>;
 }
 
-function totalQty(items) { return items?.reduce((s, i) => s + i.stock_qty, 0); }
-function inStockQty(items) { return items?.filter(i => i.stock_qty > 0).reduce((s, i) => s + i.stock_qty, 0); }
-function totalValue(items) { return items?.reduce((sum, i) => sum + (i.stock_value || 0), 0); }
+function totalQty(items) { return items?.reduce((s, i) => s + (parseFloat(i.stock_qty) || 0), 0); }
+function inStockQty(items) { return items?.filter(i => (parseFloat(i.stock_qty) || 0) > 0).reduce((s, i) => s + (parseFloat(i.stock_qty) || 0), 0); }
+function totalValue(items) { return items?.reduce((sum, i) => sum + (parseFloat(i.stock_value) || 0), 0); }
+
+const parseDenominationValue = (item) => {
+  if (item.custom_attribute_value != null && item.custom_attribute_value !== "" && !isNaN(Number(item.custom_attribute_value))) {
+    return Number(item.custom_attribute_value);
+  }
+  const str = String(item.item_name || item.item_code || "").trim();
+  if (str.endsWith("c") || str.endsWith("C")) {
+    const num = parseFloat(str);
+    return isNaN(num) ? 0 : num / 100;
+  }
+  const match = str.match(/[\d.]+/);
+  return match ? parseFloat(match[0]) : 0;
+};
+
+const getRowCurrencyValue = (item) => {
+  if (item.total_currency_value != null && item.total_currency_value !== "" && !isNaN(Number(item.total_currency_value))) {
+    return Number(item.total_currency_value);
+  }
+  const attr = parseDenominationValue(item);
+  const qty = parseFloat(item.stock_qty) || 0;
+  return attr * qty;
+};
+
+function totalCurrencyValue(items) {
+  return items?.reduce((sum, i) => sum + (getRowCurrencyValue(i) || 0), 0);
+}
 
 function StockTab({ warehouse, loginUser }) {
   const [data, setData] = useState({});
@@ -2233,11 +2402,14 @@ function StockTab({ warehouse, loginUser }) {
     if (countries.length > 0 && !active) setActive(countries[0]);
   }, [data]);
 
+  const currCode = CURRENCY_CODE[active] || active || "Currency";
+  const isFiji = active === "Fiji" || currCode === "FJD";
   const items = data[active];
   const total = totalQty(items);
   const positive = inStockQty(items);
-  const inStockCount = items?.filter(i => i.stock_qty > 0).length ?? 0;
+  const inStockCount = items?.filter(i => (parseFloat(i.stock_qty) || 0) > 0).length ?? 0;
   const totalValueAmt = totalValue(items);
+  const totalCurrValueAmt = totalCurrencyValue(items);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -2258,8 +2430,14 @@ function StockTab({ warehouse, loginUser }) {
     { label: "Item Code", key: "item_code" },
     { label: "Denomination", key: "item_name" },
     { label: "Branch Location", key: "warehouse" },
-    { label: "Rate", key: "valuation_rate", align: "right" },
-    { label: "Item Value", key: "stock_value", align: "right" },
+    { label: "Rate (FJD)", key: "valuation_rate", align: "right" },
+    ...(!isFiji
+      ? [{ label: currCode, accessor: (r) => ((parseFloat(r.stock_qty) || 0) > 0 ? parseDenominationValue(r) : 0), align: "right" }]
+      : []),
+    { label: "Item Value (FJD)", key: "stock_value", align: "right" },
+    ...(!isFiji
+      ? [{ label: `${currCode} Value`, accessor: (r) => getRowCurrencyValue(r), align: "right" }]
+      : []),
     { label: "Stock Qty", key: "stock_qty", align: "right" },
   ];
 
@@ -2285,10 +2463,13 @@ function StockTab({ warehouse, loginUser }) {
   const handleExportPDF = () => {
     if (!rawItems || rawItems.length === 0) return;
     const metadata = {
-      Currency: `${active} (${CURRENCY_CODE[active] || ""})`,
+      Currency: `${active} (${currCode})`,
       "Branch Location": warehouse?.warehouse || "All Branches",
       "Total Quantity": total?.toLocaleString(),
-      "Total Value": totalValueAmt?.toLocaleString(),
+      "Total Value (FJD)": totalValueAmt?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      ...(!isFiji
+        ? { [`Total ${currCode}`]: totalCurrValueAmt?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }
+        : {}),
     };
     exportToPDF(`Currency Stock Report - ${active}`, stockHeaders, rawItems, metadata);
   };
@@ -2347,9 +2528,14 @@ function StockTab({ warehouse, loginUser }) {
         <>
           {/* Stat cards */}
           <div className="flex flex-wrap gap-3">
-            <StatCard label="Total Qty" value={total?.toLocaleString()} sub={`${CURRENCY_CODE[active]} · all denominations`} type="default" />
+            <StatCard label="Total Qty" value={total?.toLocaleString()} sub={`${currCode} · all denominations`} type="default" />
             <StatCard label="In Stock" value={positive?.toLocaleString()} sub={`${inStockCount} denomination${inStockCount !== 1 ? "s" : ""}`} type="green" />
-            <StatCard label="Total Value" value={totalValueAmt?.toLocaleString()} sub={`${CURRENCY_CODE[active]} · total worth`} type="default" />
+            <StatCard
+              label="Total Value"
+              value={totalValueAmt?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              sub={isFiji ? "FJD · total worth" : `FJD · ${currCode}: ${totalCurrValueAmt?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              type="default"
+            />
           </div>
 
           <div className="border-t border-gray-100" />
@@ -2370,34 +2556,61 @@ function StockTab({ warehouse, loginUser }) {
 
           {/* Table */}
           <div className="rounded-2xl border border-gray-200 overflow-x-auto bg-white shadow-xs">
-            <table className="w-full text-sm border-collapse min-w-[700px]">
+            <table className="w-full text-sm border-collapse min-w-[780px]">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  {["#", "Item Code", "Denomination", "Branch Location", "Rate", "Item Value", "Stock Qty"].map((h) => (
-                    <th key={h} className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">{h}</th>
-                  ))}
+                  <th className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">#</th>
+                  <th className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">Item Code</th>
+                  <th className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">Denomination</th>
+                  <th className="px-5 py-3 text-left text-[11px] font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">Branch Location</th>
+                  <th className="px-5 py-3 text-right text-[11px] font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">Rate (FJD)</th>
+                  {!isFiji && (
+                    <th className="px-5 py-3 text-right text-[11px] font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">{currCode}</th>
+                  )}
+                  <th className="px-5 py-3 text-right text-[11px] font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">Item Value (FJD)</th>
+                  {!isFiji && (
+                    <th className="px-5 py-3 text-right text-[11px] font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">{currCode} Value</th>
+                  )}
+                  <th className="px-5 py-3 text-right text-[11px] font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap">Stock Qty</th>
                 </tr>
               </thead>
               <tbody>
-                {paginatedItems.map((row, idx) => (
-                  <tr key={row.item_code} className={`border-b border-gray-100 transition-colors hover:bg-gray-50 ${idx % 2 === 1 ? "bg-gray-50/40" : "bg-white"}`}>
-                    <td className="px-5 py-3.5 text-xs text-gray-400 tabular-nums">{startIndex + idx + 1}</td>
-                    <td className="px-5 py-3.5">
-                      <span className="inline-block border border-gray-200 rounded-xl px-3 py-1.5 text-xs font-medium tracking-wide text-gray-700 bg-gray-50 font-mono">{row.item_code}</span>
-                    </td>
-                    <td className="px-5 py-3.5 font-bold text-gray-800">{row.item_name}</td>
-                    <td className="px-5 py-3.5 text-xs text-gray-400">{row.warehouse}</td>
-                    <td className="px-5 py-3.5 text-right"><QtyBadge qty={row.valuation_rate} /></td>
-                    <td className="px-5 py-3.5 text-right"><QtyBadge qty={row.stock_value} /></td>
-                    <td className="px-5 py-3.5 text-right"><QtyBadge qty={row.stock_qty} /></td>
-                  </tr>
-                ))}
+                {paginatedItems.map((row, idx) => {
+                  const qty = parseFloat(row.stock_qty) || 0;
+                  const attrVal = qty > 0 ? parseDenominationValue(row) : 0;
+                  const currVal = getRowCurrencyValue(row);
+                  return (
+                    <tr key={row.item_code} className={`border-b border-gray-100 transition-colors hover:bg-gray-50 ${idx % 2 === 1 ? "bg-gray-50/40" : "bg-white"}`}>
+                      <td className="px-5 py-3.5 text-xs text-gray-400 tabular-nums">{startIndex + idx + 1}</td>
+                      <td className="px-5 py-3.5">
+                        <span className="inline-block border border-gray-200 rounded-xl px-3 py-1.5 text-xs font-medium tracking-wide text-gray-700 bg-gray-50 font-mono">{row.item_code}</span>
+                      </td>
+                      <td className="px-5 py-3.5 font-bold text-gray-800">{row.item_name}</td>
+                      <td className="px-5 py-3.5 text-xs text-gray-400">{row.warehouse}</td>
+                      <td className="px-5 py-3.5 text-right"><QtyBadge qty={row.valuation_rate} /></td>
+                      {!isFiji && (
+                        <td className="px-5 py-3.5 text-right"><QtyBadge qty={attrVal} /></td>
+                      )}
+                      <td className="px-5 py-3.5 text-right"><QtyBadge qty={row.stock_value} /></td>
+                      {!isFiji && (
+                        <td className="px-5 py-3.5 text-right"><QtyBadge qty={currVal} /></td>
+                      )}
+                      <td className="px-5 py-3.5 text-right"><QtyBadge qty={row.stock_qty} /></td>
+                    </tr>
+                  );
+                })}
               </tbody>
               <tfoot>
                 <tr className="bg-gray-50 border-t-2 border-[#E00000]/15">
                   <td colSpan={4} className="px-5 py-3 text-xs font-black uppercase tracking-widest text-[#E00000]">Total ({rawItems.length} items)</td>
-                  <td className="px-5 py-3 text-right font-black text-gray-900 tabular-nums">{total?.toLocaleString()}</td>
-                  <td className="px-5 py-3 text-right font-black text-gray-900 tabular-nums">{totalValueAmt?.toLocaleString()}</td>
+                  <td className="px-5 py-3 text-right text-xs text-gray-400 font-semibold">—</td>
+                  {!isFiji && (
+                    <td className="px-5 py-3 text-right text-xs text-gray-400 font-semibold">—</td>
+                  )}
+                  <td className="px-5 py-3 text-right font-black text-gray-900 tabular-nums">{totalValueAmt?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  {!isFiji && (
+                    <td className="px-5 py-3 text-right font-black text-[#E00000] tabular-nums">{totalCurrValueAmt?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  )}
                   <td className="px-5 py-3 text-right font-black text-gray-900 tabular-nums">{total?.toLocaleString()}</td>
                 </tr>
               </tfoot>

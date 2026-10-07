@@ -58,51 +58,74 @@ function QtyBadge({ qty }) {
 
 // ── Main ──────────────────────────────────────────────────────────────────
 export default function Stocks() {
-  
-  const [data, setData] = useState({})
+  const [data, setData] = useState({});
   const { selectedWarehouse } = useSettings();
-
-  console.log("Selected warehouse", selectedWarehouse?.warehouse)
-  const countries = Object.keys(data).filter(
-  (country) => data[country]?.length > 0
-);
-  const [active, setActive] = useState(countries[0]);
   const loginUser = useUser();
-  const currencyStock = async () => {
-    try {
+  const [vaultInfo, setVaultInfo] = useState(null);
+  const [locationMode, setLocationMode] = useState("counter"); // "counter" | "vault"
 
+  const activeBranch = selectedWarehouse?.warehouse;
+
+  useEffect(() => {
+    if (!activeBranch || !loginUser?.user?.api_key) return;
+    axios
+      .get("/api/method/moneygram.moneygram.api.vault_transfer.get_vault_info", {
+        params: { warehouse: activeBranch },
+        headers: {
+          Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
+        },
+      })
+      .then((res) => {
+        if (res.data?.message) {
+          setVaultInfo(res.data.message);
+        }
+      })
+      .catch((err) => console.error("Error loading vault info in stocks:", err));
+  }, [activeBranch, loginUser?.user?.api_key, loginUser?.user?.api_secret]);
+
+  const queryWarehouse =
+    locationMode === "vault"
+      ? vaultInfo?.vault_warehouse || activeBranch
+      : vaultInfo?.branch_warehouse || activeBranch;
+
+  const countries = Object.keys(data).filter(
+    (country) => data[country]?.length > 0
+  );
+  const [active, setActive] = useState(countries[0]);
+
+  const currencyStock = async () => {
+    if (!queryWarehouse || !loginUser?.user?.api_key) return;
+    try {
       const options = {
-        method: 'POST',
-        url: '/api/method/moneygram.moneygram.api.get_denomination.get_all_countries_stock',
+        method: "POST",
+        url: "/api/method/moneygram.moneygram.api.get_denomination.get_all_countries_stock",
         headers: {
           "Content-Type": "application/json",
           Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
         },
-        data: { warehouse: selectedWarehouse?.warehouse }
+        data: { warehouse: queryWarehouse },
       };
 
-      axios
-        .request(options)
-        .then(res => setData(res.data.message))
-        .catch(err => console.error(err));
+      const res = await axios.request(options);
+      setData(res.data?.message || {});
     } catch (error) {
-
+      console.error(error);
     }
-  }
+  };
 
   function totalValue(items) {
-  return items?.reduce((sum, i) => sum + (i.stock_value || 0), 0);
-}
-
-  useEffect(() => {
-  if (countries.length > 0 && !active) {
-    setActive(countries[0]);
+    return items?.reduce((sum, i) => sum + (i.stock_value || 0), 0);
   }
-}, [data]);
 
   useEffect(() => {
-    currencyStock()
-  }, [selectedWarehouse])
+    if (countries.length > 0 && !active) {
+      setActive(countries[0]);
+    }
+  }, [data]);
+
+  useEffect(() => {
+    currencyStock();
+  }, [queryWarehouse, loginUser]);
   
 
   const items        = data[active];
@@ -122,6 +145,54 @@ export default function Stocks() {
 
         {/* ── Main white card — matches SettingsPanel ───────────────── */}
         <div className="bg-white rounded-3xl border border-gray-100 shadow-xl p-6 md:p-8 flex flex-col gap-7">
+
+          {/* Location View Switcher */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-gray-50 border border-gray-200">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-black uppercase tracking-wider text-gray-400">Stock Location:</span>
+              <div className="inline-flex p-1 rounded-xl bg-white border border-gray-200 shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => setLocationMode("counter")}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    locationMode === "counter"
+                      ? "bg-gray-900 text-white shadow-xs font-black"
+                      : "text-gray-500 hover:text-gray-800"
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-[#E00000]" />
+                  <span>Cash Counter</span>
+                  <span className="text-[10px] opacity-75 font-normal">
+                    ({vaultInfo?.branch_warehouse || activeBranch})
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setLocationMode("vault")}
+                  disabled={!vaultInfo?.vault_warehouse}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    locationMode === "vault"
+                      ? "bg-gray-900 text-white shadow-xs font-black"
+                      : "text-gray-500 hover:text-gray-800"
+                  } disabled:opacity-40 disabled:cursor-not-allowed`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                  <span>Vault</span>
+                  <span className="text-[10px] opacity-75 font-normal">
+                    ({vaultInfo?.vault_warehouse || "No Vault"})
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <div className="text-xs text-gray-500 flex items-center gap-1.5">
+              <span>Viewing:</span>
+              <strong className="text-gray-900 font-bold bg-white px-2.5 py-1 rounded-md border border-gray-200">
+                {queryWarehouse}
+              </strong>
+            </div>
+          </div>
 
           {/* Section label */}
           <p className="text-xs font-bold tracking-widest uppercase text-[#E00000]">Select Currency</p>

@@ -2375,11 +2375,38 @@ function totalCurrencyValue(items) {
 function StockTab({ warehouse, loginUser }) {
   const [data, setData] = useState({});
   const [active, setActive] = useState(null);
+  const [vaultInfo, setVaultInfo] = useState(null);
+  const [locationMode, setLocationMode] = useState("counter"); // "counter" | "vault"
+
+  const activeBranch = warehouse?.warehouse || (typeof warehouse === "string" ? warehouse : "");
+
+  // Load linked vault info for the active warehouse
+  useEffect(() => {
+    if (!activeBranch || !loginUser?.user?.api_key) return;
+    axios
+      .get("/api/method/moneygram.moneygram.api.vault_transfer.get_vault_info", {
+        params: { warehouse: activeBranch },
+        headers: {
+          Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
+        },
+      })
+      .then((res) => {
+        if (res.data?.message) {
+          setVaultInfo(res.data.message);
+        }
+      })
+      .catch((err) => console.error("Error loading vault info in reports:", err));
+  }, [activeBranch, loginUser?.user?.api_key, loginUser?.user?.api_secret]);
+
+  const queryWarehouse =
+    locationMode === "vault"
+      ? vaultInfo?.vault_warehouse || activeBranch
+      : vaultInfo?.branch_warehouse || activeBranch;
 
   const countries = Object.keys(data).filter((c) => data[c]?.length > 0);
 
   const fetchStock = useCallback(async () => {
-    if (!loginUser?.user || !warehouse) return;
+    if (!loginUser?.user || !queryWarehouse) return;
     try {
       const res = await axios.request({
         method: "POST",
@@ -2388,15 +2415,17 @@ function StockTab({ warehouse, loginUser }) {
           "Content-Type": "application/json",
           Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
         },
-        data: { warehouse: warehouse?.warehouse },
+        data: { warehouse: queryWarehouse },
       });
       setData(res.data.message ?? {});
     } catch (err) {
       console.error(err);
     }
-  }, [warehouse, loginUser]);
+  }, [queryWarehouse, loginUser]);
 
-  useEffect(() => { fetchStock(); }, [fetchStock]);
+  useEffect(() => {
+    fetchStock();
+  }, [fetchStock]);
 
   useEffect(() => {
     if (countries.length > 0 && !active) setActive(countries[0]);
@@ -2464,7 +2493,8 @@ function StockTab({ warehouse, loginUser }) {
     if (!rawItems || rawItems.length === 0) return;
     const metadata = {
       Currency: `${active} (${currCode})`,
-      "Branch Location": warehouse?.warehouse || "All Branches",
+      "Branch Location": queryWarehouse || "All Branches",
+      "Stock View": locationMode === "vault" ? "Vault" : "Cash Counter",
       "Total Quantity": total?.toLocaleString(),
       "Total Value (FJD)": totalValueAmt?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
       ...(!isFiji
@@ -2476,6 +2506,54 @@ function StockTab({ warehouse, loginUser }) {
 
   return (
     <div className="flex flex-col gap-5">
+      {/* ── Vault vs Cash Counter Switcher ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-white border border-gray-200 shadow-xs">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-black uppercase tracking-wider text-gray-400">Stock Location:</span>
+          <div className="inline-flex p-1 rounded-xl bg-gray-100 border border-gray-200">
+            <button
+              type="button"
+              onClick={() => setLocationMode("counter")}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                locationMode === "counter"
+                  ? "bg-white text-gray-900 shadow-xs font-black"
+                  : "text-gray-500 hover:text-gray-800"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-[#E00000]" />
+              <span>Cash Counter</span>
+              <span className="text-[10px] text-gray-400 font-normal">
+                ({vaultInfo?.branch_warehouse || activeBranch})
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setLocationMode("vault")}
+              disabled={!vaultInfo?.vault_warehouse}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                locationMode === "vault"
+                  ? "bg-white text-gray-900 shadow-xs font-black"
+                  : "text-gray-500 hover:text-gray-800"
+              } disabled:opacity-40 disabled:cursor-not-allowed`}
+            >
+              <span className="w-2 h-2 rounded-full bg-amber-500" />
+              <span>Vault</span>
+              <span className="text-[10px] text-gray-400 font-normal">
+                ({vaultInfo?.vault_warehouse || "No Vault"})
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div className="text-xs text-gray-500 flex items-center gap-1.5">
+          <span>Viewing Stock For:</span>
+          <strong className="text-gray-900 font-bold bg-gray-50 px-2.5 py-1 rounded-md border border-gray-200">
+            {queryWarehouse}
+          </strong>
+        </div>
+      </div>
+
       {/* Currency tabs */}
       <div className="flex flex-wrap gap-2">
         {countries.map((c) => {

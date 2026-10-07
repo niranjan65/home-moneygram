@@ -171,6 +171,7 @@ export default function Navbar() {
     { label: "Money Transfer", href: "/money-transfer" },
     { label: "Currency Exchange", href: "/exchange" },
     { label: "Dealer Exchange", href: "/dealer-exchange" },
+    { label: "Vault Transfer", href: "/vault-transfer" },
     // { label: "Stocks", href: "/stocks" },
     { label: "Report", href: "/report" },
     { label: "Settings", href: "/settings" },

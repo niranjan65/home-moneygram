@@ -15,6 +15,7 @@ import CurrencyBalanceReport from "./components/CurrencyBalanceReport";
 import Stocks from "./pages/Stocks";
 import DealerExchange from "./pages/DealerExchange";
 import Reports from "./pages/Reports";
+import VaultTransfer from "./pages/VaultTransfer";
 
 function App() {
 
@@ -93,6 +94,15 @@ function App() {
           element={
             <ProtectedRoute>
               <DealerExchange />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/vault-transfer"
+          element={
+            <ProtectedRoute>
+              <VaultTransfer />
             </ProtectedRoute>
           }
         />

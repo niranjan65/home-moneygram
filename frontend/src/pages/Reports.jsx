@@ -2655,8 +2655,11 @@ function StockTab({ warehouse, loginUser }) {
               <tbody>
                 {paginatedItems.map((row, idx) => {
                   const qty = parseFloat(row.stock_qty) || 0;
-                  const attrVal = qty > 0 ? parseDenominationValue(row) : 0;
-                  const currVal = getRowCurrencyValue(row);
+                  const isVault = locationMode === "vault";
+                  const valRate = (isVault && qty <= 0) ? 0 : (row.valuation_rate || 0);
+                  const attrVal = (!isVault || qty > 0) ? (qty > 0 ? parseDenominationValue(row) : 0) : 0;
+                  const currVal = (isVault && qty <= 0) ? 0 : getRowCurrencyValue(row);
+                  const stVal = (isVault && qty <= 0) ? 0 : (row.stock_value || 0);
                   return (
                     <tr key={row.item_code} className={`border-b border-gray-100 transition-colors hover:bg-gray-50 ${idx % 2 === 1 ? "bg-gray-50/40" : "bg-white"}`}>
                       <td className="px-5 py-3.5 text-xs text-gray-400 tabular-nums">{startIndex + idx + 1}</td>
@@ -2665,11 +2668,11 @@ function StockTab({ warehouse, loginUser }) {
                       </td>
                       <td className="px-5 py-3.5 font-bold text-gray-800">{row.item_name}</td>
                       <td className="px-5 py-3.5 text-xs text-gray-400">{row.warehouse}</td>
-                      <td className="px-5 py-3.5 text-right"><QtyBadge qty={row.valuation_rate} /></td>
+                      <td className="px-5 py-3.5 text-right"><QtyBadge qty={valRate} /></td>
                       {!isFiji && (
                         <td className="px-5 py-3.5 text-right"><QtyBadge qty={attrVal} /></td>
                       )}
-                      <td className="px-5 py-3.5 text-right"><QtyBadge qty={row.stock_value} /></td>
+                      <td className="px-5 py-3.5 text-right"><QtyBadge qty={stVal} /></td>
                       {!isFiji && (
                         <td className="px-5 py-3.5 text-right"><QtyBadge qty={currVal} /></td>
                       )}

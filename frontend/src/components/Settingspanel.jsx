@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSettings } from "../context/SettingsContext";
+import { useUser } from "../context/UserContext";
 import Navbar from "./layout/Navbar";
 import Footer from "./layout/Footer";
 
@@ -34,9 +35,36 @@ function EditInput({ value, onChange, placeholder }) {
 
 export default function SettingsPanel() {
   const { user, updateUser, selectedWarehouse, setSelectedWarehouse, warehouses } = useSettings();
+  const loginUser = useUser();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState({ name: user.name, phone: user.phone });
   const [saved, setSaved] = useState(false);
+  const [vaultWarehouse, setVaultWarehouse] = useState(null);
+  const [vaultLoading, setVaultLoading] = useState(false);
+
+  useEffect(() => {
+    if (!selectedWarehouse?.warehouse) {
+      setVaultWarehouse(null);
+      return;
+    }
+    setVaultLoading(true);
+    fetch(
+      `/api/method/moneygram.moneygram.api.vault_transfer.get_vault_info?warehouse=${encodeURIComponent(
+        selectedWarehouse.warehouse
+      )}`,
+      {
+        headers: {
+          Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
+        },
+      }
+    )
+      .then((res) => res.json())
+      .then((data) => {
+        setVaultWarehouse(data?.message?.vault_warehouse || "No Vault Configured");
+      })
+      .catch(() => setVaultWarehouse("No Vault Configured"))
+      .finally(() => setVaultLoading(false));
+  }, [selectedWarehouse?.warehouse, loginUser?.user?.api_key, loginUser?.user?.api_secret]);
 
   const handleSave = () => {
     updateUser(draft);
@@ -122,31 +150,49 @@ export default function SettingsPanel() {
 
           <div className="border-t border-gray-100 my-8" />
 
-          {/* warehouse */}
+          {/* warehouse & vault */}
           <div>
-            <p className="text-xs font-bold tracking-widest uppercase text-[#E00000] mb-5">Location</p>
-            <Field label="Active Location">
-              <div className="relative">
-                <select
-                  value={selectedWarehouse?.warehouse}
-                  onChange={(e) => setSelectedWarehouse(warehouses.find((w) => w.warehouse === e.target.value))}
-                  className="w-full appearance-none border border-gray-300 rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[#E00000] bg-gray-50 text-gray-900 transition cursor-pointer"
-                >
-                  {warehouses?.map((wh) => (
-                    <option key={wh.name} value={wh.warehouse} className="bg-white text-gray-900">{wh.warehouse}</option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-                  </svg>
+            <p className="text-xs font-bold tracking-widest uppercase text-[#E00000] mb-5">Branch &amp; Vault Location</p>
+            <div className="space-y-4">
+              <Field label="Active Branch Location (Cash Counter)">
+                <div className="relative">
+                  <select
+                    value={selectedWarehouse?.warehouse}
+                    onChange={(e) => setSelectedWarehouse(warehouses.find((w) => w.warehouse === e.target.value))}
+                    className="w-full appearance-none border border-gray-300 rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[#E00000] bg-gray-50 text-gray-900 transition cursor-pointer font-semibold"
+                  >
+                    {warehouses?.map((wh) => (
+                      <option key={wh.name} value={wh.warehouse} className="bg-white text-gray-900">
+                        {wh.warehouse}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
                 </div>
-              </div>
-            </Field>
-            <div className="mt-4">
-              <span className="inline-flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-600">
+              </Field>
+
+              <Field label="Linked Vault Warehouse">
+                <div className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 bg-gray-50 font-bold flex items-center justify-between">
+                  <span>{vaultLoading ? "Locating Vault..." : (vaultWarehouse || "No Vault Configured")}</span>
+                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                    Secure Vault
+                  </span>
+                </div>
+              </Field>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-2.5">
+              <span className="inline-flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-xs text-gray-600">
                 <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                Currently active:&nbsp;<span className="font-bold text-gray-900">{selectedWarehouse?.warehouse}</span>
+                Active Counter:&nbsp;<span className="font-bold text-gray-900">{selectedWarehouse?.warehouse}</span>
+              </span>
+              <span className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-2 text-xs text-amber-800">
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                Linked Vault:&nbsp;<span className="font-bold text-gray-900">{vaultWarehouse || "—"}</span>
               </span>
             </div>
           </div>

@@ -80,7 +80,15 @@ export const GovernmentIdSection = ({ exchangeType, isCreditExceeded, forexAmoun
     }
   }, [showTaxClearance, setValue, clearErrors]);
 
-  register('docFile');
+  register('docFile', {
+    required: governmentId === 'Passport' ? 'Passport photo / scan is required' : 'Government ID photo / scan is required',
+    validate: (v) => {
+      if (!v) {
+        return governmentId === 'Passport' ? 'Passport photo / scan is required' : 'Government ID photo / scan is required';
+      }
+      return true;
+    }
+  });
   register('taxClearanceFile', {
     validate: (v) => {
       if (showTaxClearance && !v) {
@@ -341,7 +349,7 @@ export const GovernmentIdSection = ({ exchangeType, isCreditExceeded, forexAmoun
         </div>
 
         <div id="field-docFile">
-          <FieldLabel icon={Upload}>
+          <FieldLabel required icon={Upload}>
             {governmentId === 'Passport' ? 'Passport Photo / Scan' : 'Government ID Photo / Scan'}
           </FieldLabel>
           <div className="mt-1">

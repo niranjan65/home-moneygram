@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
-import { User, Calendar, FileText, ChevronDown } from 'lucide-react';
+import { User, Calendar, FileText, ChevronDown, Upload, CheckCircle2, X } from 'lucide-react';
 import { FieldLabel, fieldCls, ErrorMsg } from '../ui/FormUtilities';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -9,14 +9,30 @@ import { useAppConfiguration } from '../../../../hooks/useAppConfiguration';
 
 export const DealerPersonalInfoSection = () => {
   const { register, watch, setValue, formState: { errors } } = useFormContext();
-  const { fetchAndFillCustomer, loading } = useCustomer();
+  const { previewUrl, previewFile, fetchAndFillCustomer, removeFile, handleFile } = useCustomer();
   const { potOptions, loading: potLoading, error: potError } = useAppConfiguration();
+  const [dragOver, setDragOver] = useState(false);
 
   // Watch for changes in separate name fields to auto-populate Full Name if desired
   const firstName = watch('firstName');
   const middleName = watch('middleName');
   const lastName = watch('lastName');
 
+  register('docFile', {
+    required: 'Passport photo / scan is required',
+    validate: (v) => {
+      if (!v) return 'Passport photo / scan is required';
+      return true;
+    },
+  });
+
+  const onDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFile(e.dataTransfer.files[0]);
+    }
+  };
 
   const triggerFetchIfReady = (name, dob) => {
     if (!name || !dob) return;
@@ -135,7 +151,7 @@ export const DealerPersonalInfoSection = () => {
           <ErrorMsg message={errors.dateOfBirth?.message} />
         </div>
 
-        <div id="field-oetCode" className="md:col-span-2">
+        <div id="field-oetCode">
           <FieldLabel required icon={FileText}>OET Code</FieldLabel>
           {potError ? (
             <p className="text-[#E00000] text-sm font-medium mt-1">Failed to load OET codes</p>
@@ -161,7 +177,69 @@ export const DealerPersonalInfoSection = () => {
           <ErrorMsg message={errors.oet_code?.message} />
         </div>
 
+        {/* Mandatory Passport Photo / Scan Field */}
+        <div id="field-docFile" className="md:col-span-2">
+          <FieldLabel required icon={Upload}>
+            Passport Photo / Scan
+          </FieldLabel>
+          <div className="mt-1">
+            {previewUrl ? (
+              <div className={`rounded-lg border overflow-hidden ${errors.docFile ? 'border-[#E00000]/30' : 'border-gray-200'}`}>
+                {previewFile?.type === 'application/pdf' ? (
+                  <div className="flex items-center gap-3 px-4 py-3 bg-white">
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#E00000]/5">
+                      <FileText size={16} className="text-[#E00000]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-800 text-sm truncate">{previewFile.name}</p>
+                      <p className="text-xs text-gray-400">{(previewFile.size / 1024).toFixed(1)} KB · PDF</p>
+                    </div>
+                    <button type="button" onClick={removeFile}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#E00000] hover:bg-[#E00000]/5 transition-colors">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <img src={previewUrl} alt="Passport" className="w-full max-h-48 object-contain p-3 bg-gray-50" />
+                    <button type="button" onClick={removeFile}
+                      className="absolute top-2 right-2 w-7 h-7 bg-white border border-gray-200 rounded-lg shadow-sm flex items-center justify-center text-gray-400 hover:text-[#E00000] transition-colors">
+                      <X size={13} />
+                    </button>
+                    <div className="flex items-center gap-1.5 px-4 py-2 bg-green-50 border-t border-green-100 text-xs font-medium text-green-700">
+                      <CheckCircle2 size={11} strokeWidth={2.5} /> Document uploaded
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <label
+                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={onDrop}
+                className={`flex flex-col items-center justify-center gap-3 py-8 px-5 rounded-lg border-2 border-dashed cursor-pointer transition-all ${dragOver
+                  ? 'border-[#E00000] bg-[#E00000]/5'
+                  : errors.docFile
+                    ? 'border-[#E00000]/30 bg-[#E00000]/5'
+                    : 'border-gray-200 bg-gray-50/50 hover:border-gray-300 hover:bg-gray-50'
+                  }`}>
+                <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf"
+                  className="hidden" onChange={e => handleFile(e.target.files[0])} />
+                <Upload size={20} className={dragOver ? 'text-[#E00000]' : errors.docFile ? 'text-[#E00000]' : 'text-gray-300'} strokeWidth={1.5} />
+                <div className="text-center">
+                  <p className="text-sm text-gray-600">
+                    Drop here or <span className="text-[#E00000] underline underline-offset-2">browse</span>
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">JPG, PNG, WEBP or PDF · Max 10 MB</p>
+                </div>
+              </label>
+            )}
+          </div>
+          <ErrorMsg message={errors.docFile?.message} />
+        </div>
+
       </div>
     </div>
   );
 };
+

@@ -32,7 +32,6 @@ export default function Login() {
   const loginToERPNext = async (username, password) => {
     try {
       const response = await fetch(
-        // `${ERPNEXT_BASE_URL}/api/method/login`,
         `/api/method/moneygram.moneygram.api.allow_login.login`,
         {
           method: "POST",
@@ -45,15 +44,28 @@ export default function Login() {
         }
       );
 
-      if (!response.ok)
-        throw new Error(`HTTP error! ${response.status}`);
+      const result = await response.json().catch(() => null);
 
-      const result = await response.json();
+      if (!response.ok) {
+        let errMsg = "Invalid credentials";
+        if (result && typeof result === "object") {
+          if (typeof result.message === "string") {
+            errMsg = result.message;
+          } else if (result.message && typeof result.message.message === "string") {
+            errMsg = result.message.message;
+          }
+        }
+        return {
+          success: false,
+          error: errMsg,
+        };
+      }
+
       return { success: true, data: result };
     } catch (err) {
       return {
         success: false,
-        error: err.message || "Login failed",
+        error: err.message || "Network error. Please try again.",
       };
     }
   };
@@ -71,52 +83,81 @@ export default function Login() {
 
     try {
       const loginResult = await loginToERPNext(
-        formData.email,
+        formData.email.trim(),
         formData.password
       );
 
-      if (
-        loginResult.success &&
-        (loginResult.data.message === "Logged In" ||
-          loginResult.data.home_page)
-      ) {
-        // Custom allow_login API returns some fields at root (full_name) 
-        // and nested tokens inside .message
-        const nestedPayload = typeof loginResult.data.message === 'object' 
-          ? loginResult.data.message 
-          : {};
+      if (!loginResult.success) {
+        setError(
+          typeof loginResult.error === "string"
+            ? loginResult.error
+            : "Invalid credentials"
+        );
+        return;
+      }
+
+      const payload = loginResult.data?.message;
+
+      // Check if authentication was successful
+      const isSuccess =
+        (payload && typeof payload === "object" && payload.success_key === 1) ||
+        payload === "Logged In" ||
+        loginResult.data?.home_page;
+
+      if (isSuccess) {
+        const nestedPayload =
+          payload && typeof payload === "object" ? payload : {};
 
         const sessionData = {
-          user: loginResult.data.full_name || nestedPayload.full_name || formData.email,
-          email: formData.email,
+          user:
+            nestedPayload.full_name ||
+            nestedPayload.username ||
+            loginResult.data?.full_name ||
+            formData.email.trim(),
+          email: nestedPayload.email || formData.email.trim(),
           loginTime: new Date().toISOString(),
           sessionActive: true,
-          ...loginResult.data, 
-          ...nestedPayload
+          api_key: nestedPayload.api_key,
+          api_secret: nestedPayload.api_secret,
+          user_type: nestedPayload.user_type,
+          ...nestedPayload,
         };
-
-        
-        if (typeof sessionData.message === 'object') {
-           delete sessionData.message;
-        }
 
         setUser(sessionData);
 
-        if (loginResult?.data?.message?.user_type === "Admin") {
-          // navigate("/app")
+        if (nestedPayload.user_type === "Admin") {
           window.location.href = `/app`;
         } else {
           navigate("/home");
         }
-
-        
       } else {
-        setError(
-          loginResult?.data?.message || "Invalid credentials"
-        );
+        // Handle failed authentication
+        let errorMsg = "Invalid credentials";
+
+        if (payload && typeof payload === "object") {
+          if (typeof payload.message === "string") {
+            errorMsg = payload.message;
+          }
+        } else if (typeof payload === "string") {
+          errorMsg = payload;
+        }
+
+        if (
+          typeof errorMsg === "string" &&
+          (errorMsg.toLowerCase().includes("authentication error") ||
+            errorMsg.toLowerCase().includes("invalid") ||
+            errorMsg.toLowerCase().includes("password") ||
+            errorMsg.toLowerCase().includes("user") ||
+            errorMsg.toLowerCase().includes("not found"))
+        ) {
+          setError("Invalid email or password. Please check your credentials and try again.");
+        } else {
+          setError(typeof errorMsg === "string" ? errorMsg : "Invalid credentials. Please try again.");
+        }
       }
     } catch (err) {
-      setError("Unexpected error. Please try again.");
+      console.error("Login Error:", err);
+      setError("An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(false);
     }

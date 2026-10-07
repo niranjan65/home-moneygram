@@ -326,6 +326,18 @@ const DealerExchange = () => {
         }) || [];
     }
     try {
+      let uploadedFileUrl = null;
+      if (transferPayload.docFile) {
+        if (typeof transferPayload.docFile === 'string') {
+          uploadedFileUrl = transferPayload.docFile;
+        } else if (transferPayload.docFile instanceof File || transferPayload.docFile instanceof Blob) {
+          uploadedFileUrl = await uploadFile(transferPayload.docFile, {
+            isPrivate: 0,
+            doctype: "Currency Exchange For Dealer",
+          });
+        }
+      }
+
       const localAmount = transferPayload.exchangeType === 'BUY' ? transferPayload.sendAmount : transferPayload.receiverGets;
       const foreignAmount = transferPayload.exchangeType === 'BUY' ? transferPayload.receiverGets : transferPayload.sendAmount;
 
@@ -337,6 +349,8 @@ const DealerExchange = () => {
           date_of_birth: transferPayload.dateOfBirth,
           customer_name_and_dob: `${transferPayload.fullName.toLowerCase()}_${transferPayload.dateOfBirth}`,
           oet_code: transferPayload.oet_code,
+          passport_photo__scan: uploadedFileUrl,
+          passport_photo: uploadedFileUrl,
 
           local_amount: localAmount,
           local_currency_type: transferPayload.localCurrency,

@@ -29,6 +29,7 @@ export const DealerForm = ({
       fullName: initialData?.fullName || '',
       dateOfBirth: initialData?.dateOfBirth || '',
       exchangeType: initialData?.exchangeType || 'BUY',
+      docFile: initialData?.docFile || null,
     },
   });
 
@@ -255,14 +256,20 @@ export const DealerForm = ({
     });
   };
 
-  const FIELD_ORDER = ['firstName', 'middleName', 'lastName', 'fullName', 'dateOfBirth'];
+  const FIELD_ORDER = ['firstName', 'middleName', 'lastName', 'fullName', 'dateOfBirth', 'oet_code', 'docFile'];
+  const FILE_FIELDS = new Set(['docFile']);
 
   const onError = (errors) => {
     const firstErrorField = FIELD_ORDER.find(f => errors[f]);
     if (!firstErrorField) return;
-    try { setFocus(firstErrorField); } catch (_) { }
-    const el = document.getElementById(`field-${firstErrorField}`) || document.querySelector(`[name="${firstErrorField}"]`);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (FILE_FIELDS.has(firstErrorField)) {
+      const el = document.getElementById(`field-${firstErrorField}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      try { setFocus(firstErrorField); } catch (_) { }
+      const el = document.getElementById(`field-${firstErrorField}`) || document.querySelector(`[name="${firstErrorField}"]`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   };
 
   const FJD = { code: 'FJD', symbol: 'FJ$', name: 'Fijian Dollar' };

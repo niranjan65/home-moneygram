@@ -1,3 +1,4 @@
+import { sessionFetch as fetch } from "../api/sessionClient.js";
 import React, { useState, useCallback, useEffect } from 'react';
 import { Stepper } from '../components/Stepper';
 import { Summary } from '../components/Summary';
@@ -389,7 +390,6 @@ const DealerExchange = () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
           },
           credentials: "include",
           body: JSON.stringify(apiPayload),
@@ -495,7 +495,7 @@ const DealerExchange = () => {
               </div>
 
               {currentStep !== Step.PAYMENT && (
-                <div className="lg:col-span-4 relative">
+                <div className="lg:col-span-4 lg:sticky lg:top-8 self-start">
                   <Summary transferPayload={summaryChange} isDealer={true} />
                 </div>
               )}

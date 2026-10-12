@@ -1,3 +1,4 @@
+import { sessionFetch as fetch } from "../api/sessionClient.js";
 
 // import React, { useEffect, useState } from 'react';
 // import { User, Mail, Phone, Edit3 } from 'lucide-react';
@@ -12,7 +13,6 @@
 
 // const HEADERS = {
 //   "Content-Type": "application/json",
-//   Authorization: "token 661457e17b8612a:5a5fb35fb41cc58",
 // };
 
 // async function fetchCurrentUser () {
@@ -138,8 +138,8 @@ export const SenderCard = () => {
           <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
             Active Location
           </span>
-          <span className="text-sm font-bold text-gray-900">
-            {selectedWarehouse?.warehouse || "Not Available"}
+          <span className={`text-sm font-bold ${selectedWarehouse?.warehouse ? "text-gray-900" : "text-amber-600"}`}>
+            {selectedWarehouse?.warehouse || "No branch location assigned"}
           </span>
         </div>
       </div>

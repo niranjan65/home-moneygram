@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowRight, ShieldCheck, Globe, Zap, CheckCircle2, Lock, ArrowUpRight } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import feature1 from "../assets/feature1.png";
 import feature2 from "../assets/feature2.png";
 import feature3 from "../assets/feature3.png";
@@ -172,6 +172,19 @@ const features = [
 
 export default function SoldiLanding() {
   const [hoveredCard, setHoveredCard] = useState(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("erpnext_session");
+      if (stored) {
+        const session = JSON.parse(stored);
+        if (session?.sessionActive && session?.user_type === "Teller") {
+          navigate("/money-transfer", { replace: true });
+        }
+      }
+    } catch {}
+  }, [navigate]);
 
   return (
     <div className="min-h-screen font-sans overflow-hidden bg-[url('../assets/redbg.png')] bg-cover bg-fixed">

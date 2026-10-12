@@ -255,6 +255,8 @@ import {
   Lock,
   ArrowRight,
   ShieldCheck,
+  ShieldAlert,
+  Calendar,
   Sparkles,
   CheckCircle2,
   Wallet,
@@ -421,7 +423,7 @@ export const ReviewStep = ({
                 style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.18)' }}>
                 <TrendingUp size={13} className="text-yellow-300" />
                 <span className="text-white/80 text-xs font-bold">
-                  Rate: 1 {senderCurrency} = {exchangeRate.toFixed(4)} FJD
+                  Rate: 1 FJD = {exchangeRate.toFixed(4)} {senderCurrency}
                 </span>
               </div>
             )}
@@ -532,10 +534,31 @@ export const ReviewStep = ({
             />
             <ReviewRow
               label="Exchange Rate"
-              value={exchangeRate > 0 ? `1 ${senderCurrency} = ${exchangeRate.toFixed(4)} FJD` : '—'}
+              value={exchangeRate > 0 ? `1 FJD  = ${exchangeRate.toFixed(4)} ${senderCurrency}` : '—'}
               icon={TrendingUp}
               accent
             />
+            {data?.risk_level && (
+              <ReviewRow
+                label="Risk Level"
+                value={data.risk_level}
+                icon={ShieldAlert}
+              />
+            )}
+            {data?.id_issue_date && (
+              <ReviewRow
+                label="ID Issue Date"
+                value={data.id_issue_date}
+                icon={Calendar}
+              />
+            )}
+            {data?.id_expiry_date && (
+              <ReviewRow
+                label="ID Expiry Date"
+                value={data.id_expiry_date}
+                icon={Calendar}
+              />
+            )}
             {/* <ReviewRow
               label="Delivery Method"
               value={isCash ? 'Cash Pickup' : 'Bank Deposit'}

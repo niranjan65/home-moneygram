@@ -66,6 +66,33 @@ export const InvoiceDocument = ({ invoiceData }) => {
   const isUnpaid = txnStatus?.toLowerCase() === 'unpaid';
   const isCancelled = txnStatus?.toLowerCase() === 'cancelled';
 
+  const exRate =
+    d.exchange_rate ??
+    d.exchangeRate ??
+    (d.conversion_rate && Number(d.conversion_rate) !== 1 ? d.conversion_rate : null) ??
+    null;
+
+  const senderCurrency =
+    d.you_send_currency_type ||
+    d.senderCurrency ||
+    d.foreignCurrency ||
+    d.foreign_currency ||
+    null;
+
+  const receiverCurrency =
+    d.they_receive_currency_type ||
+    d.receiverCurrency ||
+    d.localCurrency ||
+    currency ||
+    'FJD';
+
+  const exchangeRateText =
+    exRate && Number(exRate) > 0
+      ? receiverCurrency
+        ? `1 ${receiverCurrency} = ${fmt(exRate, 4)} ${senderCurrency}`
+        : fmt(exRate, 4)
+      : null;
+
   return (
     <div id="invoice-print-area" className="bg-white font-sans text-slate-900 w-full p-6 print:p-4" style={{ fontSize: '12px' }}>
 
@@ -83,12 +110,6 @@ export const InvoiceDocument = ({ invoiceData }) => {
         {/* Left: Company */}
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            {/* <div className="bg-blue-600 p-1.5 rounded-lg">
-              <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 48 48">
-                <path d="M42.4379 44C42.4379 44 36.0744 33.9038 41.1692 24C46.8624 12.9336 42.2078 4 42.2078 4L7.01134 4C7.01134 4 11.6577 12.932 5.96912 23.9969C0.876273 33.9029 7.27094 44 7.27094 44L42.4379 44Z" />
-              </svg>
-            </div> */}
-
             <div>
               <img
                 src={mhlogo}
@@ -101,11 +122,6 @@ export const InvoiceDocument = ({ invoiceData }) => {
               {company}
             </h1>
           </div>
-          {/* <div className="text-xs text-slate-500 leading-relaxed space-y-0.5">
-            <p>📍 Main St, Suva, Fiji</p>
-            <p>✉️ contact@mhmoney.com</p>
-            <p>📞 +679 123 4567</p>
-          </div> */}
         </div>
 
         {/* Right: Invoice meta */}
@@ -122,10 +138,12 @@ export const InvoiceDocument = ({ invoiceData }) => {
               <span className="font-bold">Date:</span>
               <span className="font-normal text-slate-600 ml-1">{postingDate}</span>
             </p>
-            {/* <p className="text-slate-900">
-              <span className="font-bold">Due Date:</span>
-              <span className="font-normal text-slate-600 ml-1">{dueDate}</span>
-            </p> */}
+            {exchangeRateText && (
+              <p className="text-slate-900">
+                <span className="font-bold">Exchange Rate:</span>
+                <span className="font-semibold text-slate-900 ml-1">{exchangeRateText}</span>
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -140,8 +158,6 @@ export const InvoiceDocument = ({ invoiceData }) => {
           <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 text-xs">
             <span className="text-slate-500">Name:</span>
             <span className="font-semibold text-slate-900">{customerName}</span>
-            {/* <span className="text-slate-500">Customer ID:</span> */}
-            {/* <span className="font-semibold text-slate-900">{customerId}</span> */}
             <span className="text-slate-500">Email:</span>
             <span className="font-semibold text-slate-900">{contactEmail}</span>
             <span className="text-slate-500">Mobile:</span>
@@ -156,6 +172,15 @@ export const InvoiceDocument = ({ invoiceData }) => {
               <p className="text-[10px] uppercase font-bold text-slate-500 mb-0.5">Currency</p>
               <p className="font-bold text-xs text-slate-900">{currency}</p>
             </div>
+            {exchangeRateText && (
+              <>
+                <div className="h-6 w-px bg-slate-200" />
+                <div className="text-center">
+                  <p className="text-[10px] uppercase font-bold text-slate-500 mb-0.5">Exchange Rate</p>
+                  <p className="font-bold text-xs text-blue-700">{exchangeRateText}</p>
+                </div>
+              </>
+            )}
             <div className="h-6 w-px bg-slate-200" />
             <div className="text-center">
               <p className="text-[10px] uppercase font-bold text-slate-500 mb-0.5">Status</p>
@@ -190,9 +215,8 @@ export const InvoiceDocument = ({ invoiceData }) => {
             <tr className={`text-white text-[10px] uppercase tracking-wider ${isCancelled ? 'bg-red-700' : 'bg-slate-900'}`}>
               <th className="p-2 rounded-tl-lg">Currency Code with Denomination</th>
               <th className="p-2 text-center">Qty</th>
-              <th className="p-2 text-right">Rate (FJD)</th>
+              {/* <th className="p-2 text-right">Rate (FJD)</th> */}
               <th className="p-2 text-right">Amount (FJD)</th>
-              {/* <th className="p-2 rounded-tr-lg">Warehouse</th> */}
             </tr>
           </thead>
           <tbody className="text-xs">
@@ -200,9 +224,8 @@ export const InvoiceDocument = ({ invoiceData }) => {
               <tr key={i} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                 <td className="p-2 font-medium">{row.code}</td>
                 <td className="p-2 text-center">{row.qty}</td>
-                <td className="p-2 text-right">{fmt(row.rate)}</td>
+                {/* <td className="p-2 text-right">{fmt(row.rate)}</td> */}
                 <td className="p-2 text-right font-bold">{fmt(row.amount)}</td>
-                {/* <td className="p-2 text-slate-500">{row.warehouse}</td> */}
               </tr>
             ))}
           </tbody>
@@ -211,36 +234,7 @@ export const InvoiceDocument = ({ invoiceData }) => {
 
       {/* ── Totals & Taxes ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 gap-6 items-start mb-4">
-        {/* Tax table */}
-        {/* <div>
-          <h4 className="text-[10px] font-bold uppercase text-slate-500 mb-2 tracking-widest">
-            Tax Breakdown
-          </h4>
-          <table className="w-full text-[10px] border-collapse">
-            <thead>
-              <tr className="border-b border-slate-200 text-slate-400 uppercase">
-                <th className="pb-1 text-left font-semibold">Type</th>
-                <th className="pb-1 text-left font-semibold">Account</th>
-                <th className="pb-1 text-right font-semibold">Rate %</th>
-                <th className="pb-1 text-right font-semibold">Tax Amt</th>
-              </tr>
-            </thead>
-            <tbody className="text-slate-600">
-              {taxes.length > 0 ? taxes.map((tax, i) => (
-                <tr key={i} className="border-b border-slate-50">
-                  <td className="py-1">{tax.charge_type ?? 'VAT'}</td>
-                  <td className="py-1">{tax.account_head ?? '—'}</td>
-                  <td className="py-1 text-right">{tax.rate ?? 0}%</td>
-                  <td className="py-1 text-right font-medium">{fmt(tax.tax_amount ?? 0)}</td>
-                </tr>
-              )) : (
-                <tr>
-                  <td colSpan={4} className="py-1 text-slate-400 italic">No taxes applied</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div> */}
+        <div />
 
         {/* Summary */}
         <div className="bg-slate-50 p-4 rounded-lg space-y-1.5">
@@ -248,14 +242,12 @@ export const InvoiceDocument = ({ invoiceData }) => {
             <span className="text-slate-500">Net Total:</span>
             <span className="font-semibold text-slate-900">FJD {fmt(netTotal)}</span>
           </div>
-          {/* <div className="flex justify-between text-xs">
-            <span className="text-slate-500">Taxes &amp; Charges:</span>
-            <span className="font-semibold text-slate-900">{fmt(totalTaxes)}</span>
-          </div>
-          <div className="flex justify-between text-xs">
-            <span className="text-slate-500">Discount:</span>
-            <span className="font-semibold text-emerald-600">{fmt(discountAmount)}</span>
-          </div> */}
+          {/* {exchangeRateText && (
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-500">Exchange Rate:</span>
+              <span className="font-semibold text-slate-900">{exchangeRateText}</span>
+            </div>
+          )} */}
           <div className="h-px bg-slate-200 my-1" />
           <div className="flex justify-between text-sm font-black text-slate-900">
             <span>Grand Total:</span>
@@ -265,10 +257,6 @@ export const InvoiceDocument = ({ invoiceData }) => {
             <span>Rounded Total:</span>
             <span className={isCancelled ? 'text-red-600' : 'text-blue-600'}>{currency} {fmt(roundedTotal)}</span>
           </div>
-          {/* <div className="flex justify-between text-xs font-bold text-red-600 pt-1 border-t border-red-100">
-            <span>Outstanding:</span>
-            <span>{fmt(outstandingAmount)}</span>
-          </div> */}
         </div>
       </div>
 

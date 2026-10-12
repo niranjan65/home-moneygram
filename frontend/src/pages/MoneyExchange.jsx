@@ -1,3 +1,4 @@
+import { sessionFetch as fetch } from "../api/sessionClient.js";
 import React, { useState, useCallback, useEffect } from 'react';
 import { Stepper } from '../components/Stepper';
 import { Summary } from '../components/Summary';
@@ -14,6 +15,8 @@ import { CheckCircle2 } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 import { useDispatch } from 'react-redux';
 import { setIsDealer } from '../store/exchangeSlice';
+import { CustomerPhotoCard } from '../features/exchange/components/CustomerPhotoCard';
+import { updateCustomerRiskLevel } from '../features/exchange/api/customer';
 
 const Step = {
   ESTIMATE: 1,
@@ -38,11 +41,36 @@ const MoneyExchange = () => {
 
   const [summaryChange, setHandleSumamryChange] = useState();
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const [customerMode, setCustomerMode] = useState('new'); // 'new' or 'existing'
 
-  // Holds the raw rbfDocument File between DETAILS → REVIEW steps.
-  // Can't use sessionStorage because File objects are not serialisable.
+  // Holds raw Files between DETAILS → REVIEW steps.
   const rbfDocumentFileRef = React.useRef(null);
   const taxClearanceFileRef = React.useRef(null);
+  const ticketFileRef = React.useRef(null);
+  const customerImageFileRef = React.useRef(null);
+
+  const [customerImageFile, setCustomerImageFile] = useState(null);
+  const [customerImageUrl, setCustomerImageUrl] = useState(() => {
+    return sessionStorage.getItem('exchangeCustomerImageUrl') || '';
+  });
+  const [customerFound, setCustomerFound] = useState(false);
+
+  useEffect(() => {
+    if (customerImageUrl) {
+      sessionStorage.setItem('exchangeCustomerImageUrl', customerImageUrl);
+    } else {
+      sessionStorage.removeItem('exchangeCustomerImageUrl');
+    }
+  }, [customerImageUrl]);
+
+  const handleCustomerChange = useCallback((custState) => {
+    if (custState.customerFound !== undefined) setCustomerFound(custState.customerFound);
+    if (custState.imageUrl !== undefined) {
+      setCustomerImageUrl(custState.imageUrl);
+      setCustomerImageFile(null);
+      customerImageFileRef.current = null;
+    }
+  }, []);
 
   const [currentStep, setCurrentStep] = useState(() => {
     const saved = sessionStorage.getItem('exchangeCurrentStep');
@@ -66,6 +94,7 @@ const MoneyExchange = () => {
     return saved ? JSON.parse(saved) : {
       firstName: '',
       lastName: '',
+      phone_number: '',
       email: '',
       country: '',
       city: '',
@@ -156,9 +185,21 @@ const MoneyExchange = () => {
       taxClearanceFileRef.current = null;
     }
 
+    if (data.ticket instanceof File) {
+      ticketFileRef.current = data.ticket;
+    } else {
+      ticketFileRef.current = null;
+    }
+
+    const payloadWithPhoto = {
+      ...data,
+      customerImageFile: customerImageFileRef.current,
+      customerImageUrl,
+    };
+
     setReceiverInfo(data);
-    setTransferPayload(data);
-    console.log('Transfer payload:', data);
+    setTransferPayload(payloadWithPhoto);
+    console.log('Transfer payload:', payloadWithPhoto);
 
     setSummary(prev => ({
       ...prev,
@@ -171,7 +212,7 @@ const MoneyExchange = () => {
 
     // Go to REVIEW (step 4) instead of PAYMENT
     setCurrentStep(Step.REVIEW);
-  }, []);
+  }, [customerImageUrl]);
 
   const handleBack = useCallback(() => {
     setCurrentStep(prev => Math.max(Step.ESTIMATE, prev - 1));
@@ -181,9 +222,17 @@ const MoneyExchange = () => {
   const handleCancel = useCallback(() => {
     rbfDocumentFileRef.current = null;
     taxClearanceFileRef.current = null;
+    ticketFileRef.current = null;
+    customerImageFileRef.current = null;
+    setCustomerImageFile(null);
+    setCustomerImageUrl('');
+    setCustomerMode('new');
+    setCustomerFound(false);
+    sessionStorage.removeItem('exchangeCustomerImageUrl');
     setReceiverInfo({
       firstName: '',
       lastName: '',
+      phone_number: '',
       country: '',
       city: '',
       deliveryMethod: 'BANK_DEPOSIT',
@@ -241,40 +290,33 @@ const MoneyExchange = () => {
     return;
   }
 
-    let uploadedFileUrl = null;
-
-    if (transferPayload.docFile) {
-      uploadedFileUrl = await uploadFile(transferPayload.docFile, {
-        isPrivate: 0,
-        doctype: "Currency Exchange For Customer",
-      });
-    }
-
-    let taxClearanceDocUrl = null;
-    const taxFile = taxClearanceFileRef.current || (transferPayload.taxClearanceFile instanceof File ? transferPayload.taxClearanceFile : null);
-    if (taxFile) {
-      taxClearanceDocUrl = await uploadFile(taxFile, {
-        isPrivate: 0,
-        doctype: "Currency Exchange For Customer",
-      });
-    }
-    // let rbfDocumentUrl = null;
-    // const rbfFile = rbfDocumentFileRef.current;
-    // console.log('[RBF DEBUG] 5. handleConfirm - rbfDocumentFileRef.current:', rbfFile?.name ?? 'null/undefined ❌');
-    // if (rbfFile) {
-    //   console.log('[RBF DEBUG] 5a. Calling uploadFile for RBF doc...');
-    //   rbfDocumentUrl = await uploadFile(rbfFile, {
-    //     isPrivate: 0,
-    //     doctype: "Currency Exchange For Customer",
-    //   });
-    //   console.log('[RBF DEBUG] 6. RBF document upload result URL:', rbfDocumentUrl ?? 'null — upload may have failed ❌');
-    // } else {
-    //   console.log('[RBF DEBUG] 5b. Skipping RBF upload — no file in ref ❌');
-    // }
-
-    // console.log("transfer payload", transferPayload)
-
     try {
+      const uploadedDocuments = [];
+      for (const row of transferPayload.documents || []) {
+        const attachment = row.attachment instanceof File
+          ? await uploadFile(row.attachment, { isPrivate: 1 })
+          : row.attachment;
+        if (typeof attachment !== 'string' || !attachment.trim()) throw new Error(`Please go back and reselect the attachment for ${row.document_type}. The selected file was lost after a page refresh.`);
+        uploadedDocuments.push({ document_type: row.document_type.trim(), attachment, notes: row.notes || '' });
+      }
+      const documentUrl = type => uploadedDocuments.find(row => row.document_type === type)?.attachment || null;
+      const uploadedFileUrl = documentUrl(transferPayload.government_id || (transferPayload.idType === 'PASSPORT' ? 'Passport' : 'Government ID')) || uploadedDocuments[0]?.attachment || null;
+      const taxClearanceDocUrl = documentUrl('Annual Compliance');
+      const ticketDocUrl = documentUrl('Ticket');
+      const rbfDocumentUrl = documentUrl('RBF Document');
+
+    let customerPhotoUrl = null;
+    const custPhoto = customerImageFileRef.current || (transferPayload.customerImageFile instanceof File ? transferPayload.customerImageFile : null);
+    if (custPhoto instanceof File) {
+      customerPhotoUrl = await uploadFile(custPhoto, {
+        isPrivate: 0,
+        doctype: "Customer",
+      });
+    } else if (typeof customerImageUrl === "string" && customerImageUrl) {
+      customerPhotoUrl = customerImageUrl;
+    } else if (typeof transferPayload.customerImageUrl === "string" && transferPayload.customerImageUrl) {
+      customerPhotoUrl = transferPayload.customerImageUrl;
+    }
       // Decide which field to use
       let idDocumentField = {};
 
@@ -441,21 +483,29 @@ const MoneyExchange = () => {
         data: {
           custom_available_currency_transfer_balance: transferPayload.availableBalance !== undefined && transferPayload.availableBalance !== null ? parseFloat(transferPayload.availableBalance) : 2000,
           verification_id_type: transferPayload.idType,
+          documents: uploadedDocuments,
+          rbf_document: rbfDocumentUrl,
           passport_number: transferPayload.idNumber,
           first_name: transferPayload.firstName,
           last_name: transferPayload.lastName,
+          phone_number: transferPayload.phone_number || transferPayload.phoneNumber || transferPayload.phone || null,
           receiver_mailid: transferPayload.email || senderInfo.email,
           destination_country: transferPayload.country,
           city__province: transferPayload.city,
           id_number: transferPayload.idNumber,
           government_id: transferPayload.government_id,
+          customer_id: transferPayload.customer_id,
           customer_name_and_dob: `${transferPayload.idName}_${transferPayload.dateOfBirth}`,
           full_name: transferPayload.idName,
           date_of_birth: transferPayload.dateOfBirth,
+          id_issue_date: transferPayload.id_issue_date || null,
+          id_expiry_date: transferPayload.id_expiry_date || null,
           occupation: transferPayload.occupation,
           second_last_name_family_name: transferPayload.secondLastName,
           id_issue_stateprovince: transferPayload.idIssueState,
           id_issue_country: transferPayload.idIssueCountry,
+          customer_image: customerPhotoUrl,
+          image: customerPhotoUrl,
           ticket: transferPayload.ticket,
           oet_code: transferPayload.oet_code,
           ...idDocumentField,
@@ -481,6 +531,7 @@ const MoneyExchange = () => {
           tin_number: transferPayload.tinNumber || null,
           annual_compliance: taxClearanceDocUrl || null,
           tax_clearance_document: taxClearanceDocUrl || null,
+          risk_level: transferPayload.risk_level || 'Low',
 
           purposeOfTransaction: transferPayload.purposeOfTransaction,
           travelDate: transferPayload.travelDate,
@@ -488,6 +539,7 @@ const MoneyExchange = () => {
           pnrNumber: transferPayload.pnrNumber,
           airwaysName: transferPayload.airwaysName,
           flightNumber: transferPayload.flightNumber,
+          ticket: ticketDocUrl || (typeof transferPayload.ticket === "string" ? transferPayload.ticket : null),
 
           denomination: denominationData,
 
@@ -505,31 +557,47 @@ const MoneyExchange = () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
           },
           credentials: "include",
           body: JSON.stringify(apiPayload),
         }
       );
 
-      const result = await response.json();
+      const result = await response.json().catch(() => null);
 
-      console.log("API Success:", result);
+      console.log("API Response:", result);
 
+      if (!response.ok || !result || result?.message?.status === "error" || result?.status === "error") {
+        let errorMsg = "Something went wrong while creating exchange";
+        if (result?.message?.message) {
+          errorMsg = result.message.message;
+        } else if (result?.message && typeof result.message === "string") {
+          errorMsg = result.message;
+        } else if (result?.error) {
+          errorMsg = result.error;
+        } else if (result?.exc) {
+          errorMsg = "Server processing error. Please verify input data.";
+        }
+        alert(errorMsg);
+        return;
+      }
 
       const createdDoc = result?.message?.data || result?.data || result;
       setApiResponseDoc(createdDoc);
 
+      const targetCustId = createdDoc?.customer_id || transferPayload?.customer_id || transferPayload?.full_name;
+      if (targetCustId && transferPayload?.risk_level) {
+        updateCustomerRiskLevel(targetCustId, transferPayload.risk_level, loginUser).catch(() => {});
+      }
 
       const txId = createdDoc?.name || `#TRX-${Math.floor(100000 + Math.random() * 900000)}`;
       setTransactionId(txId);
-
 
       setCurrentStep(Step.PAYMENT);
 
     } catch (error) {
       console.error("API Error:", error);
-      alert("Something went wrong while creating exchange");
+      alert("Something went wrong while creating exchange: " + (error?.message || error));
     }
   }, [transferPayload, senderInfo.email, summary, transferPayload?.receiverDenominationRows, loginUser]);
 
@@ -538,6 +606,13 @@ const MoneyExchange = () => {
   const handleDashboard = useCallback(() => {
     rbfDocumentFileRef.current = null;
     taxClearanceFileRef.current = null;
+    ticketFileRef.current = null;
+    customerImageFileRef.current = null;
+    setCustomerImageFile(null);
+    setCustomerImageUrl('');
+    setCustomerMode('new');
+    setCustomerFound(false);
+    sessionStorage.removeItem('exchangeCustomerImageUrl');
     // Reset receiver info
     setReceiverInfo({
       firstName: '',
@@ -629,6 +704,7 @@ const MoneyExchange = () => {
           onClear={handleCancel}
           onSummaryChange={handleSummaryChange}
           ratesData={ratesData}
+          onCustomerChange={handleCustomerChange}
         />
 
         <div className="text-gray-400 text-xs font-semibold max-w-2xl px-2 leading-relaxed">
@@ -669,8 +745,26 @@ const MoneyExchange = () => {
 
               {/* Sidebar — hidden on success page */}
               {currentStep !== Step.PAYMENT && (
-                <div className="lg:col-span-4 relative">
+                <div className="lg:col-span-4 lg:sticky lg:top-8 flex flex-col gap-6 self-start">
                   <Summary transferPayload={summaryChange} />
+
+                  {/* CUSTOMER PHOTO CARD */}
+                  <CustomerPhotoCard
+                    customerImageUrl={customerImageUrl}
+                    customerImageFile={customerImageFile}
+                    onImageChange={(file, previewUrl) => {
+                      setCustomerImageFile(file);
+                      customerImageFileRef.current = file;
+                      setCustomerImageUrl(previewUrl);
+                    }}
+                    onImageRemove={() => {
+                      setCustomerImageFile(null);
+                      customerImageFileRef.current = null;
+                      setCustomerImageUrl('');
+                    }}
+                    disabled={currentStep === Step.REVIEW}
+                    customerFound={customerFound}
+                  />
                 </div>
               )}
 

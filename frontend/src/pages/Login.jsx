@@ -1,3 +1,4 @@
+import { sessionFetch as fetch } from "../api/sessionClient.js";
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -29,16 +30,44 @@ export default function Login() {
     });
   };
 
+
+  const getCsrfToken = async () => {
+  const response = await fetch(
+    "/api/method/moneygram.moneygram.api.allow_login.get_csrf_token",
+    {
+      method: "GET",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error("Unable to initialize authentication session");
+  }
+
+  const data = await response.json();
+
+  return data?.message?.csrf_token || null;
+};
+
   const loginToERPNext = async (username, password) => {
     try {
+      //  const csrfToken = await getCsrfToken();
+
       const response = await fetch(
-        `/api/method/moneygram.moneygram.api.allow_login.login`,
+        `/api/method/login`,
         {
           method: "POST",
           headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          // ...(csrfToken
+          //   ? { "X-Frappe-CSRF-Token": csrfToken }
+          //   : {}),
+        },
           body: JSON.stringify({ usr: username, pwd: password }),
           credentials: "include",
         }
@@ -96,17 +125,20 @@ export default function Login() {
         return;
       }
 
-      const payload = loginResult.data?.message;
+      const payload = loginResult.data?.user_details || loginResult.data?.message;
 
       // Check if authentication was successful
       const isSuccess =
         (payload && typeof payload === "object" && payload.success_key === 1) ||
         payload === "Logged In" ||
-        loginResult.data?.home_page;
+        payload === "No App";
 
       if (isSuccess) {
         const nestedPayload =
           payload && typeof payload === "object" ? payload : {};
+        const userType = nestedPayload.user_type || "Teller";
+        const primaryWarehouse = nestedPayload.warehouse || null;
+        const userWarehouses = Array.isArray(nestedPayload.warehouses) ? nestedPayload.warehouses : [];
 
         const sessionData = {
           user:
@@ -115,20 +147,31 @@ export default function Login() {
             loginResult.data?.full_name ||
             formData.email.trim(),
           email: nestedPayload.email || formData.email.trim(),
-          loginTime: new Date().toISOString(),
+          loginTime: nestedPayload.login_time || new Date().toISOString(),
+          creation: nestedPayload.creation || "",
           sessionActive: true,
-          api_key: nestedPayload.api_key,
-          api_secret: nestedPayload.api_secret,
-          user_type: nestedPayload.user_type,
+          user_type: userType,
+          warehouse: primaryWarehouse,
+          warehouses: userWarehouses,
+          has_branch_assigned: Boolean(primaryWarehouse && userWarehouses.length > 0),
+          branch_warning: userWarehouses.length > 0 ? null : "User is not assigned to any branch location",
           ...nestedPayload,
         };
 
         setUser(sessionData);
 
-        if (nestedPayload.user_type === "Admin") {
+        // Store active branch location if assigned, otherwise remove
+        if (primaryWarehouse) {
+          localStorage.setItem("selected_warehouse", JSON.stringify({ warehouse: primaryWarehouse }));
+        } else {
+          localStorage.removeItem("selected_warehouse");
+        }
+
+        if (userType === "Admin") {
           window.location.href = `/app`;
         } else {
-          navigate("/home");
+          // Tellers route directly to Teller Portal (/money-transfer)
+          navigate("/money-transfer", { replace: true });
         }
       } else {
         // Handle failed authentication

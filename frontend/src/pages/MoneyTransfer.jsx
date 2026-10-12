@@ -1,23 +1,551 @@
+import { sessionFetch as fetch } from "../api/sessionClient.js";
 //MoneyTransfer.jsx
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { sessionAxios as axios } from "../api/sessionClient.js";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 import { useERPFileUpload } from "../hooks/useERPFileUpload";
 import { useUser } from "../context/UserContext";
-import { getCustomerById, createCustomer, updateCustomer } from "../features/exchange/api/customer";
-import FileUploadBox from "../features/exchange/config/FileUploadBox";
+import { getCustomerById, createCustomer, updateCustomer, fetchNewCustomerId, updateCustomerRiskLevel } from "../features/exchange/api/customer";
+import DocumentUploadTable from "../components/DocumentUploadTable";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { ArrowUpRight, ArrowDownLeft, ArrowLeftRight, CheckCircle2, Wallet, ChevronDown } from "lucide-react";
+import {
+  ArrowUpRight,
+  ArrowDownLeft,
+  ArrowLeftRight,
+  CheckCircle2,
+  Wallet,
+  ChevronDown,
+  User,
+  Phone,
+  Search,
+  RefreshCw,
+  X,
+  Check,
+  Hash,
+} from "lucide-react";
 import { createMoneyTransfer } from "../features/exchange/api/createMoneyTransfer";
 import TransferAmountSection from "../features/exchange/components/TransferAmountSection";
 import { DenominationPanel } from "../features/exchange/components/sections/DenominationPanel";
 import { MoneyTransferInvoiceDocument } from "../components/MoneyTransferInvoice";
+import { CustomerPhotoCard } from "../features/exchange/components/CustomerPhotoCard";
 import { useBaseCurrency } from "../hooks/useDenomination";
 import { useCountries } from "../hooks/useCountry";
 import { buildApiUrl, getFetchOptions } from "../features/exchange/config/erpConfig";
 import { useSettings } from "../context/SettingsContext";
 import { validateStockAvailability } from "../hooks/useStockValidation";
+
+// ── Fuzzy Customer Autocomplete Input for full_name / phone_number ────────────
+function CustomerAutocompleteInput({
+  value,
+  onChange,
+  onSelectCustomer,
+  inputStyle,
+  disabled,
+  loginUser,
+  searchField = "name", // "name" | "phone"
+  placeholder = "Start typing customer name or select…",
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [query, setQuery] = useState(value || "");
+  const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const containerRef = useRef(null);
+  const debounceRef = useRef(null);
+  const masterListRef = useRef([]);
+
+  // Sync internal query when value prop changes externally
+  useEffect(() => {
+    setQuery(value || "");
+  }, [value]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, []);
+
+  // Fetch customers from backend API
+  const searchCustomers = useCallback(
+    async (searchTerm = "") => {
+      if (!loginUser?.user) return;
+      if (searchField === "phone" && searchTerm) {
+        console.log(`📞 [Phone Search API] Querying backend with typed phone: "${searchTerm}"`);
+      }
+      setLoading(true);
+      try {
+        const authHeaders = {
+        };
+
+        const res = await axios.get(
+          "/api/method/moneygram.moneygram.api.get_transactions.get_customers_list",
+          {
+            params: {
+              search: searchTerm.trim() || undefined,
+              limit: 25,
+            },
+            headers: authHeaders,
+          }
+        );
+        let list = res.data?.message ?? [];
+        if (!Array.isArray(list)) list = [];
+
+        // Direct search on Customer DocType by mobile_no if searchField is phone
+        if (searchField === "phone" && searchTerm.trim()) {
+          try {
+            const cleanDigits = searchTerm.replace(/\D/g, "");
+            const phoneFilters = [["mobile_no", "like", `%${searchTerm.trim()}%`]];
+            const directCustRes = await axios.get("/api/resource/Customer", {
+              params: {
+                filters: JSON.stringify(phoneFilters),
+                fields: JSON.stringify([
+                  "name",
+                  "customer_name",
+                  "custom_customer_id",
+                  "custom_full_name",
+                  "custom_date_of_birth",
+                  "mobile_no",
+                  "custom_government_id",
+                  "custom_passport_number",
+                  "custom_drivers_licence_number",
+                  "custom_voter_id_number",
+                  "custom_tin_number",
+                  "image",
+                ]),
+                limit_page_length: 25,
+              },
+              headers: authHeaders,
+            });
+            const directCusts = directCustRes.data?.data ?? [];
+            directCusts.forEach((dc) => {
+              dc.customer_id = dc.custom_customer_id || dc.name;
+              dc.phone_number = dc.mobile_no || "";
+              if (!list.some((existing) => existing.name === dc.name)) {
+                list.push(dc);
+              }
+            });
+          } catch (e) {
+            console.warn("Direct Customer mobile_no search query error:", e);
+          }
+        }
+
+        // Direct search on Customer DocType by custom_customer_id or name if searchField is id
+        if (searchField === "id" && searchTerm.trim()) {
+          try {
+            const idTerm = searchTerm.trim();
+            const directCustRes = await axios.get("/api/resource/Customer", {
+              params: {
+                or_filters: JSON.stringify([
+                  ["custom_customer_id", "like", `%${idTerm}%`],
+                  ["name", "like", `%${idTerm}%`],
+                ]),
+                fields: JSON.stringify([
+                  "name",
+                  "customer_name",
+                  "custom_customer_id",
+                  "custom_full_name",
+                  "custom_date_of_birth",
+                  "mobile_no",
+                  "custom_government_id",
+                  "custom_passport_number",
+                  "custom_drivers_licence_number",
+                  "custom_voter_id_number",
+                  "custom_tin_number",
+                  "image",
+                  "custom_risk_level",
+                ]),
+                limit_page_length: 25,
+              },
+              headers: authHeaders,
+            });
+            const directCusts = directCustRes.data?.data ?? [];
+            directCusts.forEach((dc) => {
+              dc.customer_id = dc.custom_customer_id || dc.name;
+              dc.phone_number = dc.mobile_no || "";
+              if (!list.some((existing) => existing.name === dc.name)) {
+                list.push(dc);
+              }
+            });
+          } catch (e) {
+            console.warn("Direct Customer ID search query error:", e);
+          }
+        }
+
+        // Check if any returned customers lack mobile_no, and fetch directly from Customer doctype
+        const missingPhoneNames = list
+          .filter((c) => !c.mobile_no && !c.phone_number)
+          .map((c) => c.name);
+        if (missingPhoneNames.length > 0) {
+          try {
+            const custLookupRes = await axios.get("/api/resource/Customer", {
+              params: {
+                filters: JSON.stringify([["name", "in", missingPhoneNames]]),
+                fields: JSON.stringify(["name", "mobile_no"]),
+                limit_page_length: missingPhoneNames.length,
+              },
+              headers: authHeaders,
+            });
+            const lookupList = custLookupRes.data?.data ?? [];
+            const phoneMap = {};
+            lookupList.forEach((cd) => {
+              if (cd.mobile_no) phoneMap[cd.name] = cd.mobile_no;
+            });
+            list.forEach((c) => {
+              if ((!c.mobile_no || !c.phone_number) && phoneMap[c.name]) {
+                c.mobile_no = phoneMap[c.name];
+                c.phone_number = phoneMap[c.name];
+              }
+            });
+          } catch (e) {
+            console.warn("Could not batch lookup Customer mobile_no:", e);
+          }
+        }
+
+        if (Array.isArray(list)) {
+          if (!searchTerm && list.length > 0) {
+            masterListRef.current = list;
+          }
+          setCustomers(list);
+          if (searchField === "phone" && searchTerm) {
+            console.log(
+              `📥 [Phone Search API Result] Received ${list.length} customer(s):`,
+              list.map((c) => ({
+                id: c.custom_customer_id || c.name,
+                name: c.custom_full_name || c.customer_name || c.name,
+                mobile_no: c.mobile_no,
+                phone_number: c.phone_number,
+              }))
+            );
+          }
+        }
+      } catch (err) {
+        console.error("Error searching customers:", err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loginUser, searchField]
+  );
+
+  // Initial load: fetch at least 10–25 customers
+  useEffect(() => {
+    searchCustomers("");
+  }, [searchCustomers]);
+
+  // Handle typing in input with debounced remote search
+  const handleQueryChange = (val) => {
+    setQuery(val);
+    onChange(val);
+    setIsOpen(true);
+    setHighlightedIndex(-1);
+
+    if (searchField === "phone") {
+      console.log(`⌨️ [Phone Input] Typed Phone Number: "${val}"`);
+    }
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      searchCustomers(val);
+    }, 250);
+  };
+
+  // Fuzzy match scoring function: higher score = closer match
+  const getFuzzyScore = (c, q) => {
+    if (!q) return 1;
+    const cleanQ = q.trim().toLowerCase();
+    const name = (c.custom_full_name || c.customer_name || "").toLowerCase();
+    const id = (c.custom_customer_id || c.customer_id || c.name || "").toLowerCase();
+    const idNum = (c.id_number || c.custom_passport_number || c.custom_drivers_licence_number || c.custom_voter_id_number || c.custom_tin_number || "").toLowerCase();
+    const dob = (c.custom_date_of_birth || c.dob || "").toLowerCase();
+    const phone = (c.phone_number || c.mobile_no || c.phone || "").toLowerCase();
+    const phoneDigits = phone.replace(/[\s\-\(\)\+]/g, "");
+    const cleanDigits = cleanQ.replace(/[\s\-\(\)\+]/g, "");
+
+    // Phone matches
+    if (cleanDigits && phoneDigits) {
+      if (phoneDigits === cleanDigits) return 100;
+      if (phoneDigits.endsWith(cleanDigits)) return 98;
+      if (phoneDigits.startsWith(cleanDigits)) return 96;
+      if (cleanDigits.endsWith(phoneDigits)) return 94;
+      if (phoneDigits.includes(cleanDigits) || cleanDigits.includes(phoneDigits)) return 90;
+    }
+
+    if (phone && phone.includes(cleanQ)) return 88;
+
+    if (searchField === "phone") {
+      if (id === cleanQ) return 80;
+      if (name === cleanQ) return 75;
+      if (id.startsWith(cleanQ)) return 70;
+      if (name.includes(cleanQ)) return 60;
+      return 0;
+    }
+
+    if (searchField === "id") {
+      if (id === cleanQ) return 100;
+      if (id.startsWith(cleanQ)) return 95;
+      if (id.endsWith(cleanQ)) return 90;
+      if (id.includes(cleanQ)) return 85;
+      if (name === cleanQ) return 70;
+      if (name.includes(cleanQ)) return 60;
+      return 0;
+    }
+
+    if (id === cleanQ) return 100;
+    if (name === cleanQ) return 95;
+    if (idNum === cleanQ) return 90;
+    if (id.startsWith(cleanQ)) return 85;
+    if (name.startsWith(cleanQ)) return 80;
+    if (idNum.startsWith(cleanQ)) return 75;
+    if (dob.includes(cleanQ)) return 70;
+    if (name.includes(cleanQ)) return 60;
+    if (id.includes(cleanQ)) return 55;
+    if (idNum.includes(cleanQ)) return 50;
+
+    return 0;
+  };
+
+  // Visible customers sorted by highest match score
+  const visibleCustomers = useMemo(() => {
+    const q = (query || "").trim().toLowerCase();
+    const source = masterListRef.current.length > 0 ? masterListRef.current : customers;
+
+    if (!q) {
+      return source.slice(0, 20);
+    }
+
+    if (searchField === "phone") {
+      console.log(`🔎 [Phone Match Check] Typed: "${q}" | Evaluating customers in list:`);
+      source.forEach((c) => {
+        const custPhone = c.mobile_no || c.phone_number || c.phone || "";
+        const cleanTyped = q.replace(/[\s\-\(\)\+]/g, "");
+        const cleanCust = custPhone.replace(/[\s\-\(\)\+]/g, "");
+        const isMatch =
+          (cleanTyped && cleanCust && (cleanCust.includes(cleanTyped) || cleanTyped.includes(cleanCust))) ||
+          custPhone.toLowerCase().includes(q);
+        console.log(
+          `   👉 Customer: "${c.custom_full_name || c.customer_name || c.name}" | mobile_no: "${c.mobile_no || "(none)"}" | Match: ${
+            isMatch ? "✅ MATCHED" : "❌ NO MATCH"
+          }`
+        );
+      });
+    }
+
+    const scored = [];
+    const seen = new Set();
+
+    customers.forEach((c) => {
+      const cId = c?.custom_customer_id || c?.name;
+      if (!cId || seen.has(cId)) return;
+      seen.add(cId);
+      let score = getFuzzyScore(c, q);
+      if (score === 0) {
+        // Backend search found this customer for q, ensure it remains visible
+        score = 80;
+      }
+      scored.push({ c, score });
+    });
+
+    masterListRef.current.forEach((c) => {
+      const cId = c?.custom_customer_id || c?.name;
+      if (!cId || seen.has(cId)) return;
+      seen.add(cId);
+      const score = getFuzzyScore(c, q);
+      if (score > 0) scored.push({ c, score });
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    const results = scored.map((item) => item.c).slice(0, 20);
+
+    if (searchField === "phone") {
+      console.log(`📋 [Matching Customers in Dropdown] (${results.length}):`, results.map((c) => ({
+        name: c.custom_full_name || c.customer_name || c.name,
+        id: c.custom_customer_id || c.name,
+        mobile_no: c.mobile_no,
+      })));
+    }
+
+    return results;
+  }, [customers, query, searchField]);
+
+  const handleSelect = (c) => {
+    const chosenVal =
+      searchField === "phone"
+        ? (c.phone_number || c.mobile_no || c.phone || "")
+        : searchField === "id"
+        ? (c.custom_customer_id || c.customer_id || c.name || "")
+        : (c.custom_full_name || c.customer_name || c.name || "");
+    setQuery(chosenVal);
+    setIsOpen(false);
+    onSelectCustomer(c);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Escape") {
+      setIsOpen(false);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setIsOpen(true);
+      setHighlightedIndex((prev) =>
+        prev < visibleCustomers.length - 1 ? prev + 1 : 0
+      );
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedIndex((prev) =>
+        prev > 0 ? prev - 1 : visibleCustomers.length - 1
+      );
+    } else if (
+      e.key === "Enter" &&
+      isOpen &&
+      highlightedIndex >= 0 &&
+      visibleCustomers[highlightedIndex]
+    ) {
+      e.preventDefault();
+      handleSelect(visibleCustomers[highlightedIndex]);
+    }
+  };
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <input
+        type="text"
+        name={`search_customer_${searchField}_field`}
+        id={`search_customer_${searchField}_input`}
+        className={inputStyle}
+        value={query}
+        disabled={disabled}
+        placeholder={placeholder}
+        autoComplete="one-time-code"
+        data-lpignore="true"
+        data-1p-ignore="true"
+        data-form-type="other"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={isOpen}
+        onFocus={() => {
+          setIsOpen(true);
+          if (customers.length === 0) {
+            searchCustomers("");
+          }
+        }}
+        onChange={(e) => handleQueryChange(e.target.value)}
+        onKeyDown={handleKeyDown}
+      />
+
+      {isOpen && (
+        <div className="absolute left-0 top-full mt-1.5 w-full min-w-[320px] bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in duration-100">
+          <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between text-[11px] text-gray-500 font-medium">
+            <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-gray-500">
+              {searchField === "phone" ? (
+                <Phone size={12} className="text-[#E00000]" />
+              ) : searchField === "id" ? (
+                <Hash size={12} className="text-[#E00000]" />
+              ) : (
+                <User size={12} className="text-[#E00000]" />
+              )}
+              {searchField === "phone"
+                ? "Matching Customers by Phone"
+                : searchField === "id"
+                ? "Matching Customers by Customer ID"
+                : "Matching Customers"}{" "}
+              ({visibleCustomers.length})
+            </span>
+            {loading ? (
+              <span className="flex items-center gap-1 text-gray-400 text-[10px]">
+                <RefreshCw size={10} className="animate-spin" /> Searching…
+              </span>
+            ) : (
+              <span className="text-[10px] text-gray-400">Select to auto-populate</span>
+            )}
+          </div>
+
+          <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+            {loading && visibleCustomers.length === 0 ? (
+              <div className="px-4 py-5 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
+                <RefreshCw size={13} className="animate-spin text-gray-400" />
+                <span>Searching customer records…</span>
+              </div>
+            ) : visibleCustomers.length === 0 ? (
+              <div className="px-4 py-4 text-center text-xs text-gray-500">
+                <p className="font-semibold text-gray-700">No matching customer found</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  Try searching by Phone number, Customer ID, Name or ID number
+                </p>
+              </div>
+            ) : (
+              visibleCustomers.map((c, idx) => {
+                const name = c.custom_full_name || c.customer_name || c.name;
+                const cId = c.custom_customer_id || c.customer_id || c.name;
+                const idNum = c.id_number || c.custom_passport_number || c.custom_drivers_licence_number || c.custom_voter_id_number || c.custom_tin_number || '';
+                const phoneNum = c.phone_number || c.mobile_no || c.phone || c.custom_contact_number || c.contact_number || '';
+                const isHighlighted = highlightedIndex === idx;
+                return (
+                  <div
+                    key={c.name}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      handleSelect(c);
+                    }}
+                    onMouseEnter={() => setHighlightedIndex(idx)}
+                    className={`px-3.5 py-2.5 cursor-pointer transition-colors flex items-center justify-between ${
+                      isHighlighted
+                        ? "bg-red-50 text-[#E00000]"
+                        : "hover:bg-gray-50 text-gray-700"
+                    }`}
+                  >
+                    <div className="truncate pr-2">
+                      <div
+                        className={`text-xs ${
+                          isHighlighted ? "font-bold text-[#E00000]" : "font-medium text-gray-800"
+                        } truncate flex items-center gap-2`}
+                      >
+                        {searchField === "id" ? (
+                          <>
+                            <span className="font-mono text-[11px] font-bold px-1.5 py-0.5 bg-red-100 text-[#E00000] rounded">
+                              {cId}
+                            </span>
+                            <span className="font-semibold">{name}</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>{name}</span>
+                            <span className="font-mono text-[11px] font-bold px-1.5 py-0.2 bg-gray-100 rounded text-gray-700">
+                              {cId}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-gray-400 font-mono truncate mt-0.5">
+                        {phoneNum ? (
+                          <strong className="text-gray-700">📞 {phoneNum}</strong>
+                        ) : (
+                          <span className="italic text-gray-400">No phone attached</span>
+                        )}
+                        {c.custom_date_of_birth ? ` • DOB: ${c.custom_date_of_birth}` : ''}
+                        {idNum ? ` • ID: ${idNum}` : ''}
+                      </div>
+                    </div>
+                    <div className="shrink-0 flex items-center gap-1 text-[11px] font-semibold text-gray-400">
+                      <span className={isHighlighted ? "text-[#E00000]" : "text-gray-400"}>
+                        Select &rarr;
+                      </span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const MoneyTransfer = () => {
   console.log("🚨🚨🚨 NEW MONEY TRANSFER FILE IS RUNNING 🚨🚨🚨");
@@ -35,6 +563,7 @@ const MoneyTransfer = () => {
   const [linkOptionsMap, setLinkOptionsMap] = useState({});
   const [loadingLinkOptions, setLoadingLinkOptions] = useState({});
   const fetchedDoctypesRef = useRef(new Set());
+  const selectedFromDropdownRef = useRef(false);
 
   // Populate Country options from useCountries hook whenever it resolves
   useEffect(() => {
@@ -63,11 +592,6 @@ const MoneyTransfer = () => {
 
         const headers = {
           "Content-Type": "application/json",
-          ...(loginUser?.user?.api_key && loginUser?.user?.api_secret
-            ? {
-                Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
-              }
-            : {}),
           ...getFetchOptions().headers,
         };
 
@@ -164,13 +688,24 @@ const MoneyTransfer = () => {
     });
   }, [metaFields, fetchLinkOptions]);
 
-  // useEffect(() => {
-  //   getDefaultCustomerLimits().then((limits) => {
-  //     if (limits) {
-  //       setDefaultLimits(limits);
-  //     }
-  //   });
-  // }, []);
+  const [defaultLimits, setDefaultLimits] = useState(null);
+
+  useEffect(() => {
+    getDefaultCustomerLimits().then((limits) => {
+      if (limits) {
+        setDefaultLimits(limits);
+        setForm((prev) => ({
+          ...prev,
+          custom_available_currency_transfer_balance:
+            prev.custom_available_currency_transfer_balance || limits.annual_fx_limit || 0,
+          custom_annual_fx_and_moneygram_limit:
+            prev.custom_annual_fx_and_moneygram_limit || limits.annual_fx_and_moneygram_limit || 0,
+          custom_annual_compliance_limit:
+            prev.custom_annual_compliance_limit || limits.annual_compliance_limit || 0,
+        }));
+      }
+    });
+  }, []);
 
   // console.log("Current User:", loginUser);
   const settings = useSettings();
@@ -189,6 +724,45 @@ const MoneyTransfer = () => {
 
   const [customerLookupDone, setCustomerLookupDone] = useState(false);
   const [customerFound, setCustomerFound] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [customerImageFile, setCustomerImageFile] = useState(null);
+  const [customerImageUrl, setCustomerImageUrl] = useState("");
+
+  const [isIdSearchMode, setIsIdSearchMode] = useState(false);
+
+  // Auto-generate 6-character unique ID for customer if empty
+  useEffect(() => {
+    if (!form.customer_id && loginUser?.user && !isIdSearchMode) {
+      fetchNewCustomerId(loginUser).then((code) => {
+        if (code) {
+          setForm((prev) => ({ ...prev, customer_id: code }));
+        }
+      });
+    }
+  }, [form.customer_id, loginUser, isIdSearchMode]);
+
+  const handleRegenerateId = async () => {
+    const code = await fetchNewCustomerId(loginUser);
+    if (code) {
+      setForm((prev) => ({ ...prev, customer_id: code }));
+    }
+  };
+
+  const handleCancelIdSearch = async () => {
+    setIsIdSearchMode(false);
+    if (!selectedCustomer) {
+      const code = await fetchNewCustomerId(loginUser);
+      if (code) {
+        setForm((prev) => ({ ...prev, customer_id: code }));
+      }
+    } else {
+      const curId =
+        selectedCustomer.custom_customer_id ||
+        selectedCustomer.customer_id ||
+        selectedCustomer.name;
+      setForm((prev) => ({ ...prev, customer_id: curId }));
+    }
+  };
 
   const handleDenominationRowsChange = useCallback((rows) => {
     const total = (rows || []).reduce(
@@ -331,7 +905,7 @@ const MoneyTransfer = () => {
       console.error("❌ No warehouse selected in Settings.");
 
       setStockError(
-        "No warehouse is selected. Please select a warehouse before submitting."
+        "User is not assigned to any branch location. Please assign a branch in ERPNext before submitting."
       );
 
       return false;
@@ -427,18 +1001,25 @@ const MoneyTransfer = () => {
     return map;
   }, [metaFields]);
 
+  const documentRows = form.documents ?? [
+    ...(form.document_upload ? [{ document_type: "ID", attachment: form.document_upload, notes: "" }] : []),
+    ...(form.upload_additional_info ? [{ document_type: "Additional Info", attachment: form.upload_additional_info, notes: "" }] : []),
+  ];
+
   const usableFields = React.useMemo(() => {
     return metaFields
       .map((f) => (f.fieldname === "amount" ? { ...f, reqd: 1, depends_on: "" } : f))
       .filter(
         (f) =>
           !f.hidden &&
+          f.fieldtype !== "Attach" &&
+          f.fieldname !== "documents" &&
+          f.fieldname !== "documents_section" &&
           f.fieldtype !== "Column Break" &&
           f.fieldname !== "cash_denomination_section" &&
           f.fieldname !== "currency_denomination" &&
           f.fieldname !== "customer_details_section" &&
           f.fieldname !== "warehouse" &&
-          f.fieldname !== "customer_id" &&
           f.fieldname !== "amended_from"
       )
       .map((f) => ({
@@ -514,6 +1095,15 @@ const MoneyTransfer = () => {
           !checkFields.some((c) => c.fieldname === f.fieldname)
       );
 
+      // Ensure customer_id comes right before full_name if both present
+      const cIdIdx = remaining.findIndex((f) => f.fieldname === "customer_id");
+      const fnIdx = remaining.findIndex((f) => f.fieldname === "full_name");
+      if (cIdIdx !== -1 && fnIdx !== -1 && cIdIdx > fnIdx) {
+        const [cIdField] = remaining.splice(cIdIdx, 1);
+        const newFnIdx = remaining.findIndex((f) => f.fieldname === "full_name");
+        remaining.splice(newFnIdx, 0, cIdField);
+      }
+
       const insertAt =
         anchorIndex !== -1 ? Math.min(anchorIndex, remaining.length) : remaining.length;
 
@@ -527,6 +1117,15 @@ const MoneyTransfer = () => {
       const remaining = result.filter(
         (f) => !checkFields.some((c) => c.fieldname === f.fieldname)
       );
+
+      const cIdIdx = remaining.findIndex((f) => f.fieldname === "customer_id");
+      const fnIdx = remaining.findIndex((f) => f.fieldname === "full_name");
+      if (cIdIdx !== -1 && fnIdx !== -1 && cIdIdx > fnIdx) {
+        const [cIdField] = remaining.splice(cIdIdx, 1);
+        const newFnIdx = remaining.findIndex((f) => f.fieldname === "full_name");
+        remaining.splice(newFnIdx, 0, cIdField);
+      }
+
       remaining.push(...checkFields);
       return remaining;
     }
@@ -541,10 +1140,20 @@ const MoneyTransfer = () => {
     "text-xs uppercase font-bold text-gray-400 mb-2 block";
 
   const handleChange = (key, value) => {
-    setForm((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
+    if (key === "full_name") {
+      selectedFromDropdownRef.current = false;
+      setCustomerFound(false);
+      setForm((prev) => ({
+        ...prev,
+        customer: "",
+        [key]: value,
+      }));
+    } else {
+      setForm((prev) => ({
+        ...prev,
+        [key]: value,
+      }));
+    }
 
     if (
       (key === "transfer_type" || key === "transaction_type") &&
@@ -658,8 +1267,17 @@ const MoneyTransfer = () => {
             .map((s) => s.trim())
             .filter(Boolean)[0] || "Send";
 
+        const riskField = fields.find((f) => f.fieldname === "risk_level");
+        const defaultRisk =
+          riskField?.options
+            ?.split("\n")
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .find((o) => o === "Low") || "Low";
+
         setForm((prev) => ({
           transfer_type: prev.transfer_type || defaultType,
+          risk_level: prev.risk_level || defaultRisk,
           ...prev,
         }));
 
@@ -793,10 +1411,240 @@ const MoneyTransfer = () => {
 
   //   const delay = setTimeout(fetchCustomer, 500);
   //   return () => clearTimeout(delay);
-  // }, [form.full_name, form.dob]);
+  // ── Handle customer selected from autocomplete dropdown ───────────────────
+  const handleSelectCustomer = async (c) => {
+    if (!c) return;
+    const nameVal = c.custom_full_name || c.customer_name || c.full_name || c.name || "";
+    const custId = c.custom_customer_id || c.customer_id || c.name || "";
+    const phoneVal = c.mobile_no || c.phone_number || c.phone || c.custom_contact_number || c.contact_number || "";
+    const govIdType = c.custom_government_id || c.government_id_type || "";
+    let govIdNumber = "";
+    if (govIdType === "Passport") govIdNumber = c.custom_passport_number || "";
+    else if (govIdType === "Driver's Licence") govIdNumber = c.custom_drivers_licence_number || "";
+    else if (govIdType === "TIN Card") govIdNumber = c.custom_tin_number || "";
+    else if (govIdType === "Voter ID Card") govIdNumber = c.custom_voter_id_number || "";
+    if (!govIdNumber) {
+      govIdNumber = c.custom_passport_number || c.custom_drivers_licence_number || c.custom_tin_number || c.custom_voter_id_number || c.id_number || "";
+    }
+    const existingImg = c.image || c.custom_image || "";
+
+    selectedFromDropdownRef.current = true;
+    setSelectedCustomer(c);
+    setCustomerFound(true);
+    setCustomerLookupDone(true);
+    if (existingImg) {
+      setCustomerImageUrl(existingImg);
+      setCustomerImageFile(null);
+    }
+
+    // Immediately populate all fields from selected customer into form
+    setForm((prev) => ({
+      ...prev,
+      full_name: nameVal,
+      custom_full_name: nameVal,
+      customer: c.name,
+      customer_id: custId,
+      phone_number: phoneVal,
+      contact_number: phoneVal,
+      dob: c.custom_date_of_birth || c.dob || prev.dob || "",
+      custom_date_of_birth: c.custom_date_of_birth || c.dob || prev.custom_date_of_birth || "",
+      passport_number: c.custom_passport_number || prev.passport_number || "",
+      custom_passport_number: c.custom_passport_number || prev.custom_passport_number || "",
+      document_upload: c.custom_government_document || prev.document_upload || "",
+      custom_government_document: c.custom_government_document || prev.custom_government_document || "",
+      custom_government_id: govIdType || prev.custom_government_id || "",
+      government_id_type: govIdType || prev.government_id_type || "",
+      government_id_number: govIdNumber || prev.government_id_number || "",
+      country: c.custom_country || prev.country || "",
+      city: c.custom_city || prev.city || "",
+      stateprovince: c.custom_id_issue_stateprovince || c.custom_state_province || prev.stateprovince || "",
+      email: c.email_id || c.custom_email || prev.email || "",
+      occupation: c.custom_occupation || prev.occupation || "",
+      tin_number: c.custom_tin_number || prev.tin_number || "",
+      id_issue_date: c.custom_id_issue_date || prev.id_issue_date || "",
+      id_expiry_date: c.custom_id_expiry_date || prev.id_expiry_date || "",
+      id_issue_country: c.custom_id_issue_country || prev.id_issue_country || "",
+      id_issue_state: c.custom_id_issue_stateprovince || prev.id_issue_state || "",
+      risk_level: c.custom_risk_level || c.risk_level || prev.risk_level || "Low",
+      custom_available_currency_transfer_balance: c.custom_available_currency_transfer_balance ?? prev.custom_available_currency_transfer_balance ?? 0,
+      custom_annual_fx_and_moneygram_limit: c.custom_annual_fx_and_moneygram_limit ?? prev.custom_annual_fx_and_moneygram_limit ?? 0,
+      custom_annual_compliance_limit: c.custom_annual_compliance_limit ?? prev.custom_annual_compliance_limit ?? 0,
+    }));
+
+    try {
+      const fullResponse = await getCustomerById(c.name, loginUser);
+      const customer = fullResponse?.data || fullResponse;
+
+      if (customer?.name) {
+        setCustomerFound(true);
+        setCustomerLookupDone(true);
+        const resolvedId = customer.custom_customer_id || customer.customer_id || customer.name || custId;
+
+        // Fetch existing customer photo if present
+        const existingImg = customer.image || customer.custom_image || "";
+        setCustomerImageUrl(existingImg);
+        setCustomerImageFile(null);
+
+        setForm((prev) => ({
+          ...prev,
+          customer_id: resolvedId,
+          customer: customer.name,
+          full_name:
+            customer.custom_full_name ||
+            customer.customer_name ||
+            customer.full_name ||
+            nameVal,
+          custom_full_name:
+            customer.custom_full_name ||
+            customer.customer_name ||
+            customer.full_name ||
+            nameVal,
+          dob:
+            customer.custom_date_of_birth ||
+            customer.dob ||
+            prev.dob ||
+            "",
+          custom_date_of_birth:
+            customer.custom_date_of_birth ||
+            customer.dob ||
+            prev.custom_date_of_birth ||
+            "",
+          passport_number:
+            customer.custom_passport_number ||
+            customer.passport_number ||
+            prev.passport_number ||
+            "",
+          custom_passport_number:
+            customer.custom_passport_number ||
+            customer.passport_number ||
+            prev.custom_passport_number ||
+            "",
+          document_upload:
+            customer.custom_government_document ||
+            customer.document_upload ||
+            prev.document_upload ||
+            "",
+          custom_government_document:
+            customer.custom_government_document ||
+            prev.custom_government_document ||
+            "",
+          custom_government_id:
+            customer.custom_government_id ||
+            customer.government_id_type ||
+            prev.custom_government_id ||
+            "",
+          government_id_type:
+            customer.custom_government_id ||
+            customer.government_id_type ||
+            prev.government_id_type ||
+            "",
+          government_id_number:
+            customer.custom_passport_number ||
+            customer.custom_drivers_licence_number ||
+            customer.custom_tin_number ||
+            customer.custom_voter_id_number ||
+            prev.government_id_number ||
+            "",
+          customer: customer.name,
+          country:
+            customer.custom_country ||
+            customer.country ||
+            prev.country ||
+            "",
+          address:
+            customer.custom_address ||
+            customer.address ||
+            prev.address ||
+            "",
+          city:
+            customer.custom_city ||
+            customer.city ||
+            prev.city ||
+            "",
+          stateprovince:
+            customer.custom_state_province ||
+            customer.custom_stateprovince ||
+            customer.stateprovince ||
+            prev.stateprovince ||
+            "",
+          postal_code:
+            customer.custom_postal_code ||
+            customer.postal_code ||
+            prev.postal_code ||
+            "",
+          email:
+            customer.custom_email ||
+            customer.email ||
+            prev.email ||
+            "",
+          contact_number:
+            customer.custom_contact_number ||
+            customer.contact_number ||
+            prev.contact_number ||
+            "",
+          gender:
+            customer.custom_gender ||
+            customer.gender ||
+            prev.gender ||
+            "",
+          occupation:
+            customer.custom_occupation ||
+            customer.occupation ||
+            prev.occupation ||
+            "",
+          phone_number:
+            customer.mobile_no ||
+            customer.phone_number ||
+            customer.phone ||
+            customer.custom_contact_number ||
+            customer.contact_number ||
+            phoneVal ||
+            prev.phone_number ||
+            "",
+          tin_number:
+            customer.custom_tin_number ||
+            customer.tin_number ||
+            prev.tin_number ||
+            "",
+          id_issue_date:
+            customer.custom_id_issue_date ||
+            customer.id_issue_date ||
+            prev.id_issue_date ||
+            "",
+          id_expiry_date:
+            customer.custom_id_expiry_date ||
+            customer.id_expiry_date ||
+            prev.id_expiry_date ||
+            "",
+          risk_level:
+            customer.custom_risk_level ||
+            customer.risk_level ||
+            prev.risk_level ||
+            "Low",
+          custom_available_currency_transfer_balance:
+            customer.custom_available_currency_transfer_balance ?? prev.custom_available_currency_transfer_balance ?? 0,
+          custom_annual_fx_and_moneygram_limit:
+            customer.custom_annual_fx_and_moneygram_limit ?? prev.custom_annual_fx_and_moneygram_limit ?? 0,
+          custom_annual_compliance_limit:
+            customer.custom_annual_compliance_limit ?? prev.custom_annual_compliance_limit ?? 0,
+        }));
+      }
+    } catch (err) {
+      console.error("Error auto-filling customer from dropdown:", err);
+    }
+  };
+
   useEffect(() => {
     const fetchCustomer = async () => {
+      if (selectedFromDropdownRef.current) {
+        selectedFromDropdownRef.current = false;
+        return;
+      }
+
       if (!form.full_name || !form.dob) {
+        if (form.customer && form.full_name) {
+          return;
+        }
         setCustomerLookupDone(false);
         setCustomerFound(false);
 
@@ -856,6 +1704,11 @@ const MoneyTransfer = () => {
 
           setCustomerFound(true);
           setCustomerLookupDone(true);
+
+          // Fetch existing customer photo if present
+          const existingImg = customer.image || customer.custom_image || "";
+          setCustomerImageUrl(existingImg);
+          setCustomerImageFile(null);
 
           setForm((prev) => ({
             ...prev,
@@ -920,6 +1773,45 @@ const MoneyTransfer = () => {
             // IMPORTANT
             customer: customer.name,
 
+            phone_number:
+              customer.phone_number ||
+              customer.custom_contact_number ||
+              customer.contact_number ||
+              customer.mobile_no ||
+              customer.phone ||
+              prev.phone_number ||
+              "",
+
+            tin_number:
+              customer.custom_tin_number ||
+              customer.tin_number ||
+              prev.tin_number ||
+              "",
+
+            occupation:
+              customer.custom_occupation ||
+              customer.occupation ||
+              prev.occupation ||
+              "",
+
+            id_issue_date:
+              customer.custom_id_issue_date ||
+              customer.id_issue_date ||
+              prev.id_issue_date ||
+              "",
+
+            id_expiry_date:
+              customer.custom_id_expiry_date ||
+              customer.id_expiry_date ||
+              prev.id_expiry_date ||
+              "",
+
+            risk_level:
+              customer.custom_risk_level ||
+              customer.risk_level ||
+              prev.risk_level ||
+              "Low",
+
             country:
               customer.custom_country ||
               customer.country ||
@@ -973,6 +1865,9 @@ const MoneyTransfer = () => {
         console.log("ℹ️ Customer not found");
 
         setCustomerFound(false);
+        if (!customerImageFile) {
+          setCustomerImageUrl("");
+        }
 
         const limits = await getDefaultCustomerLimits();
 
@@ -1132,11 +2027,17 @@ const MoneyTransfer = () => {
     }
 
     try {
-      let documentUrl = "";
-
-      if (form.document_upload instanceof File) {
-        documentUrl = await uploadFile(form.document_upload, { isPrivate: 1 });
+      const uploadedDocuments = [];
+      for (const row of documentRows) {
+        const attachment = row.attachment instanceof File
+          ? await uploadFile(row.attachment, { isPrivate: 1 })
+          : row.attachment;
+        if (typeof attachment !== 'string' || !attachment.trim()) throw new Error(`Please go back and reselect the attachment for ${row.document_type}. The selected file was lost after a page refresh.`);
+        uploadedDocuments.push({ document_type: row.document_type.trim(), attachment, notes: row.notes || "" });
       }
+      const documentUrl = uploadedDocuments.find(row => row.document_type === "ID")?.attachment || "";
+      const submissionForm = { ...form, documents: uploadedDocuments, document_upload: documentUrl,
+        upload_additional_info: uploadedDocuments.find(row => row.document_type === "Additional Info")?.attachment || "" };
 
       console.log("Using loginUser for createCustomer:", loginUser);
       console.log("Currency Denomination Rows:", currencyDenominationRows);
@@ -1169,36 +2070,68 @@ const MoneyTransfer = () => {
         setStockError("");
       }
 
+      // Upload customer photo if a new file was captured or selected
+      let customerUploadedImageUrl = "";
+      if (customerImageFile instanceof File) {
+        customerUploadedImageUrl = await uploadFile(customerImageFile, {
+          isPrivate: 0,
+        });
+      }
+
       // Create / Fetch Customer
       let customerId = "";
       let customerFullName = "";
 
-      const formattedDate = formatDate(form.dob);
-      const cleanName = form.full_name ? form.full_name.trim().replace(/\s+/g, " ") : "";
-      const expectedCustomerId = cleanName && formattedDate ? `${cleanName}_${formattedDate}` : "";
-
-      if (customerFound && form.customer && form.customer === expectedCustomerId) {
-        // Existing customer was autofetched: reuse directly without creating a new one
-        customerId = form.customer;
+      if (selectedCustomer && (form.customer || form.customer_id)) {
+        // Existing customer selected: reuse directly without re-creating
+        customerId = form.customer || form.customer_id;
         customerFullName = form.custom_full_name || form.full_name;
         console.log("Reusing existing fetched customer:", customerId);
 
-        // If a new document file was uploaded, update the existing customer document
-        if (form.document_upload instanceof File && documentUrl) {
-          updateCustomer(customerId, { custom_government_document: documentUrl }, loginUser).catch((err) => {
-            console.warn("Non-critical: could not update customer document:", err);
+        // Update customer documents and/or photo if changed
+        const updates = {};
+        if (documentRows.some(row => row.document_type === "ID" && row.attachment instanceof File) && documentUrl) {
+          updates.custom_government_document = documentUrl;
+        }
+        if (customerImageFile instanceof File && customerUploadedImageUrl) {
+          updates.image = customerUploadedImageUrl;
+        }
+        if (form.phone_number) {
+          updates.mobile_no = form.phone_number;
+        }
+        if (form.risk_level) {
+          updates.custom_risk_level = form.risk_level;
+        }
+
+        if (Object.keys(updates).length > 0) {
+          await updateCustomer(customerId, updates, loginUser).catch((err) => {
+            console.warn("Non-critical: could not update customer:", err);
           });
         }
+        if (form.risk_level) {
+          await updateCustomerRiskLevel(customerId, form.risk_level, loginUser).catch(() => {});
+        }
       } else {
-        // Customer not yet fetched or new: createCustomer will check if customer exists or create new
-        const customer = await createCustomer(form, documentUrl, loginUser);
-        customerId = customer.name;
+        // New customer: createCustomer creates record using 6-character code and image
+        const customer = await createCustomer(form, documentUrl, loginUser, customerUploadedImageUrl);
+        customerId = customer.name || customer.custom_customer_id || form.customer_id;
         customerFullName = customer.custom_full_name || customer.customer_name || form.full_name;
+
+        const postCreateUpdates = {};
+        if (customerUploadedImageUrl) postCreateUpdates.image = customerUploadedImageUrl;
+        if (form.phone_number) postCreateUpdates.mobile_no = form.phone_number;
+        if (form.risk_level) postCreateUpdates.custom_risk_level = form.risk_level;
+        if (Object.keys(postCreateUpdates).length > 0 && customerId) {
+          await updateCustomer(customerId, postCreateUpdates, loginUser).catch(() => {});
+        }
+        if (form.risk_level && customerId) {
+          await updateCustomerRiskLevel(customerId, form.risk_level, loginUser).catch(() => {});
+        }
       }
 
       // Create Transaction
       const transfer = await createMoneyTransfer(
-        form,
+        submissionForm,
         customerId,
         loginUser,
         documentUrl,
@@ -1327,6 +2260,63 @@ const MoneyTransfer = () => {
     return true;
   };
 
+  const clearCustomerDetails = () => {
+    setSelectedCustomer(null);
+    setCustomerFound(false);
+    setCustomerLookupDone(false);
+    setCustomerImageFile(null);
+    setCustomerImageUrl("");
+    const transferField = metaFields.find((f) => f.fieldname === "transfer_type");
+    const defaultType =
+      transferField?.options
+        ?.split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean)[0] || "Send";
+    const riskField = metaFields.find((f) => f.fieldname === "risk_level");
+    const defaultRisk =
+      riskField?.options
+        ?.split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .find((o) => o === "Low") || "Low";
+
+    setForm((prev) => ({
+      ...prev,
+      customer: "",
+      customer_id: "",
+      full_name: "",
+      custom_full_name: "",
+      phone_number: "",
+      dob: "",
+      custom_date_of_birth: "",
+      passport_number: "",
+      custom_passport_number: "",
+      document_upload: "",
+      custom_government_document: "",
+      custom_government_id: "",
+      government_id_type: "",
+      government_id_number: "",
+      country: "",
+      address: "",
+      city: "",
+      stateprovince: "",
+      postal_code: "",
+      email: "",
+      contact_number: "",
+      gender: "",
+      occupation: "",
+      tin_number: "",
+      id_issue_date: "",
+      id_expiry_date: "",
+      id_issue_country: "",
+      id_issue_state: "",
+      risk_level: defaultRisk,
+      custom_available_currency_transfer_balance: 0,
+      custom_annual_fx_and_moneygram_limit: 0,
+      custom_annual_compliance_limit: 0,
+    }));
+  };
+
   const resetForm = () => {
     const transferField = metaFields.find((f) => f.fieldname === "transfer_type");
     const defaultType =
@@ -1335,12 +2325,22 @@ const MoneyTransfer = () => {
         .map((s) => s.trim())
         .filter(Boolean)[0] || "Send";
 
-    setForm({ transfer_type: defaultType });
+    const riskField = metaFields.find((f) => f.fieldname === "risk_level");
+    const defaultRisk =
+      riskField?.options
+        ?.split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .find((o) => o === "Low") || "Low";
+
+    setForm({ transfer_type: defaultType, risk_level: defaultRisk });
     setStockError("");
     setFieldErrors({});
     setSubmitError("");
     setCustomerFound(false);
     setCustomerLookupDone(false);
+    setCustomerImageFile(null);
+    setCustomerImageUrl("");
     setCurrencyDenominationRows([]);
     denomStatusRef.current = { total: 0, target: 0 };
     setDenomBalanceError("");
@@ -1495,6 +2495,9 @@ const MoneyTransfer = () => {
 
   const validateForm = () => {
     const errors = {};
+    if (documentRows.some(row => !row.document_type?.trim() || !row.attachment)) {
+      errors.documents = "Each document row needs a document type and an uploaded file.";
+    }
 
     usableFields.forEach((field) => {
       if (field.fieldtype === "Section Break" || !field.reqd || !shouldShowField(field)) return;
@@ -1659,6 +2662,124 @@ const MoneyTransfer = () => {
       );
     }
 
+    if (field.fieldname === "customer_id") {
+      return (
+        <div key={field.fieldname}>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs uppercase font-bold text-gray-400 block">
+              {isIdSearchMode ? "Search Customer ID" : "Customer ID"}{" "}
+              <span className="text-red-500 ml-1">*</span>
+            </label>
+            <div className="flex items-center gap-2">
+              {isIdSearchMode ? (
+                <button
+                  type="button"
+                  onClick={handleCancelIdSearch}
+                  className="text-[11px] text-gray-500 hover:text-red-600 flex items-center gap-1 font-medium transition-colors cursor-pointer"
+                  title="Cancel search and return to auto-generated ID"
+                >
+                  <X size={11} /> Cancel Search
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsIdSearchMode(true);
+                      if (!selectedCustomer) {
+                        setForm((prev) => ({ ...prev, customer_id: "" }));
+                      }
+                    }}
+                    className="text-[11px] text-gray-500 hover:text-[#E00000] flex items-center gap-1 font-medium transition-colors cursor-pointer"
+                    title="Search customer by entering Customer ID"
+                  >
+                    <Search size={11} /> Search by ID
+                  </button>
+                  {!selectedCustomer && (
+                    <button
+                      type="button"
+                      onClick={handleRegenerateId}
+                      className="text-[11px] text-gray-500 hover:text-[#E00000] flex items-center gap-1 font-medium transition-colors cursor-pointer"
+                      title="Generate another 6-character code"
+                    >
+                      <RefreshCw size={11} /> Regenerate ID
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+          {isIdSearchMode ? (
+            <div className="relative">
+              <CustomerAutocompleteInput
+                value={form.customer_id || ""}
+                onChange={(val) => {
+                  handleChange("customer_id", val);
+                  if (!val || !val.trim()) {
+                    clearCustomerDetails();
+                  } else if (
+                    selectedCustomer &&
+                    val !==
+                      (selectedCustomer.custom_customer_id ||
+                        selectedCustomer.customer_id ||
+                        selectedCustomer.name)
+                  ) {
+                    setSelectedCustomer(null);
+                    setCustomerFound(false);
+                    setForm((prev) => ({ ...prev, customer: "" }));
+                  }
+                }}
+                onSelectCustomer={(c) => {
+                  handleSelectCustomer(c);
+                  setIsIdSearchMode(false);
+                }}
+                inputStyle={`${inputStyle} font-mono font-bold tracking-wider`}
+                disabled={isFormLocked}
+                loginUser={loginUser}
+                searchField="id"
+                placeholder="Type Customer ID to search (e.g. CUST-... or 6-char ID)..."
+              />
+            </div>
+          ) : (
+            <div className="relative">
+              <input
+                type="text"
+                readOnly
+                placeholder="Auto-generating 6-character ID..."
+                value={form.customer_id || ""}
+                className={`${inputStyle} font-mono font-bold tracking-widest text-sm bg-gray-50 pr-24 ${
+                  form.customer_id
+                    ? "text-[#E00000] border-gray-300"
+                    : "text-gray-400 border-gray-200"
+                }`}
+              />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsIdSearchMode(true);
+                    if (!selectedCustomer) {
+                      setForm((prev) => ({ ...prev, customer_id: "" }));
+                    }
+                  }}
+                  className="p-1 text-gray-400 hover:text-[#E00000] rounded hover:bg-gray-100 transition-colors"
+                  title="Search Customer by ID"
+                >
+                  <Search size={14} />
+                </button>
+                {form.customer_id && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider bg-gray-200 text-gray-700">
+                    {selectedCustomer ? "EXISTING" : "NEW"}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+          {renderFieldError("customer_id")}
+        </div>
+      );
+    }
+
     const commonProps = {
       className: inputStyle,
       value: form[field.fieldname] || "",
@@ -1669,6 +2790,65 @@ const MoneyTransfer = () => {
     switch (field.fieldtype) {
       case "Data":
         const isAmount = field.fieldname === "amount";
+        const isFullName = field.fieldname === "full_name";
+        const isPhoneNumber = field.fieldname === "phone_number";
+
+        if (isFullName) {
+          return (
+            <div key={field.fieldname}>
+              {renderLabel(field)}
+              <CustomerAutocompleteInput
+                value={form[field.fieldname] || ""}
+                onChange={(val) => {
+                  handleChange(field.fieldname, val);
+                  if (!val || !val.trim()) {
+                    clearCustomerDetails();
+                  } else if (selectedCustomer && val !== (selectedCustomer.custom_full_name || selectedCustomer.customer_name || selectedCustomer.full_name)) {
+                    setSelectedCustomer(null);
+                    setCustomerFound(false);
+                    setForm((prev) => ({ ...prev, customer: "" }));
+                  }
+                }}
+                onSelectCustomer={handleSelectCustomer}
+                inputStyle={inputStyle}
+                disabled={isFormLocked}
+                loginUser={loginUser}
+                searchField="name"
+                placeholder="Type customer name or search by ID, Phone..."
+              />
+              {renderFieldError(field.fieldname)}
+            </div>
+          );
+        }
+
+        if (isPhoneNumber) {
+          return (
+            <div key={field.fieldname}>
+              {renderLabel(field)}
+              <CustomerAutocompleteInput
+                value={form[field.fieldname] || ""}
+                onChange={(val) => {
+                  handleChange(field.fieldname, val);
+                  if (!val || !val.trim()) {
+                    clearCustomerDetails();
+                  } else if (selectedCustomer && val !== (selectedCustomer.phone_number || selectedCustomer.mobile_no || selectedCustomer.phone)) {
+                    setSelectedCustomer(null);
+                    setCustomerFound(false);
+                    setForm((prev) => ({ ...prev, customer: "" }));
+                  }
+                }}
+                onSelectCustomer={handleSelectCustomer}
+                inputStyle={inputStyle}
+                disabled={isFormLocked}
+                loginUser={loginUser}
+                searchField="phone"
+                placeholder="Type phone number or search past customer..."
+              />
+              {renderFieldError(field.fieldname)}
+            </div>
+          );
+        }
+
         return (
           <div key={field.fieldname} className={isAmount ? "col-span-2" : ""}>
             {renderLabel(field)}
@@ -1678,6 +2858,10 @@ const MoneyTransfer = () => {
               step={isAmount ? "0.01" : undefined}
               min={isAmount ? "0" : undefined}
               placeholder={isAmount ? "Enter transfer amount" : ""}
+              autoComplete="one-time-code"
+              data-lpignore="true"
+              data-1p-ignore="true"
+              data-form-type="other"
             />
             {renderFieldError(field.fieldname)}
           </div>
@@ -1705,38 +2889,62 @@ const MoneyTransfer = () => {
           </div>
         );
 
-      case "Date":
+      case "Date": {
+        const isExpiry = field.fieldname?.toLowerCase().includes("expiry");
+        const isDob = field.fieldname === "dob";
+
+        let selectedDate = null;
+        if (form[field.fieldname]) {
+          const raw = form[field.fieldname];
+          if (raw instanceof Date) {
+            selectedDate = isNaN(raw.getTime()) ? null : raw;
+          } else if (typeof raw === "string") {
+            const parts = raw.split("-");
+            if (parts.length === 3) {
+              selectedDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+            } else {
+              const parsed = new Date(raw);
+              selectedDate = isNaN(parsed.getTime()) ? null : parsed;
+            }
+          }
+        }
+
         return (
           <div key={field.fieldname}>
             {renderLabel(field)}
             <DatePicker
-              selected={
-                form[field.fieldname]
-                  ? new Date(form[field.fieldname])
-                  : null
-              }
+              selected={selectedDate}
               onChange={(date) =>
                 handleChange(field.fieldname, formatLocalDate(date))
               }
               className={inputStyle}
               dateFormat="yyyy-MM-dd"
-
-              // ✅ KEY FIXES
               showYearDropdown
               showMonthDropdown
               dropdownMode="select"
-
-              // ✅ Open to past (DOB friendly)
-              maxDate={new Date()} // no future dates
-              yearDropdownItemNumber={100} // last 100 years
-              scrollableYearDropdown
-
-              // ✅ Optional: open calendar around 2000 instead of today
-              openToDate={new Date(2000, 0, 1)}
+              {...(isDob
+                ? {
+                    maxDate: new Date(),
+                    yearDropdownItemNumber: 100,
+                    scrollableYearDropdown: true,
+                    openToDate: new Date(2000, 0, 1),
+                  }
+                : isExpiry
+                ? {
+                    yearDropdownItemNumber: 30,
+                    scrollableYearDropdown: true,
+                    openToDate: new Date(),
+                  }
+                : {
+                    maxDate: new Date(),
+                    yearDropdownItemNumber: 50,
+                    scrollableYearDropdown: true,
+                  })}
             />
             {renderFieldError(field.fieldname)}
           </div>
         );
+      }
 
       case "Select": {
         const options = field.options?.split("\n").map((opt) => opt.trim()).filter(Boolean) || [];
@@ -1765,34 +2973,6 @@ const MoneyTransfer = () => {
           </div>
         );
       }
-
-      case "Attach":
-        return (
-          <div key={field.fieldname}>
-            {/* Do NOT render renderLabel(field) here because FileUploadBox
-          already displays the label internally. Instead, pass the
-          mandatory asterisk directly in the label prop. */}
-            <FileUploadBox
-              label={
-                field.reqd
-                  ? `${field.label} *`
-                  : field.label
-              }
-              file={form[field.fieldname]}
-              existingFileUrl={
-                typeof form[field.fieldname] === "string"
-                  ? form[field.fieldname]
-                  : null
-              }
-              setFile={(file) =>
-                handleChange(field.fieldname, file)
-              }
-            />
-
-            {renderFieldError(field.fieldname)}
-          </div>
-        );
-
 
       case "Small Text":
       case "Text":
@@ -1925,8 +3105,9 @@ const MoneyTransfer = () => {
   };
 
   const renderCustomerLimitsCard = () => {
-    const rawFxMg = form.custom_annual_fx_and_moneygram_limit ?? null;
-    const rawCompliance = form.custom_annual_compliance_limit ?? null;
+    const rawFxMg = form.custom_annual_fx_and_moneygram_limit ?? defaultLimits?.annual_fx_and_moneygram_limit ?? null;
+    const rawCompliance = form.custom_annual_compliance_limit ?? defaultLimits?.annual_compliance_limit ?? null;
+    const rawFx = form.custom_available_currency_transfer_balance ?? defaultLimits?.annual_fx_limit ?? null;
 
     const formatLimit = (val) => {
       if (val === null || val === undefined || val === "" || isNaN(Number(val))) return "—";
@@ -1936,21 +3117,7 @@ const MoneyTransfer = () => {
       });
     };
 
-    const isCustomerActive = Boolean(customerLookupDone && customerFound && form.customer);
-
-    if (!isCustomerActive) {
-      return (
-        <div className="rounded-3xl border border-dashed border-gray-200 bg-white/70 p-6 sm:p-7 shadow-sm">
-          <div className="w-11 h-11 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400 mb-3">
-            <Wallet size={20} />
-          </div>
-          <h3 className="font-bold text-gray-700 text-sm mb-1">Customer Currency Limits</h3>
-          <p className="text-xs text-gray-400 leading-relaxed">
-            Enter customer Full Name and Date of Birth to verify customer and display live limits.
-          </p>
-        </div>
-      );
-    }
+    const isCustomerActive = Boolean(form.customer || (customerLookupDone && customerFound));
 
     return (
       <div className="rounded-3xl border border-gray-100 bg-white shadow-[0_10px_40px_rgba(0,0,0,0.06)] p-6 sm:p-7 flex flex-col gap-5">
@@ -1961,15 +3128,22 @@ const MoneyTransfer = () => {
             </div>
             <div>
               <h3 className="text-sm font-bold text-gray-800">Customer Limits</h3>
-              <p className="text-[11px] text-gray-400">Live compliance thresholds</p>
+              <p className="text-[11px] text-gray-400">Live regulatory compliance balances</p>
             </div>
           </div>
-          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-green-50 text-green-700 border border-green-200">
-            Existing Customer
-          </span>
+          {isCustomerActive ? (
+            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-green-50 text-green-700 border border-green-200">
+              Existing Customer
+            </span>
+          ) : (
+            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+              Default Thresholds
+            </span>
+          )}
         </div>
 
         <div className="flex flex-col gap-3.5">
+          {/* Annual FX & Moneygram Limit */}
           <div className="p-4 bg-gray-50/80 border border-gray-200/80 rounded-2xl">
             <span className="text-[11px] uppercase font-bold text-gray-500 mb-1 flex items-center gap-1.5">
               <Wallet size={13} className="text-[#E00000]" />
@@ -1978,7 +3152,39 @@ const MoneyTransfer = () => {
             <div className="text-xl font-black text-gray-900 mt-1">
               {formatLimit(rawFxMg)} FJD
             </div>
-            {Number(rawFxMg) < 0 && (
+            {rawFxMg !== null && Number(rawFxMg) <= 0 && (
+              <span className="text-[10px] font-semibold text-orange-600 mt-1 block">
+                Limit threshold reached
+              </span>
+            )}
+          </div>
+
+          {/* Annual Compliance Limit */}
+          <div className="p-4 bg-gray-50/80 border border-gray-200/80 rounded-2xl">
+            <span className="text-[11px] uppercase font-bold text-gray-500 mb-1 flex items-center gap-1.5">
+              <Wallet size={13} className="text-[#E00000]" />
+              Annual Compliance Limit
+            </span>
+            <div className="text-xl font-black text-gray-900 mt-1">
+              {formatLimit(rawCompliance)} FJD
+            </div>
+            {rawCompliance !== null && Number(rawCompliance) <= 0 && (
+              <span className="text-[10px] font-semibold text-orange-600 mt-1 block">
+                Limit threshold reached
+              </span>
+            )}
+          </div>
+
+          {/* Annual Send Limit */}
+          <div className="p-4 bg-gray-50/80 border border-gray-200/80 rounded-2xl">
+            <span className="text-[11px] uppercase font-bold text-gray-500 mb-1 flex items-center gap-1.5">
+              <Wallet size={13} className="text-[#E00000]" />
+              Annual Send Limit
+            </span>
+            <div className="text-xl font-black text-gray-900 mt-1">
+              {formatLimit(rawFx)} FJD
+            </div>
+            {rawFx !== null && Number(rawFx) <= 0 && (
               <span className="text-[10px] font-semibold text-orange-600 mt-1 block">
                 Limit threshold reached
               </span>
@@ -2011,6 +3217,21 @@ const MoneyTransfer = () => {
             {/* LEFT: FORM CARD */}
             <div className="lg:col-span-8">
               <div className="rounded-3xl border border-gray-100 bg-white shadow-[0_10px_40px_rgba(0,0,0,0.06)] p-8 sm:p-10">
+                {!selectedWarehouse?.warehouse && (
+                  <div className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 p-5 shadow-xs">
+                    <div className="flex items-center gap-3">
+                      <span className="text-amber-700 text-2xl font-bold">⚠️</span>
+                      <div>
+                        <h3 className="text-sm font-black text-amber-900 uppercase tracking-wide">
+                          User is not assigned to any branch location
+                        </h3>
+                        <p className="text-xs text-amber-800 mt-0.5">
+                          You cannot process transfers until a branch location is assigned to your account in ERPNext. Please contact your administrator.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {successInfo && (
                   <div className="mb-6 rounded-2xl border border-green-100 bg-linear-to-r from-white to-green-50 p-6 shadow-sm">
@@ -2058,6 +3279,8 @@ const MoneyTransfer = () => {
                       : ""
                   }
                 >
+
+
                   <div className="grid md:grid-cols-2 gap-6">
                     {orderedFields.map((field) => (
                       <React.Fragment key={field.fieldname}>
@@ -2065,6 +3288,8 @@ const MoneyTransfer = () => {
                       </React.Fragment>
                     ))}
                   </div>
+                  <DocumentUploadTable rows={documentRows} onChange={rows => setForm(prev => ({ ...prev, documents: rows, document_upload: "", upload_additional_info: "" }))} disabled={isFormLocked || isSubmitting} />
+                  {renderFieldError("documents")}
                     {/* CURRENCY DENOMINATION PANEL */}
 
                     {form.enable_currency_denomination === 1 ||
@@ -2145,9 +3370,25 @@ const MoneyTransfer = () => {
               </div>
             </div>
 
-            {/* RIGHT: CUSTOMER CURRENCY LIMITS SIDEBAR */}
-            <div className="lg:col-span-4 lg:sticky lg:top-8">
+            {/* RIGHT: CUSTOMER CURRENCY LIMITS & PHOTO SIDEBAR */}
+            <div className="lg:col-span-4 lg:sticky lg:top-8 flex flex-col gap-6">
               {renderCustomerLimitsCard()}
+
+              {/* CUSTOMER PHOTO CARD */}
+              <CustomerPhotoCard
+                customerImageUrl={customerImageUrl}
+                customerImageFile={customerImageFile}
+                onImageChange={(file, previewUrl) => {
+                  setCustomerImageFile(file);
+                  setCustomerImageUrl(previewUrl);
+                }}
+                onImageRemove={() => {
+                  setCustomerImageFile(null);
+                  setCustomerImageUrl("");
+                }}
+                disabled={isFormLocked}
+                customerFound={Boolean(customerLookupDone && customerFound && form.customer)}
+              />
             </div>
           </div>
         </div>

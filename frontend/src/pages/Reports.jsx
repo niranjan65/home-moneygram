@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import Navbar from "../components/layout/Navbar";
-import axios from "axios";
+import { sessionAxios as axios } from "../api/sessionClient.js";
 import { useUser } from "../context/UserContext";
 import { useSettings } from "../context/SettingsContext";
 import { useAppConfiguration } from "../hooks/useAppConfiguration";
@@ -810,6 +810,20 @@ function DayEndRow({ label, value, sub, highlight = false }) {
   );
 }
 
+// ── Report Loader ──────────────────────────────────────────────────────────
+function ReportLoader({ label = "Loading report records…" }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+      <div className="relative flex items-center justify-center">
+        <div className="w-12 h-12 rounded-full border-4 border-[#E00000]/20 animate-ping absolute" />
+        <div className="w-10 h-10 rounded-full border-3 border-gray-200 border-t-[#E00000] animate-spin" />
+      </div>
+      <p className="mt-4 text-sm font-semibold text-gray-700 animate-pulse">{label}</p>
+      <p className="text-xs text-gray-400 mt-1">Please wait while report data is being fetched…</p>
+    </div>
+  );
+}
+
 // ── Tab Button ─────────────────────────────────────────────────────────────
 function TabButton({ label, active, onClick, count }) {
   return (
@@ -1001,7 +1015,6 @@ function CustomerLinkFilter({ selectedCustomer, onSelect, loginUser }) {
               selected: selectedCustomer || undefined,
             },
             headers: {
-              Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
             },
           }
         );
@@ -1244,8 +1257,15 @@ function TransactionsTab({ warehouse, loginUser }) {
   }, [warehouse]);
 
   const userManuallyChangedWarehouse = useRef(false);
+  const isVaultLocation = useCallback((locName) => {
+    if (!locName || typeof locName !== "string") return false;
+    const lower = locName.toLowerCase().trim();
+    return lower.endsWith(" vault") || lower.includes("vault");
+  }, []);
+
   const [selectedWarehouse, setSelectedWarehouse] = useState(() => {
-    return getActiveLocationName() || "All";
+    const activeLoc = getActiveLocationName();
+    return activeLoc && !isVaultLocation(activeLoc) ? activeLoc : "All";
   });
 
   // Keep selectedWarehouse in sync with active location if user has not manually changed branch selection
@@ -1253,10 +1273,10 @@ function TransactionsTab({ warehouse, loginUser }) {
     if (!userManuallyChangedWarehouse.current) {
       const activeLoc = getActiveLocationName();
       if (activeLoc) {
-        setSelectedWarehouse(activeLoc);
+        setSelectedWarehouse(isVaultLocation(activeLoc) ? "All" : activeLoc);
       }
     }
-  }, [warehouse, getActiveLocationName]);
+  }, [warehouse, getActiveLocationName, isVaultLocation]);
 
   const [warehousesList, setWarehousesList] = useState([]);
   const [cancellingRowId, setCancellingRowId] = useState(null);
@@ -1280,17 +1300,25 @@ function TransactionsTab({ warehouse, loginUser }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  // Load warehouses list
+  // Load warehouses list (only is_group=0 and custom_is_vault=0)
   useEffect(() => {
     if (!loginUser?.user) return;
     axios
       .get("/api/method/moneygram.moneygram.api.get_transactions.get_warehouses_list", {
         headers: {
-          Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
         },
       })
       .then((res) => {
-        setWarehousesList(res.data?.message ?? []);
+        const rawList = res.data?.message ?? [];
+        const filtered = rawList.filter((wh) => {
+          if (wh.is_group) return false;
+          if (wh.custom_is_vault) return false;
+          if (wh.warehouse_type === "Vault") return false;
+          const name = String(wh.name || wh.warehouse_name || "").toLowerCase().trim();
+          if (name.endsWith(" vault") || name.includes("vault")) return false;
+          return true;
+        });
+        setWarehousesList(filtered);
       })
       .catch((err) => {
         console.error("Error fetching warehouses list:", err);
@@ -1321,7 +1349,6 @@ function TransactionsTab({ warehouse, loginUser }) {
         {
           headers: {
             "Content-Type": "application/json",
-            Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
           },
         }
       );
@@ -1396,7 +1423,6 @@ function TransactionsTab({ warehouse, loginUser }) {
           },
           {
             headers: {
-              Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
               "Content-Type": "application/json",
             },
           }
@@ -1408,7 +1434,6 @@ function TransactionsTab({ warehouse, loginUser }) {
           { docstatus: 2 },
           {
             headers: {
-              Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
               "Content-Type": "application/json",
             },
           }
@@ -1426,7 +1451,6 @@ function TransactionsTab({ warehouse, loginUser }) {
                 limit_page_length: 1,
               },
               headers: {
-                Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
               },
             }
           );
@@ -1439,7 +1463,6 @@ function TransactionsTab({ warehouse, loginUser }) {
             { docname: ceDocName },
             {
               headers: {
-                Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
                 "Content-Type": "application/json",
               },
             }
@@ -1450,7 +1473,6 @@ function TransactionsTab({ warehouse, loginUser }) {
             { docstatus: 2 },
             {
               headers: {
-                Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
                 "Content-Type": "application/json",
               },
             }
@@ -1482,7 +1504,6 @@ function TransactionsTab({ warehouse, loginUser }) {
           `/api/resource/Money%20Transfer/${encodeURIComponent(row.source_docname || row.name)}`,
           {
             headers: {
-              Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
             },
           }
         );
@@ -1498,7 +1519,6 @@ function TransactionsTab({ warehouse, loginUser }) {
             `/api/resource/Sales%20Invoice/${encodeURIComponent(row.name)}`,
             {
               headers: {
-                Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
               },
             }
           );
@@ -1513,6 +1533,8 @@ function TransactionsTab({ warehouse, loginUser }) {
             docstatus: row.docstatus,
             company: row.company || "MH MONEY EXPRESS",
             set_warehouse: row.set_warehouse,
+            conversion_rate: row.conversion_rate,
+            exchange_rate: row.exchange_rate,
           });
         }
       }
@@ -1530,11 +1552,55 @@ function TransactionsTab({ warehouse, loginUser }) {
   const startIndex = (safeCurrentPage - 1) * pageSize;
   const pageGrand = rows.reduce((s, r) => s + (parseFloat(r.grand_total) || 0), 0);
 
+  // Helper to extract and format Date + Timestamp for table display and exports
+  const extractDateTime = (r) => {
+    if (!r) return { date: "—", time: "", full: "—" };
+    const rawDate = r.posting_date || "";
+    const rawTime = r.posting_time || "";
+    const dt = r.posting_datetime || r.creation || "";
+
+    let datePart = "";
+    let timePart = "";
+
+    // 1. If explicit time field provided
+    if (rawTime) {
+      timePart = String(rawTime).split(".")[0];
+    }
+
+    // 2. Check rawDate if it has time attached (e.g. "2026-09-30 14:32:05")
+    if (rawDate && (String(rawDate).includes(" ") || String(rawDate).includes("T"))) {
+      const parts = String(rawDate).split(/[\sT]/);
+      datePart = parts[0];
+      if (!timePart && parts[1]) {
+        timePart = parts[1].split(".")[0];
+      }
+    } else if (rawDate) {
+      datePart = String(rawDate).split(".")[0];
+    }
+
+    // 3. Check dt (posting_datetime or creation)
+    if (dt && (String(dt).includes(" ") || String(dt).includes("T"))) {
+      const parts = String(dt).split(/[\sT]/);
+      if (!datePart) datePart = parts[0];
+      if (!timePart && parts[1]) {
+        timePart = parts[1].split(".")[0];
+      }
+    } else if (dt && !datePart) {
+      datePart = String(dt).split(".")[0];
+    }
+
+    datePart = datePart || "—";
+    const full = timePart ? `${datePart} ${timePart}` : datePart;
+    return { date: datePart, time: timePart, full };
+  };
+
+  const formatTransactionDateTime = (r) => extractDateTime(r).full;
+
   // Common Headers for Exports
   const exportHeaders = [
     { label: "Reference ID", key: "name" },
     { label: "Type", key: "type" },
-    { label: "Posting Date", key: "posting_date" },
+    { label: "Date & Time", accessor: (r) => formatTransactionDateTime(r), key: "posting_datetime" },
     { label: "OET / Txn ID", key: "oet_code" },
     { label: "Customer", accessor: (r) => r.custom_customer_full_name || r.party || "" },
     { label: "Customer ID", key: "party" },
@@ -1566,7 +1632,6 @@ function TransactionsTab({ warehouse, loginUser }) {
         {
           headers: {
             "Content-Type": "application/json",
-            Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
           },
         }
       );
@@ -1784,7 +1849,7 @@ function TransactionsTab({ warehouse, loginUser }) {
           title="Filter by Branch Location"
         >
           <option value="All">All Branch Locations</option>
-          {selectedWarehouse && selectedWarehouse !== "All" && !warehousesList.some((wh) => wh.name === selectedWarehouse) && (
+          {selectedWarehouse && selectedWarehouse !== "All" && !isVaultLocation(selectedWarehouse) && !warehousesList.some((wh) => wh.name === selectedWarehouse) && (
             <option value={selectedWarehouse}>
               {selectedWarehouse}
             </option>
@@ -1834,13 +1899,7 @@ function TransactionsTab({ warehouse, loginUser }) {
       {/* ── Table ──────────────────────────────────────────────────────── */}
       <div className="rounded-2xl border border-gray-200 overflow-x-auto bg-white shadow-xs">
         {loading ? (
-          <div className="flex items-center justify-center py-20 text-gray-400 text-sm gap-2">
-            <svg className="w-5 h-5 animate-spin text-[#E00000]" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-            </svg>
-            Loading transaction records…
-          </div>
+          <ReportLoader label="Loading transaction records…" />
         ) : (
           <table className="w-full text-sm border-collapse min-w-[950px]">
             <thead>
@@ -1849,7 +1908,7 @@ function TransactionsTab({ warehouse, loginUser }) {
                   "#",
                   "Type",
                   "Reference ID",
-                  "Date",
+                  "Date & Time",
                   "OET / Txn ID",
                   "Customer",
                   "Amount",
@@ -1920,9 +1979,21 @@ function TransactionsTab({ warehouse, loginUser }) {
                         </span>
                       </td>
 
-                      {/* Date */}
-                      <td className="px-4 py-3.5 text-xs text-gray-500 whitespace-nowrap">
-                        {row.posting_date}
+                      {/* Date & Time */}
+                      <td className="px-4 py-3.5 text-xs whitespace-nowrap">
+                        {(() => {
+                          const { date, time } = extractDateTime(row);
+                          return (
+                            <div className="flex flex-col">
+                              <span className="font-semibold text-gray-800">{date}</span>
+                              {time ? (
+                                <span className="text-[11px] text-gray-500 font-mono font-medium">
+                                  {time}
+                                </span>
+                              ) : null}
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* OET / Txn ID */}
@@ -2092,7 +2163,6 @@ function DayEndClosingTab({ warehouse, loginUser }) {
         {
           headers: {
             "Content-Type": "application/json",
-            Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
           },
         }
       );
@@ -2203,11 +2273,10 @@ function DayEndClosingTab({ warehouse, loginUser }) {
         </div>
         <button
           onClick={fetchReport}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 bg-gray-50 text-sm font-semibold text-gray-600 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50 transition-all cursor-pointer"
+          disabled={loading}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 bg-gray-50 text-sm font-semibold text-gray-600 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
+          <RefreshCw size={14} className={loading ? "animate-spin text-[#E00000]" : ""} />
           Generate
         </button>
 
@@ -2236,12 +2305,8 @@ function DayEndClosingTab({ warehouse, loginUser }) {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-16 text-gray-400 text-sm gap-2">
-          <svg className="w-5 h-5 animate-spin text-[#E00000]" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-          </svg>
-          Generating report…
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-xs">
+          <ReportLoader label="Generating Day End Closing report…" />
         </div>
       ) : !report ? (
         <div className="rounded-2xl border border-dashed border-gray-200 py-16 text-center text-gray-400 text-sm">
@@ -2317,7 +2382,7 @@ function DayEndClosingTab({ warehouse, loginUser }) {
 }
 
 // ── Stock Tab ──────────────────────────────────────────────────────────────
-function StatCard({ label, value, sub, type = "default" }) {
+function StatCard({ label, value, sub, type = "default", suffix }) {
   const styles = {
     default: { card: "bg-white border-gray-200", label: "text-gray-500", val: "text-gray-900", sub: "text-gray-400" },
     green: { card: "bg-green-50 border-green-200", label: "text-green-600", val: "text-green-700", sub: "text-green-400" },
@@ -2328,18 +2393,26 @@ function StatCard({ label, value, sub, type = "default" }) {
   return (
     <div className={`flex-1 min-w-[140px] rounded-2xl border px-5 py-4 flex flex-col gap-1 ${s?.card}`}>
       <p className={`text-[11px] font-bold uppercase tracking-widest ${s?.label}`}>{label}</p>
-      <p className={`text-[28px] font-black tabular-nums leading-tight ${s?.val}`}>{value}</p>
+      <div className="flex items-baseline gap-2 flex-wrap">
+        <p className={`text-[28px] font-black tabular-nums leading-tight ${s?.val}`}>{value}</p>
+        {suffix && (
+          <span className="text-base font-bold text-gray-500 tracking-wide">
+            {suffix}
+          </span>
+        )}
+      </div>
       {sub && <p className={`text-xs ${s.sub}`}>{sub}</p>}
     </div>
   );
 }
 
 function QtyBadge({ qty }) {
-  if (qty < 0)
-    return <span className="inline-block text-xs font-bold px-3 py-1 rounded-full tabular-nums bg-red-50 text-red-500 border border-red-200">{qty}</span>;
-  if (qty === 0)
+  const n = parseFloat(qty) || 0;
+  if (n < 0)
+    return <span className="inline-block text-xs font-bold px-3 py-1 rounded-full tabular-nums bg-red-50 text-red-500 border border-red-200">{n}</span>;
+  if (n === 0)
     return <span className="inline-block text-xs font-semibold px-3 py-1 rounded-full bg-gray-100 text-gray-400 border border-gray-200">—</span>;
-  return <span className="inline-block text-xs font-bold px-3 py-1 rounded-full tabular-nums bg-green-50 text-green-700 border border-green-200">{qty.toLocaleString()}</span>;
+  return <span className="inline-block text-xs font-bold px-3 py-1 rounded-full tabular-nums bg-green-50 text-green-700 border border-green-200">{n.toLocaleString()}</span>;
 }
 
 function totalQty(items) { return items?.reduce((s, i) => s + (parseFloat(i.stock_qty) || 0), 0); }
@@ -2374,6 +2447,7 @@ function totalCurrencyValue(items) {
 
 function StockTab({ warehouse, loginUser }) {
   const [data, setData] = useState({});
+  const [loading, setLoading] = useState(false);
   const [active, setActive] = useState(null);
   const [vaultInfo, setVaultInfo] = useState(null);
   const [locationMode, setLocationMode] = useState("counter"); // "counter" | "vault"
@@ -2382,12 +2456,11 @@ function StockTab({ warehouse, loginUser }) {
 
   // Load linked vault info for the active warehouse
   useEffect(() => {
-    if (!activeBranch || !loginUser?.user?.api_key) return;
+    if (!activeBranch || !loginUser?.user?.email) return;
     axios
       .get("/api/method/moneygram.moneygram.api.vault_transfer.get_vault_info", {
         params: { warehouse: activeBranch },
         headers: {
-          Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
         },
       })
       .then((res) => {
@@ -2396,7 +2469,7 @@ function StockTab({ warehouse, loginUser }) {
         }
       })
       .catch((err) => console.error("Error loading vault info in reports:", err));
-  }, [activeBranch, loginUser?.user?.api_key, loginUser?.user?.api_secret]);
+  }, [activeBranch, loginUser?.user?.email, loginUser?.user?.email]);
 
   const queryWarehouse =
     locationMode === "vault"
@@ -2407,19 +2480,21 @@ function StockTab({ warehouse, loginUser }) {
 
   const fetchStock = useCallback(async () => {
     if (!loginUser?.user || !queryWarehouse) return;
+    setLoading(true);
     try {
       const res = await axios.request({
         method: "POST",
         url: "/api/method/moneygram.moneygram.api.get_denomination.get_all_countries_stock",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
         },
         data: { warehouse: queryWarehouse },
       });
       setData(res.data.message ?? {});
     } catch (err) {
       console.error(err);
+    } finally {
+      setLoading(false);
     }
   }, [queryWarehouse, loginUser]);
 
@@ -2459,7 +2534,11 @@ function StockTab({ warehouse, loginUser }) {
     { label: "Item Code", key: "item_code" },
     { label: "Denomination", key: "item_name" },
     { label: "Branch Location", key: "warehouse" },
-    { label: "Rate (FJD)", key: "valuation_rate", align: "right" },
+    {
+      label: "Rate (FJD)",
+      accessor: (r) => ((parseFloat(r.stock_qty) || 0) > 0 ? (r.valuation_rate || 0) : 0),
+      align: "right",
+    },
     ...(!isFiji
       ? [{ label: currCode, accessor: (r) => ((parseFloat(r.stock_qty) || 0) > 0 ? parseDenominationValue(r) : 0), align: "right" }]
       : []),
@@ -2557,7 +2636,8 @@ function StockTab({ warehouse, loginUser }) {
       {/* Currency tabs */}
       <div className="flex flex-wrap gap-2">
         {countries.map((c) => {
-          const tot = totalValue(data[c]);
+          const isFijiTab = c === "Fiji" || CURRENCY_CODE[c] === "FJD";
+          const tot = isFijiTab ? totalValue(data[c]) : totalCurrencyValue(data[c]);
           const isActive = c === active;
           return (
             <button
@@ -2569,11 +2649,17 @@ function StockTab({ warehouse, loginUser }) {
                   : "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50"
                 }`}
             >
-              <span className="text-base leading-none">{FLAG[c]}</span>
               <span>{c}</span>
+              {CURRENCY_CODE[c] && (
+                <span className={`text-[11px] font-black uppercase px-1.5 py-0.5 rounded tracking-wide ${
+                  isActive ? "bg-white/20 text-white" : "bg-gray-200/80 text-gray-600"
+                }`}>
+                  {CURRENCY_CODE[c]}
+                </span>
+              )}
               <span className={`text-[11px] px-2 py-0.5 rounded-full font-black tabular-nums
                 ${isActive ? "bg-white/20 text-white" : "bg-gray-200 text-gray-500"}`}>
-                {tot?.toLocaleString()}
+                {tot?.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
               </span>
             </button>
           );
@@ -2588,17 +2674,20 @@ function StockTab({ warehouse, loginUser }) {
           />
           <button
             onClick={fetchStock}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 bg-gray-50 text-sm font-semibold text-gray-600 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50 transition-all cursor-pointer"
+            disabled={loading}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-gray-200 bg-gray-50 text-sm font-semibold text-gray-600 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
+            <RefreshCw size={14} className={loading ? "animate-spin text-[#E00000]" : ""} />
             Refresh
           </button>
         </div>
       </div>
 
-      {countries.length === 0 ? (
+      {loading ? (
+        <div className="rounded-2xl border border-gray-200 bg-white shadow-xs">
+          <ReportLoader label="Loading currency stock report…" />
+        </div>
+      ) : countries.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-200 py-16 text-center text-gray-400 text-sm">
           No stock data available for this branch location.
         </div>
@@ -2610,8 +2699,17 @@ function StockTab({ warehouse, loginUser }) {
             <StatCard label="In Stock" value={positive?.toLocaleString()} sub={`${inStockCount} denomination${inStockCount !== 1 ? "s" : ""}`} type="green" />
             <StatCard
               label="Total Value"
-              value={totalValueAmt?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              sub={isFiji ? "FJD · total worth" : `FJD · ${currCode}: ${totalCurrValueAmt?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              value={
+                isFiji
+                  ? totalValueAmt?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                  : totalCurrValueAmt?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+              }
+              suffix={currCode ? `(${currCode})` : ""}
+              sub={
+                isFiji
+                  ? "total worth in FJD"
+                  : `FJD: ${totalValueAmt?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              }
               type="default"
             />
           </div>
@@ -2623,10 +2721,13 @@ function StockTab({ warehouse, loginUser }) {
             <p className="text-xs font-bold tracking-widest uppercase text-[#E00000]">Denominations</p>
             <span className="inline-flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full px-3 py-1.5 text-xs text-gray-600 font-medium">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse flex-shrink-0" />
-              {FLAG[active]}&nbsp;
               <span className="font-bold text-gray-900">{active}</span>
-              <span className="text-gray-400">·</span>
-              <span>{CURRENCY_CODE[active]}</span>
+              {CURRENCY_CODE[active] && (
+                <>
+                  <span className="text-gray-400">·</span>
+                  <span className="font-semibold text-gray-800">{CURRENCY_CODE[active]}</span>
+                </>
+              )}
               <span className="text-gray-400">·</span>
               <span>{rawItems.length} items</span>
             </span>
@@ -2656,10 +2757,10 @@ function StockTab({ warehouse, loginUser }) {
                 {paginatedItems.map((row, idx) => {
                   const qty = parseFloat(row.stock_qty) || 0;
                   const isVault = locationMode === "vault";
-                  const valRate = (isVault && qty <= 0) ? 0 : (row.valuation_rate || 0);
-                  const attrVal = (!isVault || qty > 0) ? (qty > 0 ? parseDenominationValue(row) : 0) : 0;
-                  const currVal = (isVault && qty <= 0) ? 0 : getRowCurrencyValue(row);
-                  const stVal = (isVault && qty <= 0) ? 0 : (row.stock_value || 0);
+                  const valRate = qty <= 0 ? 0 : (row.valuation_rate || 0);
+                  const attrVal = qty <= 0 ? 0 : parseDenominationValue(row);
+                  const currVal = qty <= 0 ? 0 : getRowCurrencyValue(row);
+                  const stVal = qty <= 0 ? 0 : (row.stock_value || 0);
                   return (
                     <tr key={row.item_code} className={`border-b border-gray-100 transition-colors hover:bg-gray-50 ${idx % 2 === 1 ? "bg-gray-50/40" : "bg-white"}`}>
                       <td className="px-5 py-3.5 text-xs text-gray-400 tabular-nums">{startIndex + idx + 1}</td>

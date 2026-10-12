@@ -37,10 +37,13 @@ export const ThermalReceipt = ({ invoiceData = {}, exchange = {} }) => {
 
   // Exchange details from items or direct fields
   const youSend    = invoiceData?.you_send ?? 0;
-  const sendCcy    = invoiceData?.you_send_currency_type ?? 'AUD';
+  const sendCcy    = invoiceData?.you_send_currency_type ?? invoiceData?.senderCurrency ?? exchange?.senderCurrency ?? exchange?.foreignCurrency ?? '';
   const theyGet    = invoiceData?.they_receive ?? 0;
-  const getCcy     = invoiceData?.they_receive_currency_type ?? currency;
-  const exRate     = invoiceData?.exchange_rate ?? exchange?.rate ?? exchange?.exchangeRate ?? 0;
+  const getCcy     = invoiceData?.they_receive_currency_type ?? invoiceData?.receiverCurrency ?? exchange?.receiverCurrency ?? currency;
+  const exRate     = invoiceData?.exchange_rate ?? invoiceData?.exchangeRate ?? (invoiceData?.conversion_rate && Number(invoiceData?.conversion_rate) !== 1 ? invoiceData?.conversion_rate : null) ?? exchange?.rate ?? exchange?.exchangeRate ?? 0;
+
+  const localCcy = 'FJD';
+  const foreignCcy = invoiceData?.you_send_currency_type ?? invoiceData?.senderCurrency ?? invoiceData?.foreignCurrency ?? invoiceData?.foreign_currency_type ?? exchange?.senderCurrency ?? exchange?.foreignCurrency ?? '—';
 
   return (
     <>
@@ -205,17 +208,6 @@ export const ThermalReceipt = ({ invoiceData = {}, exchange = {} }) => {
           </>
         )}
 
-        {/* Always show rate if available */}
-        {exRate > 0 && (
-          <>
-            <div className="r-row r-bold" style={{ marginBottom: 4 }}>
-              <span className="label">EXCH. RATE:</span>
-              <span className="value">1 {sendCcy} = {fmt(exRate, 4)} {getCcy}</span>
-            </div>
-            <hr className="r-divider" />
-          </>
-        )}
-
         {/* Items */}
         {rows.length > 0 && (
           <>
@@ -249,6 +241,13 @@ export const ThermalReceipt = ({ invoiceData = {}, exchange = {} }) => {
           <span className="label r-bold r-heading">TOTAL AMOUNT:</span>
           <span className="value r-xl">{currency} {fmt(grandTotal)}</span>
         </div>
+
+        {Number(exRate) > 0 && (
+          <div className="r-row r-bold" style={{ marginTop: 6 }}>
+            <span className="label">Exchange Rate</span>
+            <span className="value">1 {localCcy} = {fmt(exRate, 4)} {foreignCcy}</span>
+          </div>
+        )}
 
         <hr className="r-divider-solid" />
 
@@ -355,13 +354,12 @@ export const printThermalReceipt = (invoiceData, exchange) => {
           <div class="r-heading r-bold" style="margin-bottom:6px">EXCHANGE DETAILS</div>
           <div class="r-row"><span class="label">YOU SEND:</span><span class="value r-bold">${invoiceData?.you_send_currency_type ?? ''} ${Number(invoiceData?.you_send ?? 0).toFixed(4)}</span></div>
           <div class="r-row"><span class="label">THEY RECEIVE:</span><span class="value r-bold">${invoiceData?.they_receive_currency_type ?? ''} ${Number(invoiceData?.they_receive ?? 0).toFixed(4)}</span></div>
-          ${invoiceData?.exchange_rate ? `<div class="r-row"><span class="label">EXCHANGE RATE:</span><span class="value">1 ${invoiceData?.you_send_currency_type} = ${Number(invoiceData.exchange_rate).toFixed(4)} ${invoiceData?.they_receive_currency_type}</span></div>` : ''}
           <hr class="r-divider" />
           ` : ''}
 
           ${(invoiceData?.items ?? []).map(item => `
             <div style="margin-bottom:6px">
-              <div style="text-transform:uppercase;font-weight:700">${item.item_name ?? item.item_code ?? '—'}</div>
+              <div style="text-transform:uppercase;font-weight:700">${item.item_name ?? item.item_code ?? '—'} ${invoiceData?.you_send_currency_type ?? invoiceData?.senderCurrency ?? invoiceData?.foreignCurrency ?? invoiceData?.foreign_currency_type ?? exchange?.senderCurrency ?? exchange?.foreignCurrency ?? '—'}</div>
               <div class="r-row r-small">
                 <span>  ${item.qty ?? 1} x ${Number(item.rate ?? 0).toFixed(4)}</span>
                 <span class="r-bold">${Number(item.amount ?? 0).toFixed(4)} ${invoiceData?.currency ?? 'FJD'}</span>
@@ -382,11 +380,11 @@ export const printThermalReceipt = (invoiceData, exchange) => {
           </div>
 
           ${(() => {
-            const rate = invoiceData?.exchange_rate ?? exchange?.rate ?? exchange?.exchangeRate ?? 0;
-            const sc = invoiceData?.you_send_currency_type ?? '';
-            const rc = invoiceData?.they_receive_currency_type ?? invoiceData?.currency ?? 'FJD';
-            return rate > 0
-              ? `<div class="r-row r-bold" style="margin-top:6px"><span class="label">EXCH. RATE:</span><span class="value">1 ${sc} = ${Number(rate).toFixed(4)} ${rc}</span></div>`
+            const rate = invoiceData?.exchange_rate ?? invoiceData?.exchangeRate ?? (invoiceData?.conversion_rate && Number(invoiceData?.conversion_rate) !== 1 ? invoiceData?.conversion_rate : null) ?? exchange?.rate ?? exchange?.exchangeRate ?? 0;
+            const localCcy = 'FJD';
+            const foreignCcy = invoiceData?.you_send_currency_type ?? invoiceData?.senderCurrency ?? invoiceData?.foreignCurrency ?? invoiceData?.foreign_currency_type ?? exchange?.senderCurrency ?? exchange?.foreignCurrency ?? '—';
+            return Number(rate) > 0
+              ? `<div class="r-row r-bold" style="margin-top:6px"><span class="label">Exchange Rate</span><span class="value">1 ${localCcy} = ${Number(rate).toFixed(4)} ${foreignCcy}</span></div>`
               : '';
           })()}
 

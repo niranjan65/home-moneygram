@@ -473,7 +473,7 @@
 // import { InvoiceDocument } from './SalesInvoice';
 // import { printThermalReceipt } from './ThermalReceiptPrint';
 // import { useUser } from '../context/UserContext';
-// import axios from 'axios';
+// import { sessionAxios as axios } from "../api/sessionClient.js";
 
 // // const socket_server = 'http://182.71.135.110:8079';
 // const socket_server = 'http://187.127.109.162:5000';
@@ -669,7 +669,6 @@
 //         },
 //         {
 //           headers: {
-//             Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
 //             "Content-Type": "application/json",
 //           },
 //         }
@@ -693,7 +692,6 @@
 //     try {
 //       const response = await axios.get(`/api/resource/Sales%20Invoice/${invoice_id}`, {
 //         headers: {
-//           Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
 //         },
 //       });
 //       return response.data.data;
@@ -1048,7 +1046,7 @@ import { useExchange } from '../context/ExchangeContext';
 import { InvoiceDocument } from './SalesInvoice';
 import { printThermalReceipt } from './ThermalReceiptPrint';
 import { useUser } from '../context/UserContext';
-import axios from 'axios';
+import { sessionAxios as axios } from "../api/sessionClient.js";
 import { useSelector } from 'react-redux';
 
 // const socket_server = 'http://182.71.135.110:8079';
@@ -1480,7 +1478,6 @@ export const TransferSuccess = ({
             { docstatus: 2 },
             {
               headers: {
-                Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
                 "Content-Type": "application/json",
               },
             }
@@ -1495,7 +1492,6 @@ export const TransferSuccess = ({
               { docstatus: 2 },
               {
                 headers: {
-                  Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
                   "Content-Type": "application/json",
                 },
               }
@@ -1511,7 +1507,6 @@ export const TransferSuccess = ({
           { docname: docName },
           {
             headers: {
-              Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
               "Content-Type": "application/json",
             },
           }
@@ -1546,7 +1541,6 @@ export const TransferSuccess = ({
     try {
       const response = await axios.get(`/api/resource/Sales%20Invoice/${invoice_id}`, {
         headers: {
-          Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
         },
       });
       return response.data.data;
@@ -1730,7 +1724,7 @@ export const TransferSuccess = ({
                     <tr>
                       <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider">Currency Code with Denomination</th>
                       <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider text-right">Qty</th>
-                      <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider text-right">Rate ({currency})</th>
+                      {/* <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider text-right">Rate ({currency})</th> */}
                       <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider text-right">Amount ({currency})</th>
                     </tr>
                   </thead>
@@ -1739,7 +1733,7 @@ export const TransferSuccess = ({
                       <tr key={i} className="hover:bg-white/5 transition-colors">
                         <td className="px-6 py-4 text-sm font-semibold text-white/90">{row.label}</td>
                         <td className="px-6 py-4 text-sm text-white/70 text-right">{row.qty}</td>
-                        <td className="px-6 py-4 text-sm text-white/70 text-right">{fmt(row.rate, 4)} FJD</td>
+                        {/* <td className="px-6 py-4 text-sm text-white/70 text-right">{fmt(row.rate, 4)} FJD</td> */}
                         <td className="px-6 py-4 text-sm font-bold text-white text-right">{fmt(row.amount, 4)}</td>
                       </tr>
                     ))}
@@ -1753,18 +1747,18 @@ export const TransferSuccess = ({
                   <span className="text-sm font-medium text-white/70">Net Amount:</span>
                   <span className="text-sm font-bold text-white">{fmt(netAmount, 4)} {currency}</span>
                 </div>
-                <div className="flex justify-between w-full max-w-[260px]">
+                {/* <div className="flex justify-between w-full max-w-[260px]">
                   <span className="text-sm font-medium text-white/70">Taxes (VAT):</span>
                   <span className="text-sm font-bold text-white">{fmt(taxAmount, 4)} {currency}</span>
-                </div>
-                {exchangeRate && (
+                </div> */}
+                {/* {exchangeRate && (
                   <div className="flex justify-between w-full max-w-[260px]">
                     <span className="text-sm font-medium text-white/70">Exchange Rate:</span>
                     <span className="text-sm font-bold text-[#b5f000]">
                       1 {senderCurrency ?? '—'} = {fmt(exchangeRate, 4)} FJD
                     </span>
                   </div>
-                )}
+                )} */}
                 <div className="flex justify-between w-full max-w-[260px] pt-5 mt-2 border-t border-[#E00000]/30">
                   <span className="text-lg font-black text-white">Grand Total:</span>
                   <span className="text-lg font-black text-[#b5f000]">{fmt(roundedTotal)} {currency}</span>
@@ -1820,7 +1814,7 @@ export const TransferSuccess = ({
                 </button>
 
                 <button
-                  onClick={() => printThermalReceipt(finalData, exchange)}
+                  onClick={() => printThermalReceipt({ ...finalData, exchange_rate: exchangeRate, you_send_currency_type: senderCurrency }, exchange)}
                   className="w-14 h-14 flex items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold transition-all border border-white/10 shadow-lg"
                   title="Print Thermal Receipt"
                 >
@@ -1840,7 +1834,15 @@ export const TransferSuccess = ({
 
         {/* ── Hidden Invoice DOM (used for print/PDF extraction) ──────────── */}
         <div className="hidden">
-          <InvoiceDocument invoiceData={{ ...finalData, docstatus: isCancelled ? 2 : 1 }} />
+          <InvoiceDocument
+            invoiceData={{
+              ...finalData,
+              exchange_rate: exchangeRate,
+              you_send_currency_type: senderCurrency,
+              they_receive_currency_type: receiverCurrency,
+              docstatus: isCancelled ? 2 : 1,
+            }}
+          />
         </div>
       </div>
     </>

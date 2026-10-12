@@ -1,7 +1,13 @@
+import { sessionFetch as fetch } from "../api/sessionClient.js";
 // services/exchangeRateService.js
 
 export const getExchangeRates = async (selectedWarehouse) => {
   try {
+    const location = selectedWarehouse?.warehouse || (typeof selectedWarehouse === "string" ? selectedWarehouse : null);
+    if (!location) {
+      return [];
+    }
+
     const response = await fetch(
       "/api/method/moneygram.api.get_currency_exchange_rate",
       {
@@ -9,9 +15,10 @@ export const getExchangeRates = async (selectedWarehouse) => {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           today_date: new Date().toISOString().split("T")[0],
-          location: selectedWarehouse
+          location
         }),
       }
     );

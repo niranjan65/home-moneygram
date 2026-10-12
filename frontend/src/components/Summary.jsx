@@ -304,7 +304,7 @@ export const Summary = ({transferPayload, isDealer = false}) => {
     Math.abs(val).toLocaleString('en-US', { style: 'currency', currency: 'FJD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
-    <div className="sticky top-24 flex flex-col gap-3">
+    <div className="flex flex-col gap-3">
 
       {/* Main summary card */}
       <div className="rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm">

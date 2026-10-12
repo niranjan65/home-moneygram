@@ -226,10 +226,10 @@ describe('DealerExchange Page — BUY flow', () => {
   });
 
   // ── 7. Confirm triggers Frappe API with correct payload ───────────────────
-  test('7. handleConfirm posts to dealer exchange API with authorization', async () => {
+  test('7. handleConfirm posts to dealer exchange API with session authentication', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok:   true,
-      json: jest.fn().mockResolvedValue(MOCK_API_SUCCESS_RESPONSE),
+      json: jest.fn().mockResolvedValue({ ...MOCK_API_SUCCESS_RESPONSE, message: { ...MOCK_API_SUCCESS_RESPONSE.message, csrf_token: "test-csrf" } }),
     });
 
     sessionStorage.setItem('dealerCurrentStep', '3');
@@ -258,9 +258,8 @@ describe('DealerExchange Page — BUY flow', () => {
         expect.stringContaining('create_dealer_exchange'),
         expect.objectContaining({
           method: 'POST',
-          headers: expect.objectContaining({
-            Authorization: expect.stringContaining('token'),
-          }),
+          credentials: 'include',
+          headers: expect.any(Headers),
         })
       );
     });
@@ -270,7 +269,7 @@ describe('DealerExchange Page — BUY flow', () => {
   test('8. successful confirm advances to PAYMENT step (TransferSuccess)', async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok:   true,
-      json: jest.fn().mockResolvedValue(MOCK_API_SUCCESS_RESPONSE),
+      json: jest.fn().mockResolvedValue({ ...MOCK_API_SUCCESS_RESPONSE, message: { ...MOCK_API_SUCCESS_RESPONSE.message, csrf_token: "test-csrf" } }),
     });
 
     sessionStorage.setItem('dealerCurrentStep', '3');

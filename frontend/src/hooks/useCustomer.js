@@ -1,3 +1,4 @@
+import { sessionFetch as fetch } from "../api/sessionClient.js";
 import { useState, useEffect } from "react";
 import { useUser } from "../context/UserContext";
 
@@ -19,7 +20,6 @@ export function useCustomers() {
             method: "GET",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
             },
             credentials: "include",
           }

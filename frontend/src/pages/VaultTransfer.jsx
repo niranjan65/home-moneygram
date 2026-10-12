@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import Navbar from "../components/layout/Navbar";
 import { useSettings } from "../context/SettingsContext";
 import { useUser } from "../context/UserContext";
-import axios from "axios";
+import { sessionAxios as axios } from "../api/sessionClient.js";
 import {
   ArrowLeftRight,
   ArrowRight,
@@ -277,13 +277,24 @@ export default function VaultTransfer() {
       setVaultLoading(false);
       return;
     }
+
+    if (selectedWarehouse?.vault_warehouse) {
+      setVaultInfo({
+        branch_warehouse: activeBranchName,
+        vault_warehouse: selectedWarehouse.vault_warehouse,
+        is_vault: false,
+        company: "MMEL"
+      });
+    }
+
     setVaultLoading(true);
+    const headers = {};
+
     axios
       .get("/api/method/moneygram.moneygram.api.vault_transfer.get_vault_info", {
         params: { warehouse: activeBranchName },
-        headers: {
-          Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
-        },
+        headers,
+        withCredentials: true,
       })
       .then((res) => {
         if (res.data?.message) {
@@ -292,7 +303,7 @@ export default function VaultTransfer() {
       })
       .catch((err) => console.error("Error loading vault info:", err))
       .finally(() => setVaultLoading(false));
-  }, [activeBranchName, loginUser?.user?.api_key, loginUser?.user?.api_secret]);
+  }, [activeBranchName, selectedWarehouse?.vault_warehouse, loginUser?.user?.email]);
 
   // Compute Source & Target Warehouses
   const sourceWarehouse = useMemo(() => {
@@ -318,7 +329,6 @@ export default function VaultTransfer() {
             country: selectedCountryObj.country,
           },
           headers: {
-            Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
           },
         }
       );
@@ -329,7 +339,7 @@ export default function VaultTransfer() {
     } finally {
       setDenomLoading(false);
     }
-  }, [sourceWarehouse, selectedCountryObj, loginUser?.user?.api_key, loginUser?.user?.api_secret]);
+  }, [sourceWarehouse, selectedCountryObj, loginUser?.user?.email, loginUser?.user?.email]);
 
   useEffect(() => {
     fetchDenominationsStock();
@@ -419,7 +429,6 @@ export default function VaultTransfer() {
         {
           headers: {
             "Content-Type": "application/json",
-            Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
           },
         }
       );

@@ -1,3 +1,4 @@
+import { sessionFetch as fetch } from "../api/sessionClient.js";
 import { useState, useEffect } from "react";
 import { useSettings } from "../context/SettingsContext";
 import { useUser } from "../context/UserContext";
@@ -47,24 +48,31 @@ export default function SettingsPanel() {
       setVaultWarehouse(null);
       return;
     }
+
+    if (selectedWarehouse?.vault_warehouse) {
+      setVaultWarehouse(selectedWarehouse.vault_warehouse);
+    }
+
     setVaultLoading(true);
+    const headers = {};
+
     fetch(
       `/api/method/moneygram.moneygram.api.vault_transfer.get_vault_info?warehouse=${encodeURIComponent(
         selectedWarehouse.warehouse
       )}`,
       {
-        headers: {
-          Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
-        },
+        headers,
+        credentials: "include",
       }
     )
       .then((res) => res.json())
       .then((data) => {
-        setVaultWarehouse(data?.message?.vault_warehouse || "No Vault Configured");
+        const v = data?.message?.vault_warehouse || selectedWarehouse?.vault_warehouse;
+        setVaultWarehouse(v || "No Vault Configured");
       })
-      .catch(() => setVaultWarehouse("No Vault Configured"))
+      .catch(() => setVaultWarehouse(selectedWarehouse?.vault_warehouse || "No Vault Configured"))
       .finally(() => setVaultLoading(false));
-  }, [selectedWarehouse?.warehouse, loginUser?.user?.api_key, loginUser?.user?.api_secret]);
+  }, [selectedWarehouse?.warehouse, selectedWarehouse?.vault_warehouse, loginUser?.user?.email]);
 
   const handleSave = () => {
     updateUser(draft);
@@ -155,24 +163,30 @@ export default function SettingsPanel() {
             <p className="text-xs font-bold tracking-widest uppercase text-[#E00000] mb-5">Branch &amp; Vault Location</p>
             <div className="space-y-4">
               <Field label="Active Branch Location (Cash Counter)">
-                <div className="relative">
-                  <select
-                    value={selectedWarehouse?.warehouse}
-                    onChange={(e) => setSelectedWarehouse(warehouses.find((w) => w.warehouse === e.target.value))}
-                    className="w-full appearance-none border border-gray-300 rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[#E00000] bg-gray-50 text-gray-900 transition cursor-pointer font-semibold"
-                  >
-                    {warehouses?.map((wh) => (
-                      <option key={wh.name} value={wh.warehouse} className="bg-white text-gray-900">
-                        {wh.warehouse}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-                    </svg>
+                {warehouses && warehouses.length > 0 ? (
+                  <div className="relative">
+                    <select
+                      value={selectedWarehouse?.warehouse || ""}
+                      onChange={(e) => setSelectedWarehouse(warehouses.find((w) => w.warehouse === e.target.value))}
+                      className="w-full appearance-none border border-gray-300 rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[#E00000] bg-gray-50 text-gray-900 transition cursor-pointer font-semibold"
+                    >
+                      {warehouses.map((wh) => (
+                        <option key={wh.warehouse || wh.name} value={wh.warehouse} className="bg-white text-gray-900">
+                          {wh.warehouse}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="w-full border border-amber-300 rounded-xl px-4 py-3 text-sm text-amber-800 bg-amber-50 font-semibold flex items-center gap-2">
+                    <span>⚠️ User is not assigned to any branch location. Please assign a branch in ERPNext.</span>
+                  </div>
+                )}
               </Field>
 
               <Field label="Linked Vault Warehouse">
@@ -187,8 +201,8 @@ export default function SettingsPanel() {
 
             <div className="mt-4 flex flex-wrap gap-2.5">
               <span className="inline-flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-xs text-gray-600">
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                Active Counter:&nbsp;<span className="font-bold text-gray-900">{selectedWarehouse?.warehouse}</span>
+                <span className={`w-2 h-2 rounded-full ${selectedWarehouse?.warehouse ? "bg-green-500 animate-pulse" : "bg-amber-500"}`} />
+                Active Counter:&nbsp;<span className={`font-bold ${selectedWarehouse?.warehouse ? "text-gray-900" : "text-amber-700"}`}>{selectedWarehouse?.warehouse || "No branch location assigned"}</span>
               </span>
               <span className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-2 text-xs text-amber-800">
                 <span className="w-2 h-2 rounded-full bg-amber-500" />

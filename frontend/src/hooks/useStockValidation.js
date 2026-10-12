@@ -1,3 +1,4 @@
+import { sessionFetch as fetch } from "../api/sessionClient.js";
 import { useUser } from "../context/UserContext";
 
 const API_URL =
@@ -22,7 +23,6 @@ export async function validateStockAvailability(items, warehouse, loginUser) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
     },
     body: JSON.stringify({ api_value: payload }),
   });

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import Navbar from "../components/layout/Navbar";
-import axios from "axios";
+import { sessionAxios as axios } from "../api/sessionClient.js";
 // import React from "react";
 import { useUser } from "../context/UserContext";
 import { useSettings } from "../context/SettingsContext";
@@ -30,7 +30,7 @@ function inStockQty(items) { return items?.filter(i => i.stock_qty > 0).reduce((
 
 
 // ── Stat Card ─────────────────────────────────────────────────────────────
-function StatCard({ label, value, sub, type = "default" }) {
+function StatCard({ label, value, sub, type = "default", suffix }) {
   const styles = {
     default: { card: "bg-white border-gray-200",         label: "text-gray-500",  val: "text-gray-900",  sub: "text-gray-400"  },
     green:   { card: "bg-green-50 border-green-200",     label: "text-green-600", val: "text-green-700", sub: "text-green-400" },
@@ -41,7 +41,14 @@ function StatCard({ label, value, sub, type = "default" }) {
   return (
     <div className={`flex-1 min-w-[140px] rounded-2xl border px-5 py-4 flex flex-col gap-1 ${s?.card}`}>
       <p className={`text-[11px] font-bold uppercase tracking-widest ${s?.label}`}>{label}</p>
-      <p className={`text-[28px] font-black tabular-nums leading-tight ${s?.val}`}>{value}</p>
+      <div className="flex items-baseline gap-2 flex-wrap">
+        <p className={`text-[28px] font-black tabular-nums leading-tight ${s?.val}`}>{value}</p>
+        {suffix && (
+          <span className="text-base font-bold text-gray-500 tracking-wide">
+            {suffix}
+          </span>
+        )}
+      </div>
       {sub && <p className={`text-xs ${s.sub}`}>{sub}</p>}
     </div>
   );
@@ -56,9 +63,24 @@ function QtyBadge({ qty }) {
   return <span className="inline-block text-xs font-bold px-3 py-1 rounded-full tabular-nums bg-green-50 text-green-700 border border-green-200">{qty.toLocaleString()}</span>;
 }
 
+// ── Report Loader ──────────────────────────────────────────────────────────
+function ReportLoader({ label = "Loading stock records…" }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+      <div className="relative flex items-center justify-center">
+        <div className="w-12 h-12 rounded-full border-4 border-[#E00000]/20 animate-ping absolute" />
+        <div className="w-10 h-10 rounded-full border-3 border-gray-200 border-t-[#E00000] animate-spin" />
+      </div>
+      <p className="mt-4 text-sm font-semibold text-gray-700 animate-pulse">{label}</p>
+      <p className="text-xs text-gray-400 mt-1">Please wait while stock data is being fetched…</p>
+    </div>
+  );
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────
 export default function Stocks() {
   const [data, setData] = useState({});
+  const [loading, setLoading] = useState(false);
   const { selectedWarehouse } = useSettings();
   const loginUser = useUser();
   const [vaultInfo, setVaultInfo] = useState(null);
@@ -67,13 +89,24 @@ export default function Stocks() {
   const activeBranch = selectedWarehouse?.warehouse;
 
   useEffect(() => {
-    if (!activeBranch || !loginUser?.user?.api_key) return;
+    if (!activeBranch) return;
+
+    if (selectedWarehouse?.vault_warehouse) {
+      setVaultInfo({
+        branch_warehouse: activeBranch,
+        vault_warehouse: selectedWarehouse.vault_warehouse,
+        is_vault: false,
+        company: "MMEL"
+      });
+    }
+
+    const headers = {};
+
     axios
       .get("/api/method/moneygram.moneygram.api.vault_transfer.get_vault_info", {
         params: { warehouse: activeBranch },
-        headers: {
-          Authorization: `token ${loginUser.user.api_key}:${loginUser.user.api_secret}`,
-        },
+        headers,
+        withCredentials: true,
       })
       .then((res) => {
         if (res.data?.message) {
@@ -81,7 +114,7 @@ export default function Stocks() {
         }
       })
       .catch((err) => console.error("Error loading vault info in stocks:", err));
-  }, [activeBranch, loginUser?.user?.api_key, loginUser?.user?.api_secret]);
+  }, [activeBranch, selectedWarehouse?.vault_warehouse, loginUser?.user?.email]);
 
   const queryWarehouse =
     locationMode === "vault"
@@ -94,14 +127,14 @@ export default function Stocks() {
   const [active, setActive] = useState(countries[0]);
 
   const currencyStock = async () => {
-    if (!queryWarehouse || !loginUser?.user?.api_key) return;
+    if (!queryWarehouse || !loginUser?.user?.email) return;
+    setLoading(true);
     try {
       const options = {
         method: "POST",
         url: "/api/method/moneygram.moneygram.api.get_denomination.get_all_countries_stock",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
         },
         data: { warehouse: queryWarehouse },
       };
@@ -110,6 +143,8 @@ export default function Stocks() {
       setData(res.data?.message || {});
     } catch (error) {
       console.error(error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -194,11 +229,21 @@ export default function Stocks() {
             </div>
           </div>
 
-          {/* Section label */}
-          <p className="text-xs font-bold tracking-widest uppercase text-[#E00000]">Select Currency</p>
+          {loading ? (
+            <div className="rounded-2xl border border-gray-200 bg-white shadow-xs">
+              <ReportLoader label="Loading currency stock records…" />
+            </div>
+          ) : countries.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-gray-200 py-16 text-center text-gray-400 text-sm">
+              No stock data available for this branch location.
+            </div>
+          ) : (
+            <>
+              {/* Section label */}
+              <p className="text-xs font-bold tracking-widest uppercase text-[#E00000]">Select Currency</p>
 
-          {/* Tabs */}
-          <div className="flex flex-wrap gap-2">
+              {/* Tabs */}
+              <div className="flex flex-wrap gap-2">
             {countries.map((c) => {
               const tot = totalValue(data[c]);
               const isActive = c === active;
@@ -212,8 +257,14 @@ export default function Stocks() {
                       : "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50"
                     }`}
                 >
-                  <span className="text-base leading-none">{FLAG[c]}</span>
                   <span>{c}</span>
+                  {CURRENCY_CODE[c] && (
+                    <span className={`text-[11px] font-black uppercase px-1.5 py-0.5 rounded tracking-wide ${
+                      isActive ? "bg-white/20 text-white" : "bg-gray-200/80 text-gray-600"
+                    }`}>
+                      {CURRENCY_CODE[c]}
+                    </span>
+                  )}
                   <span className={`text-[11px] px-2 py-0.5 rounded-full font-black tabular-nums
                     ${isActive ? "bg-white/20 text-white" : "bg-gray-200 text-gray-500"}`}>
                     {tot.toLocaleString()}
@@ -238,9 +289,10 @@ export default function Stocks() {
               <StatCard
                 label="Total Value"
                 value={totalValuecount?.toLocaleString()}
-                sub={`${CURRENCY_CODE[active]} · total worth`}
+                suffix={CURRENCY_CODE[active] ? `(${CURRENCY_CODE[active]})` : ""}
+                sub="total worth"
                 type="default"
-/>
+              />
           </div>
 
           {/* Divider */}
@@ -251,10 +303,13 @@ export default function Stocks() {
             <p className="text-xs font-bold tracking-widest uppercase text-[#E00000]">Denominations</p>
             <span className="inline-flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full px-3 py-1.5 text-xs text-gray-600 font-medium">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse flex-shrink-0" />
-              {FLAG[active]}&nbsp;
               <span className="font-bold text-gray-900">{active}</span>
-              <span className="text-gray-400">·</span>
-              <span>{CURRENCY_CODE[active]}</span>
+              {CURRENCY_CODE[active] && (
+                <>
+                  <span className="text-gray-400">·</span>
+                  <span className="font-semibold text-gray-800">{CURRENCY_CODE[active]}</span>
+                </>
+              )}
               <span className="text-gray-400">·</span>
               <span>{items?.length} items</span>
             </span>
@@ -318,6 +373,8 @@ export default function Stocks() {
               </tfoot>
             </table>
           </div>
+            </>
+          )}
 
         </div>
 

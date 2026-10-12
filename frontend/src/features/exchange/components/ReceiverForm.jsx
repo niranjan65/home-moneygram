@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import DocumentUploadTable from '../../../components/DocumentUploadTable';
 import { useForm, FormProvider } from 'react-hook-form';
 import { UserPlus, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useExchange } from '../../../context/ExchangeContext';
@@ -24,14 +25,17 @@ export const ReceiverForm = ({
   onClear,
   onSummaryChange,
   ratesData,
+  onCustomerChange,
 }) => {
   const methods = useForm({
     defaultValues: {
+      documents: initialData?.documents,
       rbfNumber: initialData?.rbfNumber || '',
       rbfDocument: initialData?.rbfDocument || null,
       country: initialData?.country || '',
       firstName: initialData?.firstName || '',
       lastName: initialData?.lastName || '',
+      customer_id: initialData?.customer_id || '',
       email: initialData?.email || '',
       city: initialData?.city || '',
       idType: initialData?.idType || 'PASSPORT',
@@ -42,6 +46,8 @@ export const ReceiverForm = ({
       airwaysName: initialData?.airwaysName || '',
       flightNumber: initialData?.flightNumber || '',
       pnrNumber: initialData?.pnrNumber || '',
+      ticket: initialData?.ticket || null,
+      phone_number: initialData?.phone_number || initialData?.phoneNumber || '',
       pastReceiver: initialData?.pastReceiver || 'New Receiver',
       exchangeType: initialData?.exchangeType || 'BUY',
       government_id: initialData?.government_id || 'Passport',
@@ -56,6 +62,9 @@ export const ReceiverForm = ({
       annualComplianceLimit: initialData?.annualComplianceLimit !== undefined ? initialData.annualComplianceLimit : null,
       tinNumber: initialData?.tinNumber || '',
       taxClearanceFile: initialData?.taxClearanceFile || null,
+      risk_level: initialData?.risk_level || 'Low',
+      id_issue_date: initialData?.id_issue_date || null,
+      id_expiry_date: initialData?.id_expiry_date || null,
     },
   });
 
@@ -82,6 +91,29 @@ export const ReceiverForm = ({
   } = ratesData || {};
 
   const exchangeType = methods.watch('exchangeType');
+  const tableDocuments = methods.watch('documents');
+  const selectedId = methods.watch('government_id');
+  const idDocument = methods.watch('docFile');
+  const ticketDocument = methods.watch('ticket');
+  const rbfDocument = methods.watch('rbfDocument');
+  const complianceDocument = methods.watch('taxClearanceFile');
+  const documentRows = tableDocuments ?? [
+    ...(idDocument ? [{ document_type: selectedId || 'Government ID', attachment: idDocument, notes: '' }] : []),
+    ...(ticketDocument ? [{ document_type: 'Ticket', attachment: ticketDocument, notes: '' }] : []),
+    ...(rbfDocument ? [{ document_type: 'RBF Document', attachment: rbfDocument, notes: '' }] : []),
+    ...(complianceDocument ? [{ document_type: 'Annual Compliance', attachment: complianceDocument, notes: '' }] : []),
+  ];
+  const changeDocuments = rows => {
+    methods.setValue('documents', rows, { shouldDirty: true });
+    for (const [field, type] of [
+      ['docFile', selectedId || 'Government ID'],
+      ['ticket', 'Ticket'], ['rbfDocument', 'RBF Document'], ['taxClearanceFile', 'Annual Compliance'],
+    ]) {
+      methods.setValue(field, (rows.find(row => row.document_type === type)?.attachment || (field === 'docFile' ? rows.find(row => row.attachment)?.attachment : null)) || null, { shouldValidate: true, shouldDirty: true });
+    }
+    methods.clearErrors('documents');
+  };
+
 
   const {
     toCurrency,
@@ -209,6 +241,12 @@ export const ReceiverForm = ({
   };
 
   const onSubmit = async (data) => {
+    if (documentRows.some(row => !row.document_type?.trim() || !(row.attachment instanceof File || (typeof row.attachment === 'string' && row.attachment.trim())))) {
+      methods.setError('documents', { type: 'manual', message: 'Each document row needs a document type and a valid attachment. Reselect files lost after a page refresh.' });
+      document.getElementById('exchange-documents')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
 
     if (!sendAmount || sendAmount <= 0) {
       setSendAmountError('Please enter a valid send amount');
@@ -260,8 +298,27 @@ export const ReceiverForm = ({
 
 
 
+    const uploadedDocuments = [];
+    try {
+      for (const row of documentRows) {
+        const attachment = row.attachment instanceof File
+          ? await uploadFile(row.attachment, { isPrivate: 1 })
+          : row.attachment;
+        if (!attachment) throw new Error(`Unable to upload ${row.document_type}. Please try again.`);
+        uploadedDocuments.push({ document_type: row.document_type.trim(), attachment: attachment.replace(/^\/+(?=(?:private\/)?files\/)/, '/'), notes: row.notes || '' });
+      }
+      changeDocuments(uploadedDocuments);
+    } catch (error) {
+      methods.setError('documents', { type: 'manual', message: error.message });
+      return;
+    }
+
     onContinue?.({
       ...data,
+      documents: uploadedDocuments,
+      idType: data.government_id === 'Passport' ? 'PASSPORT' : 'GOVERNMENT_ID',
+      docFile: uploadedDocuments.find(row => row.document_type === data.government_id)?.attachment || uploadedDocuments[0]?.attachment || null,
+      customer_id: data.customer_id || initialData?.customer_id || '',
       dateOfBirth: data.dateOfBirth ? formatDate(data.dateOfBirth) : null,
       sender_notes: senderInfo?.notes ?? [],
       sender_notes_name: senderInfo?.notes_name ?? [],
@@ -284,10 +341,15 @@ export const ReceiverForm = ({
       airwaysName: data.airwaysName,
       flightNumber: data.flightNumber,
       pnrNumber: data.pnrNumber,
+      ticket: data.ticket || null,
+      phone_number: data.phone_number || data.phoneNumber || '',
       rbfNumber: data.rbfNumber || null,
       rbfDocument: data.rbfDocument || null,
       tinNumber: data.tinNumber || null,
       taxClearanceFile: data.taxClearanceFile || null,
+      risk_level: data.risk_level || 'Low',
+      id_issue_date: data.id_issue_date ? formatDate(data.id_issue_date) : null,
+      id_expiry_date: data.id_expiry_date ? formatDate(data.id_expiry_date) : null,
       availableBalance: data.availableBalance,
       annualFxAndMoneygramLimit: data.annualFxAndMoneygramLimit,
       annualComplianceLimit: data.annualComplianceLimit,
@@ -308,19 +370,19 @@ export const ReceiverForm = ({
 
   // Ordered list of fields: text-focusable ones use setFocus, file ones use element id scroll
   const FIELD_ORDER = [
-    'idName', 'dateOfBirth', 'government_id', 'idNumber',
-    'idIssueCountry', 'idIssueState', 'docFile', 'travelDate', 'destination', 'airwaysName', 'flightNumber', 'pnrNumber',
+    'idName', 'phone_number', 'dateOfBirth', 'government_id', 'idNumber', 'id_issue_date', 'id_expiry_date',
+    'idIssueCountry', 'idIssueState', 'oet_code', 'risk_level', 'docFile', 'travelDate', 'destination', 'airwaysName', 'flightNumber', 'pnrNumber', 'ticket',
     'rbfNumber', 'rbfDocument', 'tinNumber', 'taxClearanceFile',
     'firstName', 'lastName', 'city', 'country', 'exchangeType',
   ];
-  const FILE_FIELDS = new Set(['docFile', 'rbfDocument', 'taxClearanceFile']);
+  const FILE_FIELDS = new Set(['docFile', 'rbfDocument', 'taxClearanceFile', 'ticket']);
 
 
   const onError = (errors) => {
     const firstErrorField = FIELD_ORDER.find(f => errors[f]);
     if (!firstErrorField) return;
     if (FILE_FIELDS.has(firstErrorField)) {
-      const el = document.getElementById(`field-${firstErrorField}`);
+      const el = document.getElementById('exchange-documents');
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     } else {
       try { setFocus(firstErrorField); } catch (_) { }
@@ -396,7 +458,7 @@ export const ReceiverForm = ({
           </div>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit, onError)} className="px-4 sm:px-8 lg:px-12 py-8 flex flex-col gap-5 max-w-5xl mx-auto" noValidate>
+        <form onSubmit={handleSubmit(onSubmit, onError)} autoComplete="off" className="px-4 sm:px-8 lg:px-12 py-8 flex flex-col gap-5 max-w-5xl mx-auto" noValidate>
           {!ratesLoading && availableCurrencies?.length === 0 && (
             <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-[#E00000]/20 bg-[#E00000]/5">
               <AlertCircle size={15} className="text-[#E00000] flex-shrink-0 mt-0.5" />
@@ -417,10 +479,24 @@ export const ReceiverForm = ({
           )} */}
 
           {/* <CreditLimit sendAmount={sendAmount} onLimitCheck={setIsCreditExceeded} /> */}
-          <GovernmentIdSection exchangeType={exchangeType} isCreditExceeded={isCreditExceeded} forexAmount={forexAmount} />
+          <GovernmentIdSection
+            useDocumentTable
+            exchangeType={exchangeType}
+            isCreditExceeded={isCreditExceeded}
+            forexAmount={forexAmount}
+            onCustomerChange={onCustomerChange}
+          />
 
           <SectionDivider label="Personal Information" />
           <PersonalInfoSection />
+
+          <div id="exchange-documents">
+            {selectedId && <p className="mt-4 text-sm font-semibold text-gray-600">Upload an attachment to continue. You can enter any document type.</p>}
+            <DocumentUploadTable rows={documentRows} onChange={changeDocuments} disabled={uploadLoading || stockLoading} />
+            {['documents', 'docFile', 'ticket', 'taxClearanceFile'].map(field => methods.formState.errors[field] && (
+              <p key={field} role="alert" className="mt-2 text-sm text-[#E00000]">{methods.formState.errors[field].message}</p>
+            ))}
+          </div>
 
           <SectionDivider label="Exchange Details" />
           <ExchangeSection

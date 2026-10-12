@@ -1,3 +1,4 @@
+import { sessionFetch as fetch } from "../../../api/sessionClient.js";
 // // createMoneyTransfer.js
 
 // import { buildApiUrl, getFetchOptions } from "../config/erpConfig";
@@ -20,8 +21,6 @@
 //     const headers = getHeaders(loginUser, ERP_ENV.PROD);
 
 //     console.log("Creating Money Transfer using loginUser:", {
-//       api_key: loginUser?.api_key,
-//       api_secret: loginUser?.api_secret,
 //       headers,
 //     });
 
@@ -259,48 +258,136 @@ export const createMoneyTransfer = async (
       enableCurrencyDenomination
     );
 
+    // Helper to format dates to YYYY-MM-DD
+    const formatDateStr = (val) => {
+      if (!val) return null;
+      if (typeof val === "string") {
+        const trimmed = val.trim();
+        if (!trimmed) return null;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+        const d = new Date(trimmed);
+        if (!isNaN(d.getTime())) {
+          const y = d.getFullYear();
+          const m = String(d.getMonth() + 1).padStart(2, "0");
+          const day = String(d.getDate()).padStart(2, "0");
+          return `${y}-${m}-${day}`;
+        }
+        return trimmed;
+      }
+      if (val instanceof Date && !isNaN(val.getTime())) {
+        const y = val.getFullYear();
+        const m = String(val.getMonth() + 1).padStart(2, "0");
+        const day = String(val.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+      }
+      return null;
+    };
+
     // Main payload
     const payload = {
       doctype: "Money Transfer",
+      documents: form.documents || [],
 
       enable_currency_denomination: enableCurrencyDenomination,
 
-      customer_id: customerId,
-      full_name: form.full_name,
-      dob: form.dob,
+      customer_id: customerId || form.customer_id || form.customer || null,
+      full_name: form.full_name || form.custom_full_name || "",
+      dob: formatDateStr(form.dob || form.custom_date_of_birth),
 
-      transfer_type: form.transfer_type,
+      transfer_type: form.transfer_type || "Send",
+      risk_level: form.risk_level || "Low",
 
-      government_id_type: form.government_id_type,
-      government_id_number: form.government_id_number,
+      phone_number:
+        form.phone_number ||
+        form.contact_number ||
+        form.mobile_no ||
+        form.phone ||
+        null,
+      tin_number: form.tin_number || form.custom_tin_number || null,
+      occupation: form.occupation || form.custom_occupation || null,
 
-      document_upload: documentUrl || form.document_upload,
+      government_id_type: form.government_id_type || form.custom_government_id || "",
+      government_id_number: form.government_id_number || "",
 
-      transaction_id: form.transaction_id,
+      id_issue_date: formatDateStr(form.id_issue_date || form.custom_id_issue_date),
+      id_expiry_date: formatDateStr(form.id_expiry_date || form.custom_id_expiry_date),
+
+      document_upload: documentUrl || form.document_upload || null,
+
+      transaction_id: form.transaction_id || form.reference_number || "",
+      reference_number: form.reference_number || form.transaction_id || "",
+      upload_additional_info: form.upload_additional_info || null,
 
       amount: form.amount ? Number(form.amount) : 0,
 
       // Sender Details
-      address: form.address,
-      address_line_2: form.address_line_2,
-      city: form.city,
-      stateprovince: form.stateprovince,
-      postal_code: form.postal_code,
-      country: form.country,
+      address: form.address || form.custom_address || null,
+      address_line_2: form.address_line_2 || null,
+      city: form.city || form.custom_city || null,
+      stateprovince: form.stateprovince || form.custom_state_province || form.custom_stateprovince || null,
+      postal_code: form.postal_code || form.custom_postal_code || null,
+      country: form.country || form.custom_country || null,
 
       // Receiver Details
-      receiver_address: form.receiver_address,
-      receiver_address_line_2: form.receiver_address_line_2,
-      receiver_city: form.receiver_city,
-      receiver_stateprovince: form.receiver_stateprovince,
-      receiver_postal_code: form.receiver_postal_code,
-      receiver_country: form.receiver_country,
+      receiver_address: form.receiver_address || null,
+      receiver_address_line_2: form.receiver_address_line_2 || null,
+      receiver_city: form.receiver_city || null,
+      receiver_stateprovince: form.receiver_stateprovince || null,
+      receiver_postal_code: form.receiver_postal_code || null,
+      receiver_country: form.receiver_country || null,
 
       currency_denomination: enableCurrencyDenomination
         ? currencyDenomination
         : [],
-      warehouse: selectedWarehouse.warehouse,
+      warehouse:
+        selectedWarehouse?.warehouse ||
+        (typeof selectedWarehouse === "string" ? selectedWarehouse : null) ||
+        form.warehouse ||
+        null,
     };
+
+    // Forward any other non-internal form fields dynamically
+    const excludedKeys = new Set([
+      "customerFound",
+      "customerLookupDone",
+      "customerFullName",
+      "custom_available_currency_transfer_balance",
+      "custom_annual_fx_and_moneygram_limit",
+      "custom_annual_compliance_limit",
+      "customer",
+      "custom_full_name",
+      "custom_date_of_birth",
+      "custom_passport_number",
+      "custom_drivers_licence_number",
+      "custom_tin_number",
+      "custom_voter_id_number",
+      "custom_government_id",
+      "custom_government_document",
+      "custom_address",
+      "custom_city",
+      "custom_state_province",
+      "custom_stateprovince",
+      "custom_postal_code",
+      "custom_country",
+      "custom_email",
+      "custom_contact_number",
+      "custom_gender",
+      "custom_occupation",
+      "custom_id_issue_date",
+      "custom_id_expiry_date",
+      "custom_risk_level",
+      "passport_number",
+      "contact_number",
+      "email",
+      "gender",
+      "rate",
+    ]);
+
+    Object.keys(form).forEach((k) => {
+      if (!excludedKeys.has(k) && !(k in payload) && form[k] !== undefined && form[k] !== null && form[k] !== "") {
+        payload[k] = form[k];
+      }
+    });
 
     console.log(
       "Creating Money Transfer Payload:",

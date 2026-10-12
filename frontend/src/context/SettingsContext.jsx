@@ -1,3 +1,4 @@
+import { sessionFetch as fetch } from "../api/sessionClient.js";
 import { createContext, useContext, useEffect, useState } from "react";
 import { useUser } from "./UserContext";
 
@@ -19,13 +20,16 @@ export function SettingsProvider({ children }) {
       joined: u.loginTime ? new Date(u.loginTime).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : "",
     };
   });
-  const [warehouses, setWarehouses] = useState([]);
+  const [warehouses, setWarehouses] = useState(() => {
+    return loginUser?.user?.warehouses || [];
+  });
+
   const [selectedWarehouse, setSelectedWarehouseState] = useState(() => {
     try {
       const stored = localStorage.getItem("selected_warehouse");
-      return stored ? JSON.parse(stored) : undefined;
+      return stored ? JSON.parse(stored) : null;
     } catch {
-      return undefined;
+      return null;
     }
   });
 
@@ -45,11 +49,29 @@ export function SettingsProvider({ children }) {
       setUser({
         name: u.full_name || u.user || "Current User",
         email: u.email || "",
-        role: "User",
+        role: u.user_type || "User",
         avatar: (u.full_name || u.user || "U").substring(0, 2).toUpperCase(),
         phone: u.phone || "",
         joined: u.loginTime ? new Date(u.loginTime).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : "",
       });
+
+      const userWhs = u.warehouses || [];
+      setWarehouses(userWhs);
+
+      if (userWhs.length > 0) {
+        const stored = localStorage.getItem("selected_warehouse");
+        let parsed = null;
+        try { parsed = stored ? JSON.parse(stored) : null; } catch {}
+
+        const isValidStored = parsed?.warehouse && userWhs.some(w => w.warehouse === parsed.warehouse);
+        if (isValidStored) {
+          setSelectedWarehouseState(parsed);
+        } else {
+          setSelectedWarehouse(userWhs[0]);
+        }
+      } else {
+        setSelectedWarehouse(null);
+      }
     } else {
       setUser({
         name: "Current User",
@@ -59,6 +81,8 @@ export function SettingsProvider({ children }) {
         phone: "",
         joined: "",
       });
+      setWarehouses([]);
+      setSelectedWarehouse(null);
     }
   }, [loginUser?.user]);
 
@@ -66,54 +90,46 @@ export function SettingsProvider({ children }) {
 
   const getWarehouseForUser = async () => {
     try {
-      const userRes = await fetch(
-        "/api/method/frappe.auth.get_logged_user",
-        {
-          headers: {
-            Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
-          },
-        }
-      );
+      const userIdentifier = loginUser?.user?.email || loginUser?.user?.user;
+      if (!userIdentifier) return [];
 
-      const userData = await userRes.json();
+      const headers = { "Content-Type": "application/json" };
 
-      console.log("userData", userData)
-      // console.log("userData", userData.message.email)
       const warehouseRes = await fetch(
         "/api/method/moneygram.api.get_user_warehouse",
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
-          },
+          headers,
           credentials: "include",
-          body: JSON.stringify({ user: userData.message.username || userData.message }),
+          body: JSON.stringify({ user: userIdentifier }),
         }
       );
 
       const warehouseData = await warehouseRes.json();
-
-      return warehouseData?.message;
+      return warehouseData?.message || [];
     } catch (error) {
       console.error("Error fetching warehouse:", error);
-      return null;
+      return [];
     }
   };
 
   useEffect(() => {
-    if (!loginUser?.user?.api_key) return;
-    getWarehouseForUser().then(r => {
-      if (r && r.length > 0) {
-        setWarehouses(r);
-        // Only overwrite the persisted warehouse if none is saved yet
-        const stored = localStorage.getItem("selected_warehouse");
-        if (!stored) {
-          setSelectedWarehouse(r[0]);
+    if (!loginUser?.user) return;
+    // If warehouses were not populated from session, fetch fresh
+    if (!loginUser?.user?.warehouses || loginUser.user.warehouses.length === 0) {
+      getWarehouseForUser().then(r => {
+        if (Array.isArray(r) && r.length > 0) {
+          setWarehouses(r);
+          const stored = localStorage.getItem("selected_warehouse");
+          let parsed = null;
+          try { parsed = stored ? JSON.parse(stored) : null; } catch {}
+          if (!parsed || !r.some(w => w.warehouse === parsed.warehouse)) {
+            setSelectedWarehouse(r[0]);
+          }
         }
-      }
-    });
-  }, [loginUser?.user?.api_key]);
+      });
+    }
+  }, [loginUser?.user?.email]);
 
 
   return (

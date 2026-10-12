@@ -1,3 +1,4 @@
+import { sessionFetch as fetch } from "../../api/sessionClient.js";
 // import React, { useState } from "react";
 // import { Menu, X } from "lucide-react";
 // import { useLocation, Link } from "react-router-dom";
@@ -159,12 +160,24 @@ export default function Navbar() {
   const session = JSON.parse(localStorage.getItem("erpnext_session"));
   const isLoggedIn = session && session.sessionActive;
 
-  // const isLoginPage = location.pathname === "/";
   const isLoginPage = location.pathname === "/login";
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const handleLogout = () => {
-    localStorage.removeItem("erpnext_session");
-    window.location.href = "/";
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    try {
+      await fetch("/api/method/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (err) {
+      console.error("Logout request failed:", err);
+    } finally {
+      localStorage.removeItem("erpnext_session");
+      localStorage.removeItem("selected_warehouse");
+      window.location.href = "/home/login";
+    }
   };
 
   const navItems = [
@@ -227,7 +240,7 @@ export default function Navbar() {
               })}
 
               {/* Active Location Badge */}
-              {activeLocationName && (
+              {activeLocationName ? (
                 <>
                   <div className="h-5 w-px bg-gray-200 dark:bg-gray-700 mx-0.5" />
                   <Link
@@ -244,15 +257,33 @@ export default function Navbar() {
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                   </Link>
                 </>
+              ) : (
+                <>
+                  <div className="h-5 w-px bg-gray-200 dark:bg-gray-700 mx-0.5" />
+                  <Link
+                    to="/settings"
+                    title="User is not assigned to any branch location. Click to view Settings."
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 hover:bg-amber-100/80 dark:bg-amber-950/50 dark:hover:bg-amber-900/60 border border-amber-300 dark:border-amber-700 transition-all text-xs group cursor-pointer shadow-2xs"
+                  >
+                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-200 shrink-0">
+                      <MapPin size={12} strokeWidth={2.4} />
+                    </span>
+                    <span className="font-bold text-amber-800 dark:text-amber-200 max-w-[140px] truncate">
+                      No Branch Assigned
+                    </span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping shrink-0" />
+                  </Link>
+                </>
               )}
 
               <button
                 onClick={handleLogout}
+                disabled={isLoggingOut}
                 className="text-sm font-semibold transition-colors
                   text-red-500 hover:text-red-600
-                  dark:text-red-400 dark:hover:text-red-500 ml-1"
+                  dark:text-red-400 dark:hover:text-red-500 ml-1 disabled:opacity-50"
               >
-                Logout
+                {isLoggingOut ? "Logging out..." : "Logout"}
               </button>
             </div>
 
@@ -289,7 +320,7 @@ export default function Navbar() {
             <div className="flex flex-col p-4 space-y-3">
 
               {/* Mobile Active Location Badge */}
-              {activeLocationName && (
+              {activeLocationName ? (
                 <Link
                   to="/settings"
                   onClick={() => setMenuOpen(false)}
@@ -311,6 +342,30 @@ export default function Navbar() {
                   <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full shrink-0">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     Active
+                  </span>
+                </Link>
+              ) : (
+                <Link
+                  to="/settings"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center justify-between p-3 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700 transition-colors"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200 flex items-center justify-center shrink-0">
+                      <MapPin size={15} strokeWidth={2.2} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                        Active Location
+                      </div>
+                      <div className="text-xs font-bold text-amber-800 dark:text-amber-200 truncate">
+                        No Branch Assigned
+                      </div>
+                    </div>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/60 px-2 py-0.5 rounded-full shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                    Unassigned
                   </span>
                 </Link>
               )}
@@ -335,11 +390,12 @@ export default function Navbar() {
 
               <button
                 onClick={handleLogout}
+                disabled={isLoggingOut}
                 className="text-sm font-semibold transition-colors
                 text-red-500 hover:text-red-600
-                dark:text-red-400 dark:hover:text-red-500 text-left"
+                dark:text-red-400 dark:hover:text-red-500 text-left disabled:opacity-50"
               >
-                Logout
+                {isLoggingOut ? "Logging out..." : "Logout"}
               </button>
 
             </div>

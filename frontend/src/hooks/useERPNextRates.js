@@ -1,3 +1,4 @@
+import { sessionFetch as fetch } from "../api/sessionClient.js";
 import { useState, useEffect } from 'react';
 import { useUser } from "../context/UserContext";
 import { useSettings } from '../context/SettingsContext';
@@ -16,6 +17,15 @@ export function useERPNextRates() {
 
   useEffect(() => {
     async function fetchRates() {
+      const locationName = selectedWarehouse?.warehouse || (typeof selectedWarehouse === "string" ? selectedWarehouse : null);
+
+      if (!locationName) {
+        setRates({});
+        setAvailableCurrencies([]);
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         setError(null);
@@ -23,19 +33,19 @@ export function useERPNextRates() {
         
         const today = new Date().toISOString().split("T")[0];
 
+        const headers = {
+          "Content-Type": "application/json",
+        };
+
         const response = await fetch(
           "/api/method/moneygram.api.get_currency_exchange_rate",
           {
             method: "POST", 
-            headers: {
-               "Content-Type": "application/json",
-                Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
-
-            },
-            // credentials: "include", 
+            headers,
+            credentials: "include", 
             body: JSON.stringify({
               today_date: today,
-              location: selectedWarehouse.warehouse
+              location: locationName
             }),
           }
         );
@@ -107,7 +117,7 @@ export function useERPNextRates() {
     }
 
     fetchRates();
-  }, []);
+  }, [selectedWarehouse?.warehouse, loginUser?.user?.email]);
 
   return {
     rates,

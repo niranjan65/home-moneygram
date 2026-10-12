@@ -1,3 +1,4 @@
+import { sessionFetch as fetch } from "../api/sessionClient.js";
 import React, { useState, useCallback, useEffect } from 'react';
 import { useUser } from "../context/UserContext";
 
@@ -228,7 +229,6 @@ export const TrialBalanceReport = () => {
       });
       const HEADERS = {
       "Content-Type": "application/json",
-      Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
       };
       const res = await fetch(REPORT_URL, {
         method:  'POST',
@@ -261,7 +261,6 @@ export const TrialBalanceReport = () => {
     const res = await fetch(`${API_BASE}/api/resource/Company`, {
       headers: {
         "Content-Type": "application/json",
-        Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
       }
     });
 
@@ -288,7 +287,6 @@ const fetchFiscalYears = async () => {
     const res = await fetch(`${API_BASE}/api/resource/Fiscal Year`, {
       headers: {
         "Content-Type": "application/json",
-        Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
       }
     });
 

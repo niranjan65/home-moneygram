@@ -1,3 +1,4 @@
+import { sessionFetch as fetch } from "../../../api/sessionClient.js";
 
 // customer.js
 import { buildApiUrl, getFetchOptions } from "../config/erpConfig";
@@ -34,33 +35,62 @@ const formatDate = (date) => {
 };
 
 /**
- * Fetch Customer by ID
- *
- * Customer ID format:
- *   Full Name_YYYY-MM-DD
- *
- * Example:
- *   John Doe_1990-05-12
+ * Fetch a guaranteed unique 6-character uppercase Customer ID from backend
  */
-export const getCustomerById = async (customerId, loginUser) => {
-  if (!customerId || customerId.length < 3) return null;
-
+export const fetchNewCustomerId = async (loginUser) => {
   try {
     const res = await fetch(
+      "/api/method/moneygram.moneygram.api.get_transactions.get_new_customer_id",
+      getFetchOptions({ method: "GET" })
+    );
+    if (!res.ok) throw new Error("Failed to fetch customer id");
+    const json = await res.json();
+    return json.message;
+  } catch (err) {
+    console.error("Error fetching new customer ID, using local generation:", err);
+    return "ME0001";
+  }
+};
+
+/**
+ * Fetch Customer by ID (6-character uppercase code or primary key)
+ */
+export const getCustomerById = async (customerId, loginUser) => {
+  if (!customerId || customerId.length < 2) return null;
+
+  const authHeaders = {};
+
+  try {
+    let res = await fetch(
       buildApiUrl(`api/resource/Customer/${encodeURIComponent(customerId)}`),
       getFetchOptions({
         method: "GET",
+        headers: authHeaders,
       })
     );
 
     if (!res.ok) {
-      if (res.status === 404) {
-        console.log("Customer not found");
-        return null;
+      // Fallback: search by custom_customer_id
+      const queryRes = await fetch(
+        buildApiUrl(`api/resource/Customer?filters=[["custom_customer_id","=","${encodeURIComponent(customerId)}"]]&fields=["*"]&limit=1`),
+        getFetchOptions({ method: "GET", headers: authHeaders })
+      );
+      if (queryRes.ok) {
+        const queryJson = await queryRes.json();
+        if (queryJson.data && queryJson.data.length > 0) {
+          const cust = queryJson.data[0];
+          const phoneVal = cust.mobile_no || cust.phone || cust.phone_number || cust.custom_contact_number || cust.contact_number || "";
+          return {
+            ...cust,
+            phone_number: phoneVal,
+            mobile_no: phoneVal,
+            risk_level: cust.custom_risk_level || cust.risk_level || "Low",
+            custom_risk_level: cust.custom_risk_level || cust.risk_level || "Low",
+            government_id_type: cust.custom_government_id || "",
+            government_id_number: cust.custom_passport_number || cust.custom_drivers_licence_number || cust.custom_voter_id_number || cust.custom_tin_number || "",
+          };
+        }
       }
-
-      const errorData = await res.json().catch(() => ({}));
-      console.error("Error fetching customer:", errorData);
       return null;
     }
 
@@ -98,9 +128,31 @@ export const getCustomerById = async (customerId, loginUser) => {
         governmentIdNumber = "";
     }
 
-    // Return original data along with normalized fields
+    let resolvedPhone = data.mobile_no || data.phone || data.phone_number || data.custom_contact_number || data.contact_number || "";
+    if (!resolvedPhone && (data.name || customerId)) {
+      try {
+        const listRes = await fetch(
+          buildApiUrl(`api/method/moneygram.moneygram.api.get_transactions.get_customers_list?selected=${encodeURIComponent(data.name || customerId)}&limit=1`),
+          getFetchOptions({ method: "GET", headers: authHeaders })
+        );
+        if (listRes.ok) {
+          const listJson = await listRes.json();
+          const found = listJson.message?.[0];
+          if (found && (found.mobile_no || found.phone_number)) {
+            resolvedPhone = found.mobile_no || found.phone_number;
+          }
+        }
+      } catch (err) {
+        // Fallback silently if get_customers_list query fails
+      }
+    }
+
     return {
       ...data,
+      phone_number: resolvedPhone,
+      mobile_no: resolvedPhone,
+      risk_level: data.custom_risk_level || data.risk_level || "Low",
+      custom_risk_level: data.custom_risk_level || data.risk_level || "Low",
       government_id_type: governmentIdType,
       government_id_number: governmentIdNumber,
     };
@@ -227,17 +279,17 @@ export const getCustomerById = async (customerId, loginUser) => {
 export const createCustomer = async (
   form,
   documentUrl,
-  loginUser
+  loginUser,
+  customerImageUrl = ""
 ) => {
   try {
     // --------------------------------------------------
-    // 1. Generate Customer ID
+    // 1. Obtain Customer ID (6-character unique code)
     // --------------------------------------------------
-    const cleanName = form.full_name
-      .trim()
-      .replace(/\s+/g, " ");
-
-    const customerId = `${cleanName}_${formatDate(form.dob)}`;
+    let customerId = (form.customer_id || form.customerId || "").trim().toUpperCase();
+    if (!customerId) {
+      customerId = await fetchNewCustomerId(loginUser);
+    }
 
     // --------------------------------------------------
     // 2. Check if customer already exists
@@ -307,6 +359,8 @@ export const createCustomer = async (
     // --------------------------------------------------
     const payload = {
       customer_name: customerId,
+      name: customerId,
+      custom_customer_id: customerId,
       customer_type: "Individual",
       customer_group: "Individual",
       // territory: "All Territories",
@@ -317,6 +371,11 @@ export const createCustomer = async (
 
       custom_government_document:
         documentUrl || form.document_upload || "",
+
+      image: customerImageUrl || form.customer_image || form.image || "",
+
+      mobile_no: (form.phone_number || form.mobile_no || form.phone || "").trim(),
+      custom_risk_level: form.risk_level || form.custom_risk_level || "Low",
 
       // ----------------------------------------------
       // Customer limits from App Configuration
@@ -414,6 +473,33 @@ export const createCustomer = async (
   }
 };
 /**
+ * Directly update customer risk level using whitelisted endpoint
+ */
+export const updateCustomerRiskLevel = async (customer, riskLevel, loginUser) => {
+  if (!customer || !riskLevel) return null;
+  const authHeaders = {};
+  try {
+    const res = await fetch(
+      buildApiUrl(
+        `api/method/moneygram.moneygram.api.get_transactions.update_customer_risk_level?customer=${encodeURIComponent(
+          customer
+        )}&risk_level=${encodeURIComponent(riskLevel)}`
+      ),
+      getFetchOptions({ method: "POST", headers: authHeaders })
+    );
+    if (!res.ok) {
+      console.warn("updateCustomerRiskLevel error status:", res.status);
+      return null;
+    }
+    const json = await res.json();
+    return json.message;
+  } catch (err) {
+    console.warn("updateCustomerRiskLevel failed:", err);
+    return null;
+  }
+};
+
+/**
  * Update Customer
  */
 export const updateCustomer = async (
@@ -423,14 +509,49 @@ export const updateCustomer = async (
 ) => {
   if (!customerId) return null;
 
+  const authHeaders = {};
+
+  // If custom_risk_level or risk_level is in updateData, call updateCustomerRiskLevel as well
+  if (updateData.custom_risk_level || updateData.risk_level) {
+    const rVal = updateData.custom_risk_level || updateData.risk_level;
+    updateCustomerRiskLevel(customerId, rVal, loginUser).catch(() => {});
+  }
+
   try {
-    const res = await fetch(
+    let res = await fetch(
       buildApiUrl(`api/resource/Customer/${encodeURIComponent(customerId)}`),
       getFetchOptions({
         method: "PUT",
+        headers: authHeaders,
         body: JSON.stringify(updateData),
       })
     );
+
+    if (!res.ok) {
+      // Fallback: customerId might be custom_customer_id rather than primary key name
+      try {
+        const queryRes = await fetch(
+          buildApiUrl(`api/resource/Customer?filters=[["custom_customer_id","=","${encodeURIComponent(customerId)}"]]&fields=["name"]&limit=1`),
+          getFetchOptions({ method: "GET", headers: authHeaders })
+        );
+        if (queryRes.ok) {
+          const queryJson = await queryRes.json();
+          const actualName = queryJson.data?.[0]?.name;
+          if (actualName && actualName !== customerId) {
+            res = await fetch(
+              buildApiUrl(`api/resource/Customer/${encodeURIComponent(actualName)}`),
+              getFetchOptions({
+                method: "PUT",
+                headers: authHeaders,
+                body: JSON.stringify(updateData),
+              })
+            );
+          }
+        }
+      } catch (fallbackErr) {
+        console.warn("Fallback customer update failed:", fallbackErr);
+      }
+    }
 
     if (!res.ok) {
       console.warn("Update customer response not ok:", res.status);

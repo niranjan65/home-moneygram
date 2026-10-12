@@ -8,7 +8,7 @@
  *  - All items out of stock
  *  - Guard: empty itemNames or missing warehouse → { outOfStock: [] }
  *  - API failure → throws error
- *  - Auth header is built from loginUser.user.api_key / api_secret
+ *  - Session cookies and CSRF protect the stock request
  */
 import { validateStockAvailability } from '../../hooks/useStockValidation';
 import { MOCK_LOGIN_USER, MOCK_WAREHOUSE } from '../fixtures/dealerFixtures';
@@ -23,7 +23,15 @@ const ITEMS_ALL  = [
 const WAREHOUSE  = MOCK_WAREHOUSE.warehouse;
 const LOGIN_USER = MOCK_LOGIN_USER;
 
+function mockCSRFResponse() {
+  global.fetch.mockResolvedValueOnce({
+    ok: true,
+    json: jest.fn().mockResolvedValue({ message: { csrf_token: "test-csrf" } }),
+  });
+}
+
 function mockFetchResponse(bins) {
+  mockCSRFResponse();
   global.fetch.mockResolvedValueOnce({
     ok:   true,
     json: jest.fn().mockResolvedValue({ message: bins }),
@@ -31,6 +39,7 @@ function mockFetchResponse(bins) {
 }
 
 function mockFetchFailure() {
+  mockCSRFResponse();
   global.fetch.mockResolvedValueOnce({ ok: false, json: jest.fn() });
 }
 
@@ -129,19 +138,19 @@ describe('validateStockAvailability — API failure', () => {
 describe('validateStockAvailability — request shape', () => {
   beforeEach(() => { mockFetchResponse([]); });
 
-  test('sends Authorization header with token key:secret', async () => {
+  test('sends session cookies and CSRF without Authorization', async () => {
     await validateStockAvailability(ITEMS_ALL, WAREHOUSE, LOGIN_USER).catch(() => {});
 
-    const [, init] = global.fetch.mock.calls[0];
-    expect(init.headers['Authorization']).toBe(
-      `token ${LOGIN_USER.user.api_key}:${LOGIN_USER.user.api_secret}`
-    );
+    const [, init] = global.fetch.mock.calls.find(([url]) => String(url).includes("validate_stock_availability"));
+    expect(init.credentials).toBe("include");
+    expect(init.headers.has("Authorization")).toBe(false);
+    expect(init.headers.get("X-Frappe-CSRF-Token")).toBe("test-csrf");
   });
 
   test('body contains api_value array with item_code + warehouse', async () => {
     await validateStockAvailability([{item_code: 'AUD-100', requested_qty: 1}], WAREHOUSE, LOGIN_USER).catch(() => {});
 
-    const [, init] = global.fetch.mock.calls[0];
+    const [, init] = global.fetch.mock.calls.find(([url]) => String(url).includes("validate_stock_availability"));
     const body = JSON.parse(init.body);
     expect(body.api_value).toEqual([{ item_code: 'AUD-100', warehouse: WAREHOUSE }]);
   });

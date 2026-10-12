@@ -7,8 +7,6 @@
 // ── User / auth ───────────────────────────────────────────────────────────────
 export const MOCK_LOGIN_USER = {
   user: {
-    api_key:    'test_api_key_123',
-    api_secret: 'test_api_secret_456',
     full_name:  'Test Dealer',
     email:      'dealer@test.com',
   },

@@ -1,3 +1,4 @@
+import { sessionFetch as fetch } from "../../../api/sessionClient.js";
 import { buildApiUrl, getFetchOptions } from "../config/erpConfig";
 
 export const getCurrencyMaster = async (loginUser) => {

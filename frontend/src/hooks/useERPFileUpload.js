@@ -1,3 +1,4 @@
+import { sessionFetch as fetch } from "../api/sessionClient.js";
 import { useState, useCallback } from "react";
 import { useUser } from "../context/UserContext";
 
@@ -34,7 +35,9 @@ export const useERPFileUpload = () => {
 
       const {
         isPrivate = 0,
-        doctype = "Currency Exchange For Customer",
+        doctype,
+        docname,
+        fieldname,
       } = options;
 
       // Sanitize filename to avoid Frappe server path resolution errors.
@@ -44,14 +47,23 @@ export const useERPFileUpload = () => {
       const formData = new FormData();
       formData.append("file", safeFile);
       formData.append("is_private", isPrivate);
+      if (doctype) formData.append("doctype", doctype);
+      if (docname) formData.append("docname", docname);
+      if (fieldname) formData.append("fieldname", fieldname);
+
+      const headers = {};
+      const csrfToken =
+        (typeof window !== "undefined" && (window.csrf_token || window.frappe?.csrf_token)) || "";
+      if (csrfToken && !csrfToken.includes("{{")) {
+        headers["X-Frappe-CSRF-Token"] = csrfToken;
+      }
 
       const response = await fetch(
         "/api/method/upload_file",
         {
           method: "POST",
-          headers: {
-            Authorization: `token ${loginUser?.user?.api_key}:${loginUser?.user?.api_secret}`,
-          },
+          credentials: "include",
+          headers,
           body: formData,
         }
       );

@@ -3,7 +3,7 @@ import { useFormContext } from 'react-hook-form';
 import { getCustomerById } from '../api/customer';
 import { useUser } from '../../../context/UserContext';
 
-export const useCustomer = () => {
+export const useCustomer = ({ autoFillDocument = true } = {}) => {
   const loginUser = useUser();
   const { setValue, getValues } = useFormContext();
   const [loading, setLoading] = useState(false);
@@ -24,50 +24,76 @@ export const useCustomer = () => {
   });
 
   const clearCustomerData = useCallback(() => {
+    setValue('customer_id', '');
+    setValue('idName', '');
     setValue('firstName', '');
+    setValue('middleName', '');
     setValue('lastName', '');
+    setValue('secondLastName', '');
+    setValue('dateOfBirth', '');
+    setValue('government_id', 'Passport');
+    setValue('idType', 'Passport');
+    setValue('idNumber', '');
+    setValue('idIssueCountry', '');
+    setValue('idIssueState', '');
+    setValue('occupation', '');
     setValue('country', '');
     setValue('city', '');
-    setValue('idNumber', '');
+    setValue('phone_number', '');
+    setValue('phoneNumber', '');
     setValue('docFile', null);
     setValue('availableBalance', null);
     setValue('annualFxAndMoneygramLimit', null);
     setValue('annualComplianceLimit', null);
     setValue('tinNumber', '');
     setValue('taxClearanceFile', null);
+    setValue('risk_level', 'Low');
     setPreviewUrl(null);
     setPreviewFile(null);
   }, [setValue]);
 
   const fetchAndFillCustomer = useCallback(async (idNumber) => {
-    if (!idNumber || idNumber.length < 3) return;
+    if (!idNumber || idNumber.length < 2) return;
     
     setLoading(true);
     const customer = await getCustomerById(idNumber, loginUser);
     setLoading(false);
 
     if (customer) {
+      console.log('👤 [useCustomer] Fetched customer details:', {
+        id: customer.custom_customer_id || customer.name,
+        name: customer.custom_full_name || customer.customer_name,
+        mobile_no: customer.mobile_no,
+        phone_number: customer.phone_number,
+      });
+      setValue('customer_id', customer.custom_customer_id || customer.name || idNumber);
       setValue('firstName', customer.custom_first_name || '');
       setValue('lastName', customer.custom_last_name || '');
       setValue('middleName', customer.custom_middle_name || '');
       setValue('secondLastName', customer.custom_second_last_name_family_name || '');
       setValue('country', customer.custom_country || '');
       setValue('city', customer.custom_city || '');
-      setValue('government_id', customer.custom_government_id || '');
+      const fetchedPhone = customer.mobile_no || customer.phone_number || customer.phone || '';
+      setValue('phone_number', fetchedPhone);
+      setValue('phoneNumber', fetchedPhone);
+      setValue('email', customer.email_id || customer.receiver_mailid || '');
+      setValue('government_id', customer.custom_government_id || 'Passport');
       setValue('dateOfBirth', customer.custom_date_of_birth || '');
       setValue('idIssueCountry', customer.custom_id_issue_country || '');
       setValue('idIssueState', customer.custom_id_issue_stateprovince || '');
       setValue('idName', customer.custom_full_name || '');
-      setValue('idNumber', customer.custom_drivers_licence_number || customer.custom_tin_number || customer.custom_voter_id_number || customer.custom_passport_number);
-      setValue('idType', customer.custom_government_id || '');
+      setValue('idNumber', customer.custom_drivers_licence_number || customer.custom_tin_number || customer.custom_voter_id_number || customer.custom_passport_number || '');
+      setValue('idType', customer.custom_government_id || 'Passport');
       setValue('occupation', customer.custom_occupation || '');
       setValue('availableBalance', customer.custom_available_currency_transfer_balance !== undefined && customer.custom_available_currency_transfer_balance !== null ? customer.custom_available_currency_transfer_balance : 0);
       setValue('annualFxAndMoneygramLimit', customer.custom_annual_fx_and_moneygram_limit !== undefined && customer.custom_annual_fx_and_moneygram_limit !== null ? customer.custom_annual_fx_and_moneygram_limit : 0);
       setValue('annualComplianceLimit', customer.custom_annual_compliance_limit !== undefined && customer.custom_annual_compliance_limit !== null ? customer.custom_annual_compliance_limit : 0);
       setValue('tinNumber', customer.custom_tin_number || '');
+      const fetchedRisk = customer.custom_risk_level || customer.risk_level || 'Low';
+      setValue('risk_level', fetchedRisk, { shouldValidate: true, shouldDirty: true });
       console.log('Customer found...', customer);
 
-      if (customer.image) {
+      if (autoFillDocument && customer.image) {
         const url = customer.image.startsWith('http') 
           ? customer.image 
           : `/${customer.image}`;
@@ -75,6 +101,10 @@ export const useCustomer = () => {
         setPreviewUrl(url);
         setPreviewFile(null);
         setValue('docFile', url, { shouldValidate: true });
+      } else {
+        setPreviewUrl(null);
+        setPreviewFile(null);
+        setValue('docFile', null);
       }
     } else {
       setValue('availableBalance', null);
@@ -82,8 +112,11 @@ export const useCustomer = () => {
       setValue('annualComplianceLimit', null);
       setValue('tinNumber', '');
       setValue('taxClearanceFile', null);
+      setPreviewUrl(null);
+      setPreviewFile(null);
+      setValue('docFile', null);
     }
-  }, [setValue, loginUser]);
+  }, [setValue, loginUser, autoFillDocument]);
 
   const removeFile = useCallback(() => {
     setValue('docFile', null, { shouldValidate: true });

@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import { sessionAxios as axios } from "../api/sessionClient.js";
 import Navbar from "../components/layout/Navbar";
 import Footer from "../components/layout/Footer";
 
 const ERPNEXT_API_URL =
-  "http://182.71.135.110:8998/api/resource/Money Transfer";
-const AUTH_TOKEN = "YOUR_TOKEN_HERE";
+  "/api/resource/Money Transfer";
 
 const TransactionHistory = () => {
   const [transactions, setTransactions] = useState([]);
@@ -15,7 +14,6 @@ const TransactionHistory = () => {
     try {
       const response = await axios.get(ERPNEXT_API_URL, {
         headers: {
-          Authorization: `token ${AUTH_TOKEN}`,
         },
         params: {
           fields: JSON.stringify([
@@ -55,7 +53,14 @@ const TransactionHistory = () => {
           </h1>
 
           {loading ? (
-            <p>Loading transactions...</p>
+            <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+              <div className="relative flex items-center justify-center">
+                <div className="w-12 h-12 rounded-full border-4 border-[#E00000]/20 animate-ping absolute" />
+                <div className="w-10 h-10 rounded-full border-3 border-gray-200 border-t-[#E00000] animate-spin" />
+              </div>
+              <p className="mt-4 text-sm font-semibold text-gray-700 animate-pulse">Loading transaction records…</p>
+              <p className="text-xs text-gray-400 mt-1">Please wait while transactions are being retrieved…</p>
+            </div>
           ) : transactions.length === 0 ? (
             <p>No transactions found.</p>
           ) : (

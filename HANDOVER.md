@@ -93,9 +93,10 @@ apps/home/
 ## 4. Key Workflows & Architectural Decisions
 
 ### 4.1. Money Transfer Remittance Workflow (`MoneyTransfer.jsx`)
-- **Customer Verification**:
-  - Searches existing `Customer` records in ERPNext by full name and date of birth (`dob`).
-  - Automatically loads and displays an **"Existing Customer"** pill when verified.
+- **Unified Customer Search & Auto-Fill (No Radio Buttons)**:
+  - Tellers search customers seamlessly in real time by Customer ID, Full Name, Phone, Government ID, or Date of Birth.
+  - The form eliminates awkward "New Customer" vs "Existing Customer" radio buttons: selecting a customer automatically hydrates their profile, KYC documents, and current regulatory limits.
+  - For new customers, the system automatically fetches the next sequential customer identifier in `ME0001` format (`MEXXXX`) from `moneygram.moneygram.api.get_transactions.generate_unique_customer_id`.
 - **Customer Currency Limits Sidebar**:
   - Positioned outside the main form in a dedicated sticky right-hand column (`lg:col-span-4 lg:sticky lg:top-8`).
   - Displays the **Annual FX & MoneyGram Limit** (`custom_annual_fx_and_moneygram_limit`).
@@ -116,7 +117,12 @@ apps/home/
   - Raw internal customer ID is hidden on customer copy for privacy and professional formatting.
 
 ### 4.2. Retail Currency Exchange (Forex) Workflow (`MoneyExchange.jsx`)
+- **Customer Lookup & Sequential ID Provisioning**:
+  - Seamless lookup in `GovernmentIdSection.jsx` without radio buttons.
+  - New customers are provisioned with sequential `MEXXXX` identifiers (e.g. `ME0001`, `ME0002`...).
 - **Rate Source**: Fetched daily from ERPNext `Currency Master Data` via `moneygram.api.get_currency_exchange_rate`.
+- **Branch-Specific Cash Routing**:
+  - Payment Entries created by the exchange submission automatically post against the teller's branch cash drawer account configured in `App Configuration.warehouse_accounts`.
 - **Conversion Math** (in `useExchangeCalculation.js`):
   - **BUY (Customer sells foreign currency, MH pays FJD)**:
     $$\text{receiverAmount (FJD)} = \text{roundTo5Cents}\left(\frac{\text{sendAmount}}{\text{buyingRate}}\right)$$

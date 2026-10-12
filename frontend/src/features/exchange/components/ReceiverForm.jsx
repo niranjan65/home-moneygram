@@ -63,6 +63,7 @@ export const ReceiverForm = ({
       tinNumber: initialData?.tinNumber || '',
       taxClearanceFile: initialData?.taxClearanceFile || null,
       risk_level: initialData?.risk_level || 'Low',
+      remarks: initialData?.remarks || '',
       id_issue_date: initialData?.id_issue_date || null,
       id_expiry_date: initialData?.id_expiry_date || null,
     },
@@ -348,6 +349,7 @@ export const ReceiverForm = ({
       tinNumber: data.tinNumber || null,
       taxClearanceFile: data.taxClearanceFile || null,
       risk_level: data.risk_level || 'Low',
+      remarks: data.remarks || '',
       id_issue_date: data.id_issue_date ? formatDate(data.id_issue_date) : null,
       id_expiry_date: data.id_expiry_date ? formatDate(data.id_expiry_date) : null,
       availableBalance: data.availableBalance,
@@ -371,7 +373,7 @@ export const ReceiverForm = ({
   // Ordered list of fields: text-focusable ones use setFocus, file ones use element id scroll
   const FIELD_ORDER = [
     'idName', 'phone_number', 'dateOfBirth', 'government_id', 'idNumber', 'id_issue_date', 'id_expiry_date',
-    'idIssueCountry', 'idIssueState', 'oet_code', 'risk_level', 'docFile', 'travelDate', 'destination', 'airwaysName', 'flightNumber', 'pnrNumber', 'ticket',
+    'idIssueCountry', 'idIssueState', 'oet_code', 'risk_level', 'remarks', 'docFile', 'travelDate', 'destination', 'airwaysName', 'flightNumber', 'pnrNumber', 'ticket',
     'rbfNumber', 'rbfDocument', 'tinNumber', 'taxClearanceFile',
     'firstName', 'lastName', 'city', 'country', 'exchangeType',
   ];

@@ -22,6 +22,7 @@ import {
   RefreshCw,
   Search,
   Phone,
+  MessageSquare,
 } from 'lucide-react';
 import { FieldLabel, fieldCls, ErrorMsg } from '../ui/FormUtilities';
 import { useCustomer } from '../../hooks/useCustomer';
@@ -1610,6 +1611,19 @@ export const GovernmentIdSection = ({ exchangeType, isCreditExceeded, forexAmoun
             </div>
           </div>
           <ErrorMsg message={errors.risk_level?.message} />
+        </div>
+
+        <div id="field-remarks">
+          <FieldLabel icon={MessageSquare}>Remarks</FieldLabel>
+          <div className="relative mt-1">
+            <input
+              type="text"
+              placeholder="Enter remarks..."
+              {...register('remarks')}
+              className={fieldCls(errors.remarks)}
+            />
+          </div>
+          <ErrorMsg message={errors.remarks?.message} />
         </div>
 
         {!useDocumentTable && (<div id="field-docFile">

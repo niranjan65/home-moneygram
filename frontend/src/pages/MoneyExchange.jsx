@@ -532,6 +532,7 @@ const MoneyExchange = () => {
           annual_compliance: taxClearanceDocUrl || null,
           tax_clearance_document: taxClearanceDocUrl || null,
           risk_level: transferPayload.risk_level || 'Low',
+          remarks: transferPayload.remarks || '',
 
           purposeOfTransaction: transferPayload.purposeOfTransaction,
           travelDate: transferPayload.travelDate,

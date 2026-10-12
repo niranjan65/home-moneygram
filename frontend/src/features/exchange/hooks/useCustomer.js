@@ -48,6 +48,7 @@ export const useCustomer = ({ autoFillDocument = true } = {}) => {
     setValue('tinNumber', '');
     setValue('taxClearanceFile', null);
     setValue('risk_level', 'Low');
+    setValue('remarks', '');
     setPreviewUrl(null);
     setPreviewFile(null);
   }, [setValue]);

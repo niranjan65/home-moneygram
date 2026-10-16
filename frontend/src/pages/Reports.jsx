@@ -1263,22 +1263,101 @@ function TransactionsTab({ warehouse, loginUser }) {
     return lower.endsWith(" vault") || lower.includes("vault");
   }, []);
 
+  const { warehouses: settingsWarehouses } = useSettings();
+
+  // Extract all warehouse names assigned to the logged-in user
+  const userAssignedWarehouseNames = useMemo(() => {
+    const list = [];
+    const seen = new Set();
+
+    const add = (val) => {
+      if (!val) return;
+      let name = "";
+      if (typeof val === "string") {
+        name = val.trim();
+      } else if (typeof val === "object") {
+        name = (val.warehouse || val.warehouse_name || val.name || "").trim();
+      }
+      if (name && !isVaultLocation(name) && !seen.has(name)) {
+        seen.add(name);
+        list.push(name);
+      }
+    };
+
+    if (Array.isArray(loginUser?.user?.warehouses)) {
+      loginUser.user.warehouses.forEach(add);
+    }
+    if (Array.isArray(loginUser?.user?.warehouse)) {
+      loginUser.user.warehouse.forEach(add);
+    } else if (loginUser?.user?.warehouse) {
+      add(loginUser.user.warehouse);
+    }
+    if (Array.isArray(settingsWarehouses)) {
+      settingsWarehouses.forEach(add);
+    }
+    if (warehouse) {
+      add(warehouse);
+    }
+
+    return list;
+  }, [loginUser?.user, settingsWarehouses, warehouse, isVaultLocation]);
+
   const [selectedWarehouse, setSelectedWarehouse] = useState(() => {
     const activeLoc = getActiveLocationName();
-    return activeLoc && !isVaultLocation(activeLoc) ? activeLoc : "All";
+    if (activeLoc && !isVaultLocation(activeLoc)) {
+      if (userAssignedWarehouseNames.length === 0 || userAssignedWarehouseNames.includes(activeLoc)) {
+        return activeLoc;
+      }
+    }
+    if (userAssignedWarehouseNames.length > 0) {
+      return userAssignedWarehouseNames[0];
+    }
+    return "All";
   });
 
   // Keep selectedWarehouse in sync with active location if user has not manually changed branch selection
   useEffect(() => {
     if (!userManuallyChangedWarehouse.current) {
       const activeLoc = getActiveLocationName();
-      if (activeLoc) {
-        setSelectedWarehouse(isVaultLocation(activeLoc) ? "All" : activeLoc);
+      if (activeLoc && !isVaultLocation(activeLoc)) {
+        if (userAssignedWarehouseNames.length === 0 || userAssignedWarehouseNames.includes(activeLoc)) {
+          setSelectedWarehouse(activeLoc);
+          return;
+        }
+      }
+      if (userAssignedWarehouseNames.length > 0) {
+        setSelectedWarehouse(userAssignedWarehouseNames[0]);
+      } else {
+        setSelectedWarehouse("All");
+      }
+    } else {
+      if (
+        userAssignedWarehouseNames.length > 0 &&
+        selectedWarehouse !== "All" &&
+        !userAssignedWarehouseNames.includes(selectedWarehouse)
+      ) {
+        setSelectedWarehouse(userAssignedWarehouseNames[0]);
+      }
+      if (userAssignedWarehouseNames.length === 1 && selectedWarehouse === "All") {
+        setSelectedWarehouse(userAssignedWarehouseNames[0]);
       }
     }
-  }, [warehouse, getActiveLocationName, isVaultLocation]);
+  }, [warehouse, getActiveLocationName, isVaultLocation, userAssignedWarehouseNames, selectedWarehouse]);
 
   const [warehousesList, setWarehousesList] = useState([]);
+
+  // Warehouses to display in branch location filter (only user's assigned warehouse(s))
+  const displayedWarehouses = useMemo(() => {
+    if (userAssignedWarehouseNames.length === 0) {
+      return warehousesList;
+    }
+    return userAssignedWarehouseNames.map((name) => {
+      const match = warehousesList.find(
+        (wh) => (wh.name || wh.warehouse_name || "").trim() === name
+      );
+      return match || { name, warehouse_name: name };
+    });
+  }, [warehousesList, userAssignedWarehouseNames]);
   const [cancellingRowId, setCancellingRowId] = useState(null);
   const [printingRowId, setPrintingRowId] = useState(null);
 
@@ -1324,6 +1403,17 @@ function TransactionsTab({ warehouse, loginUser }) {
         console.error("Error fetching warehouses list:", err);
       });
   }, [loginUser]);
+
+  // Log logged-in user's warehouse information in TransactionsTab
+  useEffect(() => {
+    if (!loginUser?.user) return;
+    console.log(
+      "[TransactionsTab] Logged-in user's 'warehouse':",
+      loginUser.user.warehouse,
+      "| 'warehouses' (multiple):",
+      loginUser.user.warehouses
+    );
+  }, [loginUser?.user]);
 
   // Fetch unified transactions page by page directly from backend
   const fetchData = useCallback(async () => {
@@ -1848,13 +1938,10 @@ function TransactionsTab({ warehouse, loginUser }) {
           className="px-3 py-2 rounded-xl border border-gray-200 text-xs font-semibold bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#E00000]/30 cursor-pointer"
           title="Filter by Branch Location"
         >
-          <option value="All">All Branch Locations</option>
-          {selectedWarehouse && selectedWarehouse !== "All" && !isVaultLocation(selectedWarehouse) && !warehousesList.some((wh) => wh.name === selectedWarehouse) && (
-            <option value={selectedWarehouse}>
-              {selectedWarehouse}
-            </option>
+          {userAssignedWarehouseNames.length !== 1 && (
+            <option value="All">All Branch Locations</option>
           )}
-          {warehousesList.map((wh) => (
+          {displayedWarehouses.map((wh) => (
             <option key={wh.name} value={wh.name}>
               {wh.name || wh.warehouse_name}
             </option>
@@ -2821,6 +2908,47 @@ export default function Reports() {
   const [tab, setTab] = useState("transactions");
   const loginUser = useUser();
   const { selectedWarehouse } = useSettings();
+
+  useEffect(() => {
+    const userObj = loginUser?.user;
+    if (!userObj) return;
+
+    console.group("Logged in User Warehouse Information (Reports Page)");
+    console.log("Logged-in user:", userObj.email || userObj.name || userObj.username || userObj.user);
+    console.log("Logged-in user's 'warehouse' field:", userObj.warehouse);
+    console.log("Logged-in user's 'warehouses' field (all assigned):", userObj.warehouses);
+    if (Array.isArray(userObj.warehouses) && userObj.warehouses.length > 0) {
+      console.log(
+        "Assigned Warehouse names:",
+        userObj.warehouses.map((w) => (typeof w === "object" ? w.warehouse || w.name : w))
+      );
+    }
+    console.log("Full user session object:", userObj);
+    console.groupEnd();
+
+    // Also fetch User document directly from ERPNext to inspect raw "warehouse" child table / field in DB
+    const userIdentifier = userObj.email || userObj.name || userObj.username;
+    if (userIdentifier) {
+      axios
+        .get(`/api/resource/User/${encodeURIComponent(userIdentifier)}`)
+        .then((res) => {
+          const userDoc = res.data?.data;
+          console.group("User Doc directly from ERPNext ('warehouse' field)");
+          console.log("User doc 'warehouse' field:", userDoc?.warehouse);
+          if (Array.isArray(userDoc?.warehouse)) {
+            console.log(
+              "User doc warehouse list:",
+              userDoc.warehouse.map((row) => row.warehouse || row)
+            );
+          }
+          console.log("User doc full data:", userDoc);
+          console.groupEnd();
+        })
+        .catch((err) => {
+          console.log("Could not fetch User doctype directly:", err?.message || err);
+        });
+    }
+  }, [loginUser?.user]);
 
   const sectionLabel = {
     transactions: "Transaction Records",

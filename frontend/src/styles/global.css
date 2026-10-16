@@ -29,9 +29,21 @@
 
 
 
-.dob-picker-wrapper { position: relative; }
-.dob-picker-wrapper .react-datepicker-wrapper { display: block; }
+.dob-picker-wrapper { position: relative; width: 100%; }
+.dob-picker-wrapper .react-datepicker-wrapper { display: block; width: 100%; }
 .dob-picker-wrapper input { width: 100%; }
+
+.react-datepicker-wrapper {
+  display: block;
+  width: 100%;
+}
+.react-datepicker__input-container {
+  display: block;
+  width: 100%;
+}
+.react-datepicker__input-container input {
+  width: 100%;
+}
 
 .react-datepicker {
   font-family: inherit;

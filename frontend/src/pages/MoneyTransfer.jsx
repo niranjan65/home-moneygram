@@ -24,7 +24,9 @@ import {
   X,
   Check,
   Hash,
+  FileText,
 } from "lucide-react";
+import { useAppConfiguration } from "../hooks/useAppConfiguration";
 import { createMoneyTransfer } from "../features/exchange/api/createMoneyTransfer";
 import TransferAmountSection from "../features/exchange/components/TransferAmountSection";
 import { DenominationPanel } from "../features/exchange/components/sections/DenominationPanel";
@@ -412,7 +414,7 @@ function CustomerAutocompleteInput({
   };
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="relative w-full min-w-0" ref={containerRef}>
       <input
         type="text"
         name={`search_customer_${searchField}_field`}
@@ -439,7 +441,7 @@ function CustomerAutocompleteInput({
       />
 
       {isOpen && (
-        <div className="absolute left-0 top-full mt-1.5 w-full min-w-[320px] bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in duration-100">
+        <div className="absolute left-0 top-full mt-1.5 w-full min-w-full bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in duration-100">
           <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between text-[11px] text-gray-500 font-medium">
             <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-gray-500">
               {searchField === "phone" ? (
@@ -551,8 +553,9 @@ const MoneyTransfer = () => {
   console.log("🚨🚨🚨 NEW MONEY TRANSFER FILE IS RUNNING 🚨🚨🚨");
   const { uploadFile } = useERPFileUpload();
   const loginUser = useUser();
+  const { potOptions, loading: potLoading, error: potError } = useAppConfiguration();
   const [metaFields, setMetaFields] = useState([]);
-  const [form, setForm] = useState({ transfer_type: "Send" });
+  const [form, setForm] = useState({ transfer_type: "Send", oet_code: "18" });
   const [currencyDenominationRows, setCurrencyDenominationRows] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successInfo, setSuccessInfo] = useState(null);
@@ -1007,7 +1010,7 @@ const MoneyTransfer = () => {
   ];
 
   const usableFields = React.useMemo(() => {
-    return metaFields
+    let fields = metaFields
       .map((f) => (f.fieldname === "amount" ? { ...f, reqd: 1, depends_on: "" } : f))
       .filter(
         (f) =>
@@ -1021,11 +1024,32 @@ const MoneyTransfer = () => {
           f.fieldname !== "customer_details_section" &&
           f.fieldname !== "warehouse" &&
           f.fieldname !== "amended_from"
-      )
-      .map((f) => ({
-        ...f,
-        section: sectionMap.get(f.fieldname) || null,
-      }));
+      );
+
+    if (fields.length > 0 && !fields.some((f) => f.fieldname === "oet_code")) {
+      const txnIdx = fields.findIndex((f) => f.fieldname === "transaction_id");
+      const oetField = {
+        fieldname: "oet_code",
+        label: "OET Code",
+        fieldtype: "Data",
+        reqd: 1,
+        default: "18",
+      };
+      if (txnIdx !== -1) {
+        fields = [
+          ...fields.slice(0, txnIdx + 1),
+          oetField,
+          ...fields.slice(txnIdx + 1),
+        ];
+      } else {
+        fields = [...fields, oetField];
+      }
+    }
+
+    return fields.map((f) => ({
+      ...f,
+      section: sectionMap.get(f.fieldname) || null,
+    }));
   }, [metaFields, sectionMap]);
 
   const orderedFields = React.useMemo(() => {
@@ -1074,6 +1098,17 @@ const MoneyTransfer = () => {
       }
     });
 
+    const positionOetCode = (list) => {
+      const tIdx = list.findIndex((f) => f.fieldname === "transaction_id");
+      const oIdx = list.findIndex((f) => f.fieldname === "oet_code");
+      if (tIdx !== -1 && oIdx !== -1 && oIdx !== tIdx + 1) {
+        const [oetField] = list.splice(oIdx, 1);
+        const newTIdx = list.findIndex((f) => f.fieldname === "transaction_id");
+        list.splice(newTIdx + 1, 0, oetField);
+      }
+      return list;
+    };
+
     // Reorder: transfer_type, then amount, and keep check fields (enable_currency_denomination) at the end of all fields
     const transferTypeField = sorted.find((f) => f.fieldname === "transfer_type");
     const amountField = sorted.find((f) => f.fieldname === "amount");
@@ -1104,6 +1139,8 @@ const MoneyTransfer = () => {
         remaining.splice(newFnIdx, 0, cIdField);
       }
 
+      positionOetCode(remaining);
+
       const insertAt =
         anchorIndex !== -1 ? Math.min(anchorIndex, remaining.length) : remaining.length;
 
@@ -1126,20 +1163,38 @@ const MoneyTransfer = () => {
         remaining.splice(newFnIdx, 0, cIdField);
       }
 
+      positionOetCode(remaining);
+
       remaining.push(...checkFields);
       return remaining;
     }
 
-    return sorted;
+    return positionOetCode(sorted);
   }, [usableFields]);
 
   const inputStyle =
-    "w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#E00000] focus:bg-white transition-all duration-200";
+    "w-full min-w-0 box-border bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#E00000] focus:bg-white transition-all duration-200";
+
+  const getInputStyle = (fieldname, extra = "") => {
+    const hasError = Boolean(fieldErrors && fieldErrors[fieldname]);
+    const errorClasses = hasError
+      ? "border-red-400 bg-red-50/20 ring-1 ring-red-400 focus:ring-red-500"
+      : "border-gray-100 focus:ring-[#E00000]";
+    return `${inputStyle} ${errorClasses} ${extra}`.trim();
+  };
 
   const labelStyle =
     "text-xs uppercase font-bold text-gray-400 mb-2 block";
 
   const handleChange = (key, value) => {
+    // Clear error for this field if user modifies it
+    setFieldErrors((prev) => {
+      if (!prev || !prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+
     if (key === "full_name") {
       selectedFromDropdownRef.current = false;
       setCustomerFound(false);
@@ -1279,6 +1334,7 @@ const MoneyTransfer = () => {
           transfer_type: prev.transfer_type || defaultType,
           risk_level: prev.risk_level || defaultRisk,
           ...prev,
+          oet_code: prev.oet_code || "18",
         }));
 
         console.log("✅ FIELDS:", data.data.fields);
@@ -1972,12 +2028,6 @@ const MoneyTransfer = () => {
 
     if (!validateForm()) {
       setIsSubmitting(false);
-      if (denomErrorRef.current && (fieldErrors.currency_denomination || denomBalanceError)) {
-        setTimeout(
-          () => denomErrorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
-          50
-        );
-      }
       return;
     }
 
@@ -2000,10 +2050,7 @@ const MoneyTransfer = () => {
         setFieldErrors((prev) => ({ ...prev, currency_denomination: msg }));
         setSubmitError(msg);
         setIsSubmitting(false);
-        setTimeout(
-          () => denomErrorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
-          50
-        );
+        scrollToErrorField("currency_denomination");
         return;
       }
 
@@ -2018,10 +2065,7 @@ const MoneyTransfer = () => {
         setFieldErrors((prev) => ({ ...prev, currency_denomination: msg }));
         setSubmitError(msg);
         setIsSubmitting(false);
-        setTimeout(
-          () => denomErrorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
-          50
-        );
+        scrollToErrorField("currency_denomination");
         return;
       }
     }
@@ -2333,7 +2377,7 @@ const MoneyTransfer = () => {
         .filter(Boolean)
         .find((o) => o === "Low") || "Low";
 
-    setForm({ transfer_type: defaultType, risk_level: defaultRisk });
+    setForm({ transfer_type: defaultType, risk_level: defaultRisk, oet_code: "18" });
     setStockError("");
     setFieldErrors({});
     setSubmitError("");
@@ -2432,7 +2476,41 @@ const MoneyTransfer = () => {
       custom_full_name: customerName,
       full_name: customerName,
       customer: transfer.customer_id || transfer.customer || info?.customer || "",
+      contact_email:
+        transfer.contact_email ||
+        transfer.email ||
+        form.contact_email ||
+        form.email ||
+        info?.contact_email ||
+        info?.email ||
+        "",
+      contact_mobile:
+        transfer.contact_mobile ||
+        transfer.phone ||
+        transfer.mobile ||
+        form.contact_mobile ||
+        form.phone ||
+        form.mobile ||
+        form.mobile_no ||
+        info?.contact_mobile ||
+        "",
+      dob:
+        transfer.dob ||
+        transfer.custom_date_of_birth ||
+        form.dob ||
+        form.custom_date_of_birth ||
+        info?.dob ||
+        "",
+      remarks:
+        transfer.remarks ||
+        transfer.custom_remarks ||
+        form.remarks ||
+        form.custom_remarks ||
+        info?.remarks ||
+        "",
       name: transfer.name || transfer.transaction_id || info?.transaction || "",
+      transaction_id: transfer.transaction_id || form.transaction_id || "",
+      oet_code: transfer.oet_code || form.oet_code || "18",
       transfer_type: transferType,
       transaction_type: transferType,
       enable_currency_denomination: isDenomEnabled ? 1 : 0,
@@ -2468,6 +2546,18 @@ const MoneyTransfer = () => {
       return;
     }
 
+    const styles = Array.from(document.styleSheets)
+      .map((sheet) => {
+        try {
+          return Array.from(sheet.cssRules)
+            .map((rule) => rule.cssText)
+            .join("\n");
+        } catch {
+          return "";
+        }
+      })
+      .join("\n");
+
     printWindow.document.write(`
     <!DOCTYPE html>
     <html>
@@ -2475,13 +2565,18 @@ const MoneyTransfer = () => {
         <meta charset="utf-8" />
         <title>Money Transfer - ${printData?.name || ""}</title>
         <script src="https://cdn.tailwindcss.com"></script>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
         <style>
-          body { margin: 0; padding: 0; background: #fff; }
-          .print-hidden { display: none; }
+          body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: #fff; }
+          @page { size: A4; margin: 8mm; }
+          @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+          ${styles}
         </style>
       </head>
       <body>
-        ${invoiceHTML}
+        <div style="padding: 24px; max-width: 800px; margin: 0 auto;">
+          ${invoiceHTML}
+        </div>
       </body>
     </html>
   `);
@@ -2491,6 +2586,52 @@ const MoneyTransfer = () => {
       printWindow.focus();
       printWindow.print();
     };
+  };
+
+  const findFirstErrorField = (errors) => {
+    if (!errors || Object.keys(errors).length === 0) return null;
+    for (const field of orderedFields) {
+      if (errors[field.fieldname]) {
+        return field.fieldname;
+      }
+    }
+    if (errors.documents) return "documents";
+    if (errors.currency_denomination) return "currency_denomination";
+    return Object.keys(errors)[0];
+  };
+
+  const scrollToErrorField = (fieldname) => {
+    if (!fieldname) return;
+
+    setTimeout(() => {
+      let el =
+        document.getElementById(`field-${fieldname}`) ||
+        (fieldname === "oet_code" ? document.getElementById("field-oetCode") : null) ||
+        document.querySelector(`[data-fieldname="${fieldname}"]`) ||
+        document.querySelector(`[name="${fieldname}"]`);
+
+      if (!el) {
+        if (fieldname === "currency_denomination" && denomErrorRef.current) {
+          el = denomErrorRef.current;
+        } else if (fieldname === "documents") {
+          el = document.getElementById("field-documents");
+        }
+      }
+
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+
+        // Try focusing the inner interactive control
+        const input = el.querySelector(
+          "input:not([type=hidden]):not([readonly]):not([disabled]), select:not([disabled]), textarea:not([disabled])"
+        );
+        if (input && typeof input.focus === "function") {
+          try {
+            input.focus({ preventScroll: true });
+          } catch (_) {}
+        }
+      }
+    }, 80);
   };
 
   const validateForm = () => {
@@ -2574,14 +2715,31 @@ const MoneyTransfer = () => {
       }
     }
 
-    setFieldErrors(errors);
-    setSubmitError(
-      Object.keys(errors).length
-        ? "Please complete the highlighted required fields before saving."
-        : ""
-    );
+    if (!form.oet_code || !String(form.oet_code).trim()) {
+      errors.oet_code = "OET Code is required.";
+    }
 
-    return Object.keys(errors).length === 0;
+    const errorKeys = Object.keys(errors);
+    setFieldErrors(errors);
+
+    if (errorKeys.length > 0) {
+      const firstField = findFirstErrorField(errors);
+      const fieldMeta = usableFields.find((f) => f.fieldname === firstField);
+      const fieldLabel =
+        fieldMeta?.label ||
+        (firstField === "documents"
+          ? "Documents"
+          : firstField === "currency_denomination"
+          ? "Currency Denomination"
+          : firstField);
+
+      setSubmitError(`Please fill in the required field: ${fieldLabel}.`);
+      scrollToErrorField(firstField);
+      return false;
+    }
+
+    setSubmitError("");
+    return true;
   };
 
   /**
@@ -2598,7 +2756,10 @@ const MoneyTransfer = () => {
 
   const renderFieldError = (fieldname) =>
     fieldErrors[fieldname] ? (
-      <p className="mt-2 text-sm text-red-600">{fieldErrors[fieldname]}</p>
+      <p className="mt-1.5 text-xs font-semibold text-red-600 flex items-center gap-1">
+        <span className="inline-block text-red-500 font-bold">⚠</span>
+        {fieldErrors[fieldname]}
+      </p>
     ) : null;
 
   const renderField = (field) => {
@@ -2612,9 +2773,9 @@ const MoneyTransfer = () => {
       const selectedValue = form[field.fieldname] || rawOptions[0];
 
       return (
-        <div key={field.fieldname} className="col-span-2">
+        <div key={field.fieldname} id={`field-${field.fieldname}`} data-fieldname={field.fieldname} className="col-span-1 md:col-span-2 min-w-0">
           {renderLabel(field)}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 min-w-0">
             {rawOptions.map((opt) => {
               const active = selectedValue === opt;
               const isSend = opt.toLowerCase().includes("send");
@@ -2626,7 +2787,7 @@ const MoneyTransfer = () => {
                   type="button"
                   disabled={isFormLocked}
                   onClick={() => handleChange(field.fieldname, opt)}
-                  className={`relative py-4 px-4 rounded-xl border-2 text-sm font-medium transition-all flex flex-col items-center gap-2 cursor-pointer ${active
+                  className={`relative py-4 px-3 sm:px-4 rounded-xl border-2 text-sm font-medium transition-all flex flex-col items-center gap-2 cursor-pointer min-w-0 ${active
                       ? "border-[#E00000] bg-[#E00000]/5 text-[#B70000]"
                       : "border-gray-200 bg-white text-gray-400 hover:border-gray-300 hover:text-gray-600"
                     }`}
@@ -2664,13 +2825,13 @@ const MoneyTransfer = () => {
 
     if (field.fieldname === "customer_id") {
       return (
-        <div key={field.fieldname}>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-xs uppercase font-bold text-gray-400 block">
+        <div key={field.fieldname} id={`field-${field.fieldname}`} data-fieldname={field.fieldname} className="min-w-0">
+          <div className="flex flex-wrap items-center justify-between gap-1.5 mb-2">
+            <label className="text-xs uppercase font-bold text-gray-400 block shrink-0">
               {isIdSearchMode ? "Search Customer ID" : "Customer ID"}{" "}
               <span className="text-red-500 ml-1">*</span>
             </label>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {isIdSearchMode ? (
                 <button
                   type="button"
@@ -2710,7 +2871,7 @@ const MoneyTransfer = () => {
             </div>
           </div>
           {isIdSearchMode ? (
-            <div className="relative">
+            <div className="relative min-w-0">
               <CustomerAutocompleteInput
                 value={form.customer_id || ""}
                 onChange={(val) => {
@@ -2733,7 +2894,7 @@ const MoneyTransfer = () => {
                   handleSelectCustomer(c);
                   setIsIdSearchMode(false);
                 }}
-                inputStyle={`${inputStyle} font-mono font-bold tracking-wider`}
+                inputStyle={`${getInputStyle("customer_id")} font-mono font-bold tracking-wider`}
                 disabled={isFormLocked}
                 loginUser={loginUser}
                 searchField="id"
@@ -2741,13 +2902,13 @@ const MoneyTransfer = () => {
               />
             </div>
           ) : (
-            <div className="relative">
+            <div className="relative min-w-0">
               <input
                 type="text"
                 readOnly
                 placeholder="Auto-generating 6-character ID..."
                 value={form.customer_id || ""}
-                className={`${inputStyle} font-mono font-bold tracking-widest text-sm bg-gray-50 pr-24 ${
+                className={`${getInputStyle("customer_id")} font-mono font-bold tracking-widest text-sm bg-gray-50 pr-24 ${
                   form.customer_id
                     ? "text-[#E00000] border-gray-300"
                     : "text-gray-400 border-gray-200"
@@ -2780,8 +2941,41 @@ const MoneyTransfer = () => {
       );
     }
 
+    if (field.fieldname === "oet_code") {
+      return (
+        <div key={field.fieldname} id={`field-${field.fieldname}`} data-fieldname={field.fieldname} className="min-w-0">
+          {renderLabel(field)}
+          {potError ? (
+            <p className="text-[#E00000] text-sm font-medium mt-1">Failed to load OET codes</p>
+          ) : potLoading ? (
+            <div className="h-12 rounded-lg animate-pulse bg-gray-100 mt-1" />
+          ) : (
+            <div className="relative min-w-0">
+              <select
+                className={`${getInputStyle("oet_code")} appearance-none pr-10`}
+                value={form.oet_code ?? "18"}
+                disabled={isFormLocked}
+                onChange={(e) => handleChange("oet_code", e.target.value)}
+              >
+                <option value="" disabled>Select OET Code</option>
+                {potOptions.map((pot) => (
+                  <option key={pot.code} value={pot.code}>
+                    {pot.label}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
+                <ChevronDown size={16} />
+              </div>
+            </div>
+          )}
+          {renderFieldError(field.fieldname)}
+        </div>
+      );
+    }
+
     const commonProps = {
-      className: inputStyle,
+      className: getInputStyle(field.fieldname),
       value: form[field.fieldname] || "",
       onChange: (e) =>
         handleChange(field.fieldname, e.target.value),
@@ -2795,7 +2989,7 @@ const MoneyTransfer = () => {
 
         if (isFullName) {
           return (
-            <div key={field.fieldname}>
+            <div key={field.fieldname} id={`field-${field.fieldname}`} data-fieldname={field.fieldname} className="min-w-0">
               {renderLabel(field)}
               <CustomerAutocompleteInput
                 value={form[field.fieldname] || ""}
@@ -2810,7 +3004,7 @@ const MoneyTransfer = () => {
                   }
                 }}
                 onSelectCustomer={handleSelectCustomer}
-                inputStyle={inputStyle}
+                inputStyle={getInputStyle(field.fieldname)}
                 disabled={isFormLocked}
                 loginUser={loginUser}
                 searchField="name"
@@ -2823,7 +3017,7 @@ const MoneyTransfer = () => {
 
         if (isPhoneNumber) {
           return (
-            <div key={field.fieldname}>
+            <div key={field.fieldname} id={`field-${field.fieldname}`} data-fieldname={field.fieldname} className="min-w-0">
               {renderLabel(field)}
               <CustomerAutocompleteInput
                 value={form[field.fieldname] || ""}
@@ -2838,7 +3032,7 @@ const MoneyTransfer = () => {
                   }
                 }}
                 onSelectCustomer={handleSelectCustomer}
-                inputStyle={inputStyle}
+                inputStyle={getInputStyle(field.fieldname)}
                 disabled={isFormLocked}
                 loginUser={loginUser}
                 searchField="phone"
@@ -2850,7 +3044,7 @@ const MoneyTransfer = () => {
         }
 
         return (
-          <div key={field.fieldname} className={isAmount ? "col-span-2" : ""}>
+          <div key={field.fieldname} id={`field-${field.fieldname}`} data-fieldname={field.fieldname} className={`min-w-0 ${isAmount ? "col-span-1 md:col-span-2" : ""}`}>
             {renderLabel(field)}
             <input
               {...commonProps}
@@ -2869,7 +3063,7 @@ const MoneyTransfer = () => {
 
       case "Check":
         return (
-          <div key={field.fieldname} className="col-span-2 flex items-center gap-3 py-1">
+          <div key={field.fieldname} id={`field-${field.fieldname}`} data-fieldname={field.fieldname} className="col-span-1 md:col-span-2 flex items-center gap-3 py-1 min-w-0">
             <input
               id={field.fieldname}
               type="checkbox"
@@ -2910,37 +3104,40 @@ const MoneyTransfer = () => {
         }
 
         return (
-          <div key={field.fieldname}>
+          <div key={field.fieldname} id={`field-${field.fieldname}`} data-fieldname={field.fieldname} className="min-w-0">
             {renderLabel(field)}
-            <DatePicker
-              selected={selectedDate}
-              onChange={(date) =>
-                handleChange(field.fieldname, formatLocalDate(date))
-              }
-              className={inputStyle}
-              dateFormat="yyyy-MM-dd"
-              showYearDropdown
-              showMonthDropdown
-              dropdownMode="select"
-              {...(isDob
-                ? {
-                    maxDate: new Date(),
-                    yearDropdownItemNumber: 100,
-                    scrollableYearDropdown: true,
-                    openToDate: new Date(2000, 0, 1),
-                  }
-                : isExpiry
-                ? {
-                    yearDropdownItemNumber: 30,
-                    scrollableYearDropdown: true,
-                    openToDate: new Date(),
-                  }
-                : {
-                    maxDate: new Date(),
-                    yearDropdownItemNumber: 50,
-                    scrollableYearDropdown: true,
-                  })}
-            />
+            <div className="w-full min-w-0">
+              <DatePicker
+                selected={selectedDate}
+                onChange={(date) =>
+                  handleChange(field.fieldname, formatLocalDate(date))
+                }
+                wrapperClassName="w-full block"
+                className={`${getInputStyle(field.fieldname)} w-full min-w-0`}
+                dateFormat="yyyy-MM-dd"
+                showYearDropdown
+                showMonthDropdown
+                dropdownMode="select"
+                {...(isDob
+                  ? {
+                      maxDate: new Date(),
+                      yearDropdownItemNumber: 100,
+                      scrollableYearDropdown: true,
+                      openToDate: new Date(2000, 0, 1),
+                    }
+                  : isExpiry
+                  ? {
+                      yearDropdownItemNumber: 30,
+                      scrollableYearDropdown: true,
+                      openToDate: new Date(),
+                    }
+                  : {
+                      maxDate: new Date(),
+                      yearDropdownItemNumber: 50,
+                      scrollableYearDropdown: true,
+                    })}
+              />
+            </div>
             {renderFieldError(field.fieldname)}
           </div>
         );
@@ -2950,13 +3147,13 @@ const MoneyTransfer = () => {
         const options = field.options?.split("\n").map((opt) => opt.trim()).filter(Boolean) || [];
 
         return (
-          <div key={field.fieldname}>
+          <div key={field.fieldname} id={`field-${field.fieldname}`} data-fieldname={field.fieldname} className="min-w-0">
             {renderLabel(field)}
-            <div className="relative">
+            <div className="relative min-w-0">
               <select
                 {...commonProps}
                 disabled={isFormLocked}
-                className={`${inputStyle} appearance-none pr-10`}
+                className={`${getInputStyle(field.fieldname)} appearance-none pr-10`}
               >
                 <option value="">Select {field.label || field.fieldname}</option>
                 {options.map((opt) => (
@@ -2977,7 +3174,7 @@ const MoneyTransfer = () => {
       case "Small Text":
       case "Text":
         return (
-          <div key={field.fieldname} className="col-span-2">
+          <div key={field.fieldname} id={`field-${field.fieldname}`} data-fieldname={field.fieldname} className="col-span-1 md:col-span-2 min-w-0">
             {renderLabel(field)}
             <textarea
               {...commonProps}
@@ -3008,13 +3205,13 @@ const MoneyTransfer = () => {
           currentValue && !rawOptions.some((opt) => opt.value === currentValue);
 
         return (
-          <div key={field.fieldname}>
+          <div key={field.fieldname} id={`field-${field.fieldname}`} data-fieldname={field.fieldname} className="min-w-0">
             {renderLabel(field)}
-            <div className="relative">
+            <div className="relative min-w-0">
               <select
                 {...commonProps}
                 disabled={isFormLocked || isLoading}
-                className={`${inputStyle} appearance-none pr-10`}
+                className={`${getInputStyle(field.fieldname)} appearance-none pr-10`}
                 onFocus={() => {
                   if (doctype && !linkOptionsMap[doctype] && !loadingLinkOptions[doctype]) {
                     fetchLinkOptions(doctype);
@@ -3050,7 +3247,7 @@ const MoneyTransfer = () => {
           return null;
         }
         return (
-          <div key={field.fieldname} className="col-span-2 mt-4 pt-4 border-t border-gray-100">
+          <div key={field.fieldname} className="col-span-1 md:col-span-2 min-w-0 mt-4 pt-4 border-t border-gray-100">
             <div className="flex items-center gap-2.5">
               <span className="w-1.5 h-4 bg-[#E00000] rounded-full inline-block shrink-0" />
               <h3 className="text-sm font-bold uppercase tracking-wider text-gray-700">
@@ -3199,8 +3396,8 @@ const MoneyTransfer = () => {
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Navbar />
 
-      <main className="grow py-10 px-4 sm:px-6 lg:px-12">
-        <div className="max-w-7xl mx-auto flex flex-col gap-8">
+      <main className="grow py-8 sm:py-10 px-4 sm:px-6 lg:px-8 xl:px-12 w-full">
+        <div className="max-w-7xl mx-auto flex flex-col gap-6 sm:gap-8 w-full min-w-0">
 
           {/* HEADER */}
           <div>
@@ -3213,10 +3410,10 @@ const MoneyTransfer = () => {
           </div>
 
           {/* MAIN CONTENT: FORM ON LEFT, CUSTOMER LIMITS ON RIGHT */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start w-full min-w-0">
             {/* LEFT: FORM CARD */}
-            <div className="lg:col-span-8">
-              <div className="rounded-3xl border border-gray-100 bg-white shadow-[0_10px_40px_rgba(0,0,0,0.06)] p-8 sm:p-10">
+            <div className="lg:col-span-8 w-full min-w-0">
+              <div className="rounded-3xl border border-gray-100 bg-white shadow-[0_10px_40px_rgba(0,0,0,0.06)] p-6 sm:p-8 lg:p-10 w-full min-w-0 box-border">
                 {!selectedWarehouse?.warehouse && (
                   <div className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 p-5 shadow-xs">
                     <div className="flex items-center gap-3">
@@ -3273,86 +3470,96 @@ const MoneyTransfer = () => {
 
                 <fieldset
                   disabled={isFormLocked}
-                  className={
+                  className={`w-full min-w-0 border-0 p-0 m-0 ${
                     isFormLocked
                       ? "opacity-50 cursor-not-allowed select-none"
                       : ""
-                  }
+                  }`}
                 >
 
 
-                  <div className="grid md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full min-w-0">
                     {orderedFields.map((field) => (
                       <React.Fragment key={field.fieldname}>
                         {renderField(field)}
                       </React.Fragment>
                     ))}
                   </div>
-                  <DocumentUploadTable rows={documentRows} onChange={rows => setForm(prev => ({ ...prev, documents: rows, document_upload: "", upload_additional_info: "" }))} disabled={isFormLocked || isSubmitting} />
-                  {renderFieldError("documents")}
-                    {/* CURRENCY DENOMINATION PANEL */}
+                  <div id="field-documents" data-fieldname="documents" className="mt-6 w-full min-w-0">
+                    <DocumentUploadTable rows={documentRows} onChange={rows => setForm(prev => ({ ...prev, documents: rows, document_upload: "", upload_additional_info: "" }))} disabled={isFormLocked || isSubmitting} />
+                    {renderFieldError("documents")}
+                  </div>
 
-                    {form.enable_currency_denomination === 1 ||
-                    form.enable_currency_denomination === "1" ||
-                    form.enable_currency_denomination === true ? (
-                      <div ref={denomErrorRef} className="mt-8 col-span-2">
-                        <div className="mb-4">
-                          <h3 className="text-lg font-bold text-gray-700">
-                            Currency Denomination
-                          </h3>
-                        </div>
-
-                        {baseDenomLoading ? (
-                          <div className="rounded-3xl border border-gray-200 bg-white p-8 text-center text-gray-500">
-                            Loading denomination panel...
-                          </div>
-                        ) : baseDenomError ? (
-                          <div className="rounded-3xl border border-red-200 bg-red-50 p-8 text-center text-red-600">
-                            {baseDenomError}
-                          </div>
-                        ) : baseCurrencyData ? (
-                          <DenominationPanel
-                            title="Local FJD Denomination"
-                            subtitle="Enter note counts for Fiji Dollars"
-                            flag={baseCurrencyData.flag}
-                            symbol={baseCurrencyData.symbol}
-                            currency={baseCurrencyData.currency}
-                            notes={baseCurrencyData.notes}
-                            coins={baseCurrencyData.coins}
-                            targetAmount={parseFloat(form.amount || 0)}
-                            onRowsChange={handleDenominationRowsChange}
-                            accentColor="#E00000"
-                          />
-                        ) : (
-                          <div className="rounded-3xl border border-gray-200 bg-white p-8 text-center text-gray-500">
-                            Fiji denomination data is not available.
-                          </div>
-                        )}
-
-                        {(fieldErrors.currency_denomination || denomBalanceError) ? (
-                          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-start gap-2.5">
-                            <span className="font-bold text-red-600 text-base leading-none">⚠</span>
-                            <div>
-                              <div className="font-semibold">Denomination Balance Error</div>
-                              <p className="mt-0.5">{fieldErrors.currency_denomination || denomBalanceError}</p>
-                            </div>
-                          </div>
-                        ) : null}
-
-                        {stockError ? (
-                          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                            <div className="font-semibold">Stock validation issue</div>
-                            <p>{stockError}</p>
-                          </div>
-                        ) : null}
+                  {/* CURRENCY DENOMINATION PANEL */}
+                  {form.enable_currency_denomination === 1 ||
+                  form.enable_currency_denomination === "1" ||
+                  form.enable_currency_denomination === true ? (
+                    <div id="field-currency_denomination" data-fieldname="currency_denomination" ref={denomErrorRef} className="mt-8 col-span-1 md:col-span-2 w-full min-w-0">
+                      <div className="mb-4">
+                        <h3 className="text-lg font-bold text-gray-700">
+                          Currency Denomination
+                        </h3>
                       </div>
-                    ) : null}
+
+                      {baseDenomLoading ? (
+                        <div className="rounded-3xl border border-gray-200 bg-white p-8 text-center text-gray-500">
+                          Loading denomination panel...
+                        </div>
+                      ) : baseDenomError ? (
+                        <div className="rounded-3xl border border-red-200 bg-red-50 p-8 text-center text-red-600">
+                          {baseDenomError}
+                        </div>
+                      ) : baseCurrencyData ? (
+                        <DenominationPanel
+                          title="Local FJD Denomination"
+                          subtitle="Enter note counts for Fiji Dollars"
+                          flag={baseCurrencyData.flag}
+                          symbol={baseCurrencyData.symbol}
+                          currency={baseCurrencyData.currency}
+                          notes={baseCurrencyData.notes}
+                          coins={baseCurrencyData.coins}
+                          targetAmount={parseFloat(form.amount || 0)}
+                          onRowsChange={handleDenominationRowsChange}
+                          accentColor="#E00000"
+                        />
+                      ) : (
+                        <div className="rounded-3xl border border-gray-200 bg-white p-8 text-center text-gray-500">
+                          Fiji denomination data is not available.
+                        </div>
+                      )}
+
+                      {(fieldErrors.currency_denomination || denomBalanceError) ? (
+                        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-start gap-2.5">
+                          <span className="font-bold text-red-600 text-base leading-none">⚠</span>
+                          <div>
+                            <div className="font-semibold">Denomination Balance Error</div>
+                            <p className="mt-0.5">{fieldErrors.currency_denomination || denomBalanceError}</p>
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {stockError ? (
+                        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                          <div className="font-semibold">Stock validation issue</div>
+                          <p>{stockError}</p>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {/* SUBMIT ERROR BANNER */}
+                  {submitError && (
+                    <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
+                      <span className="font-bold text-red-600 text-base">⚠</span>
+                      <span>{submitError}</span>
+                    </div>
+                  )}
 
                   {/* BUTTON */}
                   <button
                     onClick={handleSubmit}
                     disabled={isSubmitting || stockLoading}
-                    className={`mt-10 w-full bg-[#E00000] ${isSubmitting || stockLoading ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-90'} text-white rounded-2xl py-4 font-black transition`}
+                    className={`mt-6 w-full bg-[#E00000] ${isSubmitting || stockLoading ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-90'} text-white rounded-2xl py-4 font-black transition`}
                   >
                     {isSubmitting ? (
                       <span className="flex items-center justify-center gap-3">
@@ -3371,7 +3578,7 @@ const MoneyTransfer = () => {
             </div>
 
             {/* RIGHT: CUSTOMER CURRENCY LIMITS & PHOTO SIDEBAR */}
-            <div className="lg:col-span-4 lg:sticky lg:top-8 flex flex-col gap-6">
+            <div className="lg:col-span-4 lg:sticky lg:top-8 flex flex-col gap-6 w-full min-w-0">
               {renderCustomerLimitsCard()}
 
               {/* CUSTOMER PHOTO CARD */}

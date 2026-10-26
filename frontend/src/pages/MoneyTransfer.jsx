@@ -3325,18 +3325,8 @@ const MoneyTransfer = () => {
             </div>
             <div>
               <h3 className="text-sm font-bold text-gray-800">Customer Limits</h3>
-              <p className="text-[11px] text-gray-400">Live regulatory compliance balances</p>
             </div>
           </div>
-          {isCustomerActive ? (
-            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-green-50 text-green-700 border border-green-200">
-              Existing Customer
-            </span>
-          ) : (
-            <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-              Default Thresholds
-            </span>
-          )}
         </div>
 
         <div className="flex flex-col gap-3.5">

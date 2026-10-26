@@ -16,6 +16,8 @@ import Stocks from "./pages/Stocks";
 import DealerExchange from "./pages/DealerExchange";
 import Reports from "./pages/Reports";
 import VaultTransfer from "./pages/VaultTransfer";
+import BranchTransfer from "./pages/BranchTransfer";
+import { Navigate } from "react-router-dom";
 
 function App() {
   // Dynamic socket connection (if needed):
@@ -104,6 +106,20 @@ function App() {
               <VaultTransfer />
             </ProtectedRoute>
           }
+        />
+
+        <Route
+          path="/branch-transfer"
+          element={
+            <ProtectedRoute>
+              <BranchTransfer />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/transfer"
+          element={<Navigate to="/vault-transfer" replace />}
         />
 
         <Route

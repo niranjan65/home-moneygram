@@ -133,8 +133,8 @@ import { sessionFetch as fetch } from "../../api/sessionClient.js";
 // );
 
 // }
-import React, { useState } from "react";
-import { Menu, X, MapPin } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { Menu, X, MapPin, ChevronDown, ArrowLeftRight, Truck, Landmark } from "lucide-react";
 import { useLocation, Link } from "react-router-dom";
 import mhlogo from "../../assets/MH.png";
 import { useSettings } from "../../context/SettingsContext";
@@ -162,6 +162,21 @@ export default function Navbar() {
 
   const isLoginPage = location.pathname === "/login";
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [transferDropdownOpen, setTransferDropdownOpen] = useState(false);
+  const transferDropdownRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (
+        transferDropdownRef.current &&
+        !transferDropdownRef.current.contains(event.target)
+      ) {
+        setTransferDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
@@ -184,7 +199,24 @@ export default function Navbar() {
     { label: "Money Transfer", href: "/money-transfer" },
     { label: "Currency Exchange", href: "/exchange" },
     { label: "Dealer Exchange", href: "/dealer-exchange" },
-    { label: "Vault Transfer", href: "/vault-transfer" },
+    {
+      label: "Transfer",
+      isDropdown: true,
+      children: [
+        {
+          label: "Vault Transfer",
+          href: "/vault-transfer",
+          description: "Move cash between Counter and Vault",
+          icon: Landmark,
+        },
+        {
+          label: "Branch Transfer",
+          href: "/branch-transfer",
+          description: "Branch-to-branch BUY & SELL exchange",
+          icon: Truck,
+        },
+      ],
+    },
     // { label: "Stocks", href: "/stocks" },
     { label: "Report", href: "/report" },
     { label: "Settings", href: "/settings" },
@@ -222,6 +254,73 @@ export default function Navbar() {
             {/* Desktop */}
             <div className="hidden md:flex items-center gap-2 lg:gap-3 xl:gap-5">
               {navItems.map((item) => {
+                if (item.isDropdown) {
+                  const isAnyActive = item.children.some((child) => location.pathname === child.href);
+
+                  return (
+                    <div key={item.label} className="relative" ref={transferDropdownRef}>
+                      <button
+                        type="button"
+                        onClick={() => setTransferDropdownOpen((prev) => !prev)}
+                        className={`px-3 lg:px-3.5 py-1.5 lg:py-2 rounded-lg text-sm font-bold transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${
+                          isAnyActive
+                            ? "bg-white text-[#E00000] shadow-sm dark:bg-white dark:text-[#E00000]"
+                            : "text-gray-700 hover:text-primary hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                        }`}
+                      >
+                        <span>{item.label}</span>
+                        <ChevronDown
+                          size={14}
+                          className={`transition-transform duration-200 ${
+                            transferDropdownOpen ? "rotate-180 text-[#E00000]" : "text-gray-400"
+                          }`}
+                        />
+                      </button>
+
+                      {/* Dropdown Menu */}
+                      {transferDropdownOpen && (
+                        <div className="absolute top-full left-0 mt-1.5 w-60 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                          {item.children.map((child) => {
+                            const isChildActive = location.pathname === child.href;
+                            const IconComponent = child.icon;
+
+                            return (
+                              <Link
+                                key={child.label}
+                                to={child.href}
+                                onClick={() => setTransferDropdownOpen(false)}
+                                className={`flex items-start gap-3 p-2.5 rounded-xl transition-all ${
+                                  isChildActive
+                                    ? "bg-red-50/70 text-[#E00000] dark:bg-red-950/40"
+                                    : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+                                }`}
+                              >
+                                <div
+                                  className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                                    isChildActive
+                                      ? "bg-[#E00000] text-white"
+                                      : "bg-gray-100 dark:bg-gray-800 text-gray-500"
+                                  }`}
+                                >
+                                  <IconComponent size={16} />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="text-xs font-bold leading-tight">
+                                    {child.label}
+                                  </div>
+                                  <div className="text-[10px] text-gray-400 leading-normal mt-0.5">
+                                    {child.description}
+                                  </div>
+                                </div>
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
                 const isActive = location.pathname === item.href;
 
                 return (
@@ -371,6 +470,36 @@ export default function Navbar() {
               )}
 
               {navItems.map((item) => {
+                if (item.isDropdown) {
+                  return (
+                    <div key={item.label} className="flex flex-col space-y-1 pt-1">
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-gray-400 px-3.5 py-1">
+                        {item.label}
+                      </div>
+                      {item.children.map((child) => {
+                        const isChildActive = location.pathname === child.href;
+                        const IconComponent = child.icon;
+
+                        return (
+                          <Link
+                            key={child.label}
+                            to={child.href}
+                            onClick={() => setMenuOpen(false)}
+                            className={`flex items-center gap-2.5 px-3.5 py-2 rounded-lg text-sm font-bold transition-all duration-200 ${
+                              isChildActive
+                                ? "bg-white text-[#E00000] shadow-sm dark:bg-white dark:text-[#E00000]"
+                                : "text-gray-700 hover:text-primary hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                            }`}
+                          >
+                            <IconComponent size={15} />
+                            <span>{child.label}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  );
+                }
+
                 const isActive = location.pathname === item.href;
 
                 return (
@@ -378,10 +507,11 @@ export default function Navbar() {
                     key={item.label}
                     to={item.href}
                     onClick={() => setMenuOpen(false)}
-                    className={`px-3.5 py-2 rounded-lg text-sm font-bold transition-all duration-200 ${isActive
-                      ? "bg-white text-[#E00000] shadow-sm dark:bg-white dark:text-[#E00000]"
-                      : "text-gray-700 hover:text-primary hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
-                      }`}
+                    className={`px-3.5 py-2 rounded-lg text-sm font-bold transition-all duration-200 ${
+                      isActive
+                        ? "bg-white text-[#E00000] shadow-sm dark:bg-white dark:text-[#E00000]"
+                        : "text-gray-700 hover:text-primary hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                    }`}
                   >
                     {item.label}
                   </Link>

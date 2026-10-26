@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { Link } from "react-router-dom";
 import Navbar from "../components/layout/Navbar";
 import { useSettings } from "../context/SettingsContext";
 import { useUser } from "../context/UserContext";
@@ -16,6 +17,8 @@ import {
   X,
   ShieldCheck,
   Building2,
+  Landmark,
+  Truck,
 } from "lucide-react";
 
 // ── Supported Currencies ────────────────────────────────────────────────────
@@ -462,6 +465,24 @@ export default function VaultTransfer() {
       <Navbar />
 
       <main className="flex-grow py-8 px-4 sm:px-6 lg:px-8 xl:px-12 max-w-7xl mx-auto w-full">
+        {/* ── Transfer Sub-Navigation Tabs ── */}
+        <div className="flex items-center gap-1.5 mb-6 p-1 bg-gray-200/70 rounded-2xl w-fit">
+          <Link
+            to="/vault-transfer"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all bg-white text-gray-900 shadow-xs"
+          >
+            <Landmark size={15} className="text-[#E00000]" />
+            <span>Vault Transfer</span>
+          </Link>
+          <Link
+            to="/branch-transfer"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all text-gray-600 hover:text-gray-900"
+          >
+            <Truck size={15} className="text-gray-400" />
+            <span>Branch Transfer</span>
+          </Link>
+        </div>
+
         {/* ── Page Header ─────────────────────────────────────────────────── */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>

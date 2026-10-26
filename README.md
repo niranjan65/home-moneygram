@@ -7,15 +7,16 @@ Modern Point-of-Sale (POS) and web portal for **MH Money Express (MMEL)**, built
 ## 🚀 Key Modules
 
 - **Money Transfers (`/money-transfer`)**: Inward and outward remittance entry with customer lookup, Annual FX & MoneyGram limit tracking, optional cash denomination tallying, and thermal receipt printing.
-- **Retail Currency Exchange (`/exchange`)**: Multi-currency Buy/Sell operations with live daily rates from ERPNext `Currency Master Data`, automated 5-cent rounding, Reserve Bank of Fiji (RBF) compliance rules, and automated Sales Invoice creation.
-- **Dealer Exchange (`/dealer-exchange`)**: Wholesale foreign currency transactions with custom dealer pricing.
+- **Retail Currency Exchange (`/exchange`)**: Multi-currency Buy/Sell operations with live daily rates from ERPNext `Currency Master Data`, automated 5-cent rounding, Reserve Bank of Fiji (RBF) compliance rules, dynamic `Purchase Invoice` generation for BUY and `Sales Invoice` for SELL, dual-mode receipt printing, and client-side KYC image auto-compression.
+- **Dealer Exchange (`/dealer-exchange`)**: Wholesale foreign currency transactions with custom dealer pricing and dual BUY/SELL invoice pipelines.
 - **Reports & Branch Analytics (`/report`)**:
-  - Unified multi-transaction log across Retail FX, Dealer FX, and Remittances.
+  - Unified multi-transaction log across Retail FX (Sales & Purchase Invoices), Dealer FX, and Remittances.
   - Strict status filter: `Paid`, `Cancelled`, and `All`.
   - Searchable Customer link filter matching both customer IDs and full names.
   - Branch Location selector (`All Branch Locations` default).
   - Day End Closing report and Currency Stock vault inventory.
 - **Landing Page (`/` or `/home`)**: Modern brand landing page with signature MH Red (`#E00000`) theme, real-time rates table, interactive currency converter, and responsive layout.
+- **Dynamic WebSocket & Connectivity**: Dynamic SSL-aware WebSocket resolution (`wss://` / `ws://`) preventing mixed content security errors.
 
 ---
 

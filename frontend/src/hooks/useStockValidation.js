@@ -45,3 +45,80 @@ export async function validateStockAvailability(items, warehouse, loginUser) {
 
   return { outOfStock, qtyMap };
 }
+
+const CASH_ACCOUNT_API_URL =
+  "/api/method/moneygram.moneygram.api.app_configuration.get_cash_account_for_warehouse";
+
+/**
+ * Validates whether the warehouse has a valid mapped Cash Account in App Configuration / Chart of Accounts.
+ *
+ * @param {string} warehouse - Warehouse name
+ * @returns {Promise<{ ok: boolean, account?: string, error?: string }>}
+ */
+export async function validateWarehouseCashAccount(warehouse) {
+  if (!warehouse) {
+    return {
+      ok: false,
+      error: "No warehouse selected. Please select a branch warehouse before continuing.",
+    };
+  }
+
+  try {
+    const res = await fetch(CASH_ACCOUNT_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ warehouse_name: warehouse, throw_if_missing: 1 }),
+    });
+
+    const json = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      let errorMsg = `Cash Account is not mapped for Warehouse "${warehouse}". Please map it in App Configuration > Warehouse Accounts.`;
+      if (json?._server_messages) {
+        try {
+          const parsedMsgs = JSON.parse(json._server_messages);
+          if (Array.isArray(parsedMsgs) && parsedMsgs.length > 0) {
+            const first = typeof parsedMsgs[0] === "string" ? JSON.parse(parsedMsgs[0]) : parsedMsgs[0];
+            if (first?.message) {
+              const plain = first.message.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+              if (plain) errorMsg = plain;
+            }
+          }
+        } catch (_) {}
+      } else if (json?.message) {
+        errorMsg = typeof json.message === "string" ? json.message : JSON.stringify(json.message);
+      } else if (json?.exception) {
+        const lines = json.exception.split("\n");
+        const lastLine = lines.filter(l => l.trim()).pop() || "";
+        if (lastLine.includes(":")) {
+          errorMsg = lastLine.split(":").slice(1).join(":").trim();
+        }
+      }
+
+      return {
+        ok: false,
+        error: errorMsg,
+      };
+    }
+
+    const account = json?.message;
+    if (!account) {
+      return {
+        ok: false,
+        error: `Cash Account is not mapped for Warehouse "${warehouse}". Please map it in App Configuration > Warehouse Accounts.`,
+      };
+    }
+
+    return { ok: true, account };
+  } catch (err) {
+    console.error("[Cash Account Validation]", err);
+    // On unexpected network error, don't silently hide the check
+    return {
+      ok: false,
+      error: err?.message || "Failed to validate warehouse cash account. Please try again.",
+    };
+  }
+}
+

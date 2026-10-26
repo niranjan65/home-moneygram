@@ -15,6 +15,46 @@ The **Home** application (`apps/home`) is a high-performance Single Page Applica
 
 ---
 
+## 🌟 New Updated Features & Frontend Architecture Changes (Latest Release)
+
+This section highlights the critical frontend upgrades, bug fixes, and workflow enhancements implemented across the MH Money Express web portal.
+
+### 1. Dynamic Purchase vs. Sales Invoice Support (`TransferSuccess.jsx`)
+- **Dual Invoice Pipeline**:
+  - For **BUY** transactions, the backend provisions a `Purchase Invoice` (`ACC-PINV-.YYYY.-`) linked to the customer's matching `Supplier` record.
+  - For **SELL** transactions, the backend provisions a `Sales Invoice` (`CX-.#####`) linked to the `Customer`.
+- **Intelligent Resource Fetching**:
+  - `TransferSuccess.jsx` now uses dynamic fallback resolution: it queries `/api/resource/Sales Invoice/...` first, and if 404 or missing, queries `/api/resource/Purchase Invoice/...`.
+  - Accurately passes invoice records, customer/supplier profiles, and line-item details to success dialogs and printable receipts.
+
+### 2. Dual-Mode Thermal & PDF Receipt Printing (`SalesInvoice.jsx`)
+- **Smart Party & Document Heading Detection**:
+  - `SalesInvoice.jsx` inspects whether `invoiceData.supplier` is populated:
+    - **BUY Transactions**: Heading dynamically prints **`Purchase Invoice`**, and counterparty label displays **`Supplier:`** with the supplier's name and code.
+    - **SELL Transactions**: Heading dynamically prints **`Sales Invoice`**, and counterparty label displays **`Customer:`** with the customer's name and code.
+  - Correctly renders foreign currency denominations received or issued, exchange rate valuation, and local currency FJD cash totals.
+
+### 3. Dynamic WebSocket Host Resolution (Mixed Content Fix)
+- **Eliminated Hardcoded IP**:
+  - Replaced hardcoded insecure socket URL (`ws://187.127.109.162:5000`) in `TransferSuccess.jsx` with dynamic runtime resolution:
+    ```javascript
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.hostname;
+    const socketUrl = `${protocol}//${host}:5000`;
+    ```
+  - Eliminates browser Mixed Content blocks on SSL/HTTPS production deployments (`https://moneygram.advtinni.com`).
+
+### 4. Client-Side Image Resizing & Compression (HTTP 413 Fix)
+- **Problem**: Uploading raw, uncompressed KYC scans or high-res smartphone photos (e.g. 2MB–10MB) resulted in `HTTP 413 Request Entity Too Large` rejections from Nginx.
+- **Solution**: Added automated client-side canvas downscaling and compression before calling `upload_file`. Images are scaled to a max dimension of 1600px and JPEG quality 0.82, keeping payload sizes comfortably below 600 KB without sacrificing legibility of passport or ID text.
+
+### 5. Unified Transaction Records Integration (`Reports.jsx`)
+- **Seamless Display of BUY and SELL Invoices**:
+  - The federated transaction records view now surfaces both `Purchase Invoice` (for BUY Forex) and `Sales Invoice` (for SELL Forex) under the Transaction Records table.
+  - Status filters (`Paid`, `Cancelled`, `All`), Customer filters, and Branch Location filters apply seamlessly across both invoice types.
+
+---
+
 ## 2. Repository & Remote Configuration
 
 - **Repository Directory**: `/home/erpnext/frappe-mmel/apps/home`

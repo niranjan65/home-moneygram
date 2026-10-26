@@ -6,7 +6,7 @@ import { useUser } from '../../../context/UserContext';
 import { useSettings } from '../../../context/SettingsContext';
 import { useBaseCurrency, useDenomination } from '../../../hooks/useDenomination';
 import { useExchangeCalculation } from '../hooks/useExchangeCalculation';
-import { validateStockAvailability } from '../../../hooks/useStockValidation';
+import { validateStockAvailability, validateWarehouseCashAccount } from '../../../hooks/useStockValidation';
 
 import { DealerPersonalInfoSection } from './sections/DealerPersonalInfoSection';
 import { DealerExchangeSection } from './sections/DealerExchangeSection';
@@ -80,10 +80,14 @@ export const DealerForm = ({
   const { selectedWarehouse } = useSettings();
   const [stockError, setStockError] = useState('');
   const [stockLoading, setStockLoading] = useState(false);
+  const [cashAccountError, setCashAccountError] = useState('');
   const stockErrorRef = useRef(null);
 
-  // Clear stock error when currency changes
-  useEffect(() => { setStockError(''); }, [toCurrency?.code]);
+  // Clear errors when currency or warehouse changes
+  useEffect(() => { 
+    setStockError(''); 
+    setCashAccountError('');
+  }, [toCurrency?.code, selectedWarehouse?.warehouse]);
 
   const runStockCheck = async (si = senderInfo, ri = receiverInfo) => {
 
@@ -210,6 +214,21 @@ export const DealerForm = ({
       return;
     }
     setDenomBalanceError('');
+
+    // ── Warehouse Cash Account check ───────────────────────────────
+    const warehouseName = selectedWarehouse?.warehouse;
+    setStockLoading(true);
+    try {
+      const cashCheck = await validateWarehouseCashAccount(warehouseName);
+      if (!cashCheck.ok) {
+        setCashAccountError(cashCheck.error);
+        setTimeout(() => stockErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+        return;
+      }
+      setCashAccountError('');
+    } finally {
+      setStockLoading(false);
+    }
 
     // ── Stock availability check ───────────────────────────────────
     const ok = await runStockCheck();
@@ -344,6 +363,15 @@ export const DealerForm = ({
               <div>
                 <p className="font-semibold text-sm text-red-800">Out of Stock</p>
                 <p className="text-xs text-[#E00000] mt-0.5">{stockError}</p>
+              </div>
+            </div>
+          )}
+          {cashAccountError && (
+            <div ref={stockErrorRef} className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-[#E00000]/30 bg-[#E00000]/5">
+              <AlertCircle size={15} className="text-[#E00000] flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-sm text-red-800">Warehouse Cash Account Not Mapped</p>
+                <p className="text-xs text-[#E00000] mt-0.5">{cashAccountError}</p>
               </div>
             </div>
           )}

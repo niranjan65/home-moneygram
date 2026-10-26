@@ -8,7 +8,7 @@ import Contact from "./pages/ContactUs";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PublicRoute from "./components/PublicRoute";
 import { useEffect } from "react";
-import { io } from "socket.io-client";
+// import { io } from "socket.io-client";
 import SoldiLanding from "./components/SoldiLanding";
 import SettingsPanel from "./components/Settingspanel";
 import CurrencyBalanceReport from "./components/CurrencyBalanceReport";
@@ -18,9 +18,8 @@ import Reports from "./pages/Reports";
 import VaultTransfer from "./pages/VaultTransfer";
 
 function App() {
-
-  //   const socket = io("http://182.71.135.110:8079");
-
+  // Dynamic socket connection (if needed):
+  // const socket = io(`${window.location.protocol}//${window.location.hostname}:8079`);
   // useEffect(() => {
   //   console.log("object")
   //   socket.on("new-sales-invoice", (data) => {

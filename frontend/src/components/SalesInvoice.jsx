@@ -138,10 +138,11 @@ export const InvoiceDocument = ({ invoiceData }) => {
     d.custom_customer_full_name ||
     d.custom_full_name ||
     d.customer_name ||
+    d.supplier_name ||
     d.full_name ||
     d.customerFullName ||
     '—';
-  const customerId = d.customer || d.customer_id || '';
+  const customerId = d.customer || d.supplier || d.customer_id || '';
   const contactEmail = d.contact_email || d.email || d.receiver_mailid || '';
   const contactMobile = d.contact_mobile || d.mobile_no || d.phone || d.mobile || '';
   const dob = d.dob || d.custom_date_of_birth || '';
@@ -228,7 +229,7 @@ export const InvoiceDocument = ({ invoiceData }) => {
         {/* Right: Invoice meta */}
         <div className="text-right">
           <h2 className={`text-2xl font-black mb-2 uppercase tracking-widest ${isCancelled ? 'text-red-600' : 'text-blue-600'}`}>
-            Sales Invoice
+            {d.supplier ? 'Purchase Invoice' : 'Sales Invoice'}
           </h2>
           <div className="space-y-1 text-xs">
             <div className="flex justify-end items-baseline gap-2">
@@ -261,7 +262,7 @@ export const InvoiceDocument = ({ invoiceData }) => {
         <div className="bg-slate-50 p-3.5 rounded-lg border border-slate-100 flex flex-col justify-between">
           <div>
             <h3 className="text-[10px] font-bold uppercase text-blue-600 mb-2.5 tracking-wider">
-              Customer Information
+              {d.supplier ? 'Supplier / Customer Information' : 'Customer Information'}
             </h3>
             <div className="space-y-1.5 text-xs">
               <div className="grid grid-cols-[85px_1fr] items-baseline gap-2">
@@ -270,7 +271,7 @@ export const InvoiceDocument = ({ invoiceData }) => {
               </div>
               {customerId && customerId !== '—' && (
                 <div className="grid grid-cols-[85px_1fr] items-baseline gap-2">
-                  <span className="text-slate-500 font-medium">Customer ID:</span>
+                  <span className="text-slate-500 font-medium">{d.supplier ? 'ID / Supplier:' : 'Customer ID:'}</span>
                   <span className="font-semibold text-slate-900 font-mono break-words">{customerId}</span>
                 </div>
               )}

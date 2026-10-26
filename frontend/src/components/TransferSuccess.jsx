@@ -1049,9 +1049,23 @@ import { useUser } from '../context/UserContext';
 import { sessionAxios as axios } from "../api/sessionClient.js";
 import { useSelector } from 'react-redux';
 
-// const socket_server = 'http://182.71.135.110:8079';
-const socket_server = 'http://187.127.109.162:5000';
-const socket = io(socket_server, { transports: ['websocket'] });
+// Dynamic socket server URL: uses current page protocol and hostname (never hardcoded IP)
+export const getSocketServerUrl = () => {
+  if (typeof window === 'undefined') return '';
+  if (import.meta.env.VITE_SOCKET_SERVER_URL) {
+    return import.meta.env.VITE_SOCKET_SERVER_URL;
+  }
+  const protocol = window.location.protocol; // Automatically https: or http:
+  const hostname = window.location.hostname; // Dynamic domain/IP
+  const port = import.meta.env.VITE_SOCKET_PORT || '5000';
+  return `${protocol}//${hostname}:${port}`;
+};
+
+const socket_server = getSocketServerUrl();
+const socket = io(socket_server, {
+  transports: ['websocket', 'polling'],
+  autoConnect: false, // Prevents errors when socket service is not active
+});
 
 // ─── Inline SVG Icons ─────────────────────────────────────────────────────────
 const Icon = ({ name, size = 24, className = '' }) => {
@@ -1539,15 +1553,18 @@ export const TransferSuccess = ({
 
   const getInvoiceData = async (invoice_id) => {
     try {
-      const response = await axios.get(`/api/resource/Sales%20Invoice/${invoice_id}`, {
-        headers: {
-        },
-      });
+      const response = await axios.get(`/api/resource/Sales%20Invoice/${encodeURIComponent(invoice_id)}`);
       return response.data.data;
     } catch (error) {
-
+      try {
+        const pResponse = await axios.get(`/api/resource/Purchase%20Invoice/${encodeURIComponent(invoice_id)}`);
+        return pResponse.data.data;
+      } catch (err2) {
+        console.error("Error fetching invoice (tried Sales and Purchase Invoice):", err2);
+        return null;
+      }
     }
-  }
+  };
 
   useEffect(() => {
     if (!apiDoc?.invoice) return;

@@ -41,6 +41,10 @@ export default function BranchTransfer() {
   // Mode: "SELL_TRANSFER" (I am selling to target branch) | "BUY_TRANSFER" (I am buying from target branch)
   const [transferMode, setTransferMode] = useState("SELL_TRANSFER");
 
+  // Company details from Global Defaults
+  const [companyName, setCompanyName] = useState("");
+  const [companyAbbr, setCompanyAbbr] = useState("MME");
+
   // Warehouses list
   const [warehouses, setWarehouses] = useState([]);
   const [loadingWarehouses, setLoadingWarehouses] = useState(true);
@@ -78,14 +82,21 @@ export default function BranchTransfer() {
     return name;
   }, [selectedWarehouse]);
 
-  // Fetch available branches
+  // Fetch available branches and system company details
   useEffect(() => {
     setLoadingWarehouses(true);
     axios
       .get("/api/method/moneygram.moneygram.api.branch_transfer.get_branch_transfer_warehouses")
       .then((res) => {
         if (res.data?.message) {
-          setWarehouses(res.data.message);
+          const data = res.data.message;
+          if (Array.isArray(data)) {
+            setWarehouses(data);
+          } else if (data.warehouses) {
+            setWarehouses(data.warehouses);
+            if (data.company) setCompanyName(data.company);
+            if (data.abbr) setCompanyAbbr(data.abbr);
+          }
         }
       })
       .catch((err) => console.error("Error fetching branch warehouses:", err))
@@ -375,7 +386,7 @@ export default function BranchTransfer() {
                     {activeBranchName || "No Branch Selected in Settings"}
                   </div>
                   <span className="text-[11px] text-gray-500 mt-1 block">
-                    Account: <span className="font-mono">{activeBranchName ? `${activeBranchName} - MME` : "—"}</span>
+                    Account: <span className="font-mono">{activeBranchName ? `${activeBranchName} - ${companyAbbr}` : "—"}</span>
                   </span>
                 </div>
 

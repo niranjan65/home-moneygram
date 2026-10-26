@@ -102,8 +102,10 @@ function CustomerAutocompleteInput({
         // Direct search on Customer DocType by mobile_no if searchField is phone
         if (searchField === "phone" && searchTerm.trim()) {
           try {
-            const cleanDigits = searchTerm.replace(/\D/g, "");
-            const phoneFilters = [["mobile_no", "like", `%${searchTerm.trim()}%`]];
+            const phoneFilters = [
+              ["mobile_no", "like", `%${searchTerm.trim()}%`],
+              ["customer_group", "not in", ["Warehouse Branch", "Warehouse Vault"]]
+            ];
             const directCustRes = await axios.get("/api/resource/Customer", {
               params: {
                 filters: JSON.stringify(phoneFilters),
@@ -144,6 +146,9 @@ function CustomerAutocompleteInput({
             const idTerm = searchTerm.trim();
             const directCustRes = await axios.get("/api/resource/Customer", {
               params: {
+                filters: JSON.stringify([
+                  ["customer_group", "not in", ["Warehouse Branch", "Warehouse Vault"]],
+                ]),
                 or_filters: JSON.stringify([
                   ["custom_customer_id", "like", `%${idTerm}%`],
                   ["name", "like", `%${idTerm}%`],

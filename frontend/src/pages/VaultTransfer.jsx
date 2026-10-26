@@ -19,6 +19,10 @@ import {
   Building2,
   Landmark,
   Truck,
+  Layers,
+  DollarSign,
+  Trash2,
+  RotateCcw,
 } from "lucide-react";
 
 // ── Supported Currencies ────────────────────────────────────────────────────
@@ -27,7 +31,7 @@ const SUPPORTED_CURRENCIES = [
   { code: "AUD", country: "Australia", label: "Australian Dollar", symbol: "A$" },
   { code: "USD", country: "USA", label: "US Dollar", symbol: "$" },
   { code: "NZD", country: "New Zealand", label: "NZ Dollar", symbol: "NZ$" },
-  { code: "EUR", country: "Euro Area", label: "Euro", symbol: "€" },
+  { code: "EUR", country: "Euro", label: "Euro", symbol: "€" },
   { code: "GBP", country: "UK", label: "British Pound", symbol: "£" },
   { code: "CAD", country: "Canada", label: "Canadian Dollar", symbol: "C$" },
   { code: "JPY", country: "Japan", label: "Japanese Yen", symbol: "¥" },
@@ -47,6 +51,8 @@ function printVaultTransferSlip({ transferData, fromWh, toWh, direction, tellerN
   const items = transferData?.items || [];
   const totalAmount = Number(transferData?.total_amount || 0).toFixed(2);
   const totalQty = transferData?.total_qty || 0;
+  const currencyTotals = transferData?.currency_totals || {};
+  const isMultiCurrency = Object.keys(currencyTotals).length > 1;
   const seName = transferData?.stock_entry || "—";
   const dateStr = transferData?.posting_date || new Date().toISOString().split("T")[0];
   const timeStr = (transferData?.posting_time || new Date().toTimeString().split(" ")[0]).split(".")[0];
@@ -80,7 +86,7 @@ function printVaultTransferSlip({ transferData, fromWh, toWh, direction, tellerN
       <body>
         <div class="center">
           <div class="title">${company || "MH MONEY EXPRESS"}</div>
-          <div class="subtitle">INTERNAL VAULT TRANSFER RECEIPT</div>
+          <div class="subtitle">INTERNAL VAULT TRANSFER RECEIPT ${isMultiCurrency ? "(BULK)" : ""}</div>
           <div class="badge">${dirLabel}</div>
         </div>
         <hr class="divider" />
@@ -101,11 +107,26 @@ function printVaultTransferSlip({ transferData, fromWh, toWh, direction, tellerN
           </div>
         `).join("")}
         <hr class="divider-solid" />
-        <div class="row total">
-          <span>TOTAL AMOUNT:</span>
-          <span>$${totalAmount}</span>
-        </div>
-        <div class="row"><span>TOTAL PIECES:</span><span class="bold">${totalQty} units</span></div>
+        ${isMultiCurrency ? `
+          <div class="row bold" style="margin-bottom: 4px;"><span>CURRENCY BREAKDOWN</span><span style="text-align:right">TOTAL VALUE</span></div>
+          ${Object.entries(currencyTotals).map(([cur, amt]) => `
+            <div class="row">
+              <span>${cur}</span>
+              <span class="bold">${Number(amt).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </div>
+          `).join("")}
+          <hr class="divider" />
+          <div class="row total">
+            <span>TOTAL ITEMS:</span>
+            <span>${totalQty} units</span>
+          </div>
+        ` : `
+          <div class="row total">
+            <span>TOTAL AMOUNT:</span>
+            <span>$${totalAmount}</span>
+          </div>
+          <div class="row"><span>TOTAL PIECES:</span><span class="bold">${totalQty} units</span></div>
+        `}
         <hr class="divider" />
         <div class="center subtitle" style="margin-top:6px;">
           Both parties confirm physical verification of the counted cash listed above.
@@ -125,7 +146,7 @@ function printVaultTransferSlip({ transferData, fromWh, toWh, direction, tellerN
 }
 
 // ── CRED-Style Slider Component ─────────────────────────────────────────────
-function CredSlider({ onConfirm, disabled, amount, currency = "FJD", loading }) {
+function CredSlider({ onConfirm, disabled, amount, currency = "FJD", loading, customLabel }) {
   const [dragProgress, setDragProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const trackRef = useRef(null);
@@ -179,7 +200,7 @@ function CredSlider({ onConfirm, disabled, amount, currency = "FJD", loading }) 
         />
 
         {/* Center Prompt Label */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-10">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-6 text-center">
           {loading ? (
             <div className="flex items-center gap-2 text-white font-semibold text-xs">
               <RefreshCw size={15} className="animate-spin text-[#E00000]" />
@@ -187,12 +208,12 @@ function CredSlider({ onConfirm, disabled, amount, currency = "FJD", loading }) 
             </div>
           ) : (
             <span
-              className={`text-xs font-bold tracking-wider uppercase transition-opacity duration-200 ${
+              className={`text-xs font-bold tracking-wider uppercase transition-opacity duration-200 truncate ${
                 disabled ? "text-gray-400" : "text-white"
               }`}
               style={{ opacity: isDragging ? Math.max(1 - dragProgress / 50, 0.15) : 1 }}
             >
-              Slide to Transfer ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency} &rarr;
+              {customLabel || `Slide to Transfer $${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency} \u2192`}
             </span>
           )}
         </div>
@@ -238,6 +259,9 @@ export default function VaultTransfer() {
   // Direction: "VAULT_TO_COUNTER" | "COUNTER_TO_VAULT"
   const [direction, setDirection] = useState("VAULT_TO_COUNTER");
 
+  // Transfer Mode: "SINGLE" | "BULK"
+  const [transferMode, setTransferMode] = useState("SINGLE");
+
   // Selected Currency
   const [selectedCurrency, setSelectedCurrency] = useState("FJD");
   const selectedCountryObj = useMemo(
@@ -245,8 +269,8 @@ export default function VaultTransfer() {
     [selectedCurrency]
   );
 
-  // Denominations & Count State
-  const [denominationsData, setDenominationsData] = useState(null);
+  // All Denominations & Count State
+  const [allDenominationsData, setAllDenominationsData] = useState(null);
   const [denomLoading, setDenomLoading] = useState(false);
   const [denomCounts, setDenomCounts] = useState({});
   const [remarks, setRemarks] = useState("");
@@ -319,35 +343,140 @@ export default function VaultTransfer() {
     return direction === "VAULT_TO_COUNTER" ? vaultInfo.branch_warehouse : vaultInfo.vault_warehouse;
   }, [direction, vaultInfo]);
 
-  // Fetch Denomination Stock in Source Warehouse
+  // Fetch Denomination Stock in Source Warehouse (all currencies at once)
   const fetchDenominationsStock = useCallback(async () => {
-    if (!sourceWarehouse || !selectedCountryObj) return;
+    if (!sourceWarehouse) return;
     try {
       setDenomLoading(true);
       const res = await axios.get(
         "/api/method/moneygram.moneygram.api.vault_transfer.get_warehouse_denominations_stock",
         {
-          params: {
-            warehouse: sourceWarehouse,
-            country: selectedCountryObj.country,
-          },
-          headers: {
-          },
+          params: { warehouse: sourceWarehouse },
+          headers: {},
         }
       );
-      const countryResult = res.data?.message?.[selectedCountryObj.country];
-      setDenominationsData(countryResult || null);
+      setAllDenominationsData(res.data?.message || {});
     } catch (err) {
       console.error("Failed to load denominations stock:", err);
     } finally {
       setDenomLoading(false);
     }
-  }, [sourceWarehouse, selectedCountryObj, loginUser?.user?.email, loginUser?.user?.email]);
+  }, [sourceWarehouse]);
 
   useEffect(() => {
     fetchDenominationsStock();
     setDenomCounts({});
-  }, [fetchDenominationsStock]);
+  }, [fetchDenominationsStock, direction]);
+
+  // Denominations for the selected currency
+  const denominationsData = useMemo(() => {
+    if (!allDenominationsData || !selectedCountryObj) return null;
+    return allDenominationsData[selectedCountryObj.country] || null;
+  }, [allDenominationsData, selectedCountryObj]);
+
+  const notesList = denominationsData?.notes || [];
+  const coinsList = denominationsData?.coins || [];
+  const allItemsList = useMemo(() => [...notesList, ...coinsList], [notesList, coinsList]);
+
+  // Universal lookup map for all denomination items across all countries
+  const itemLookup = useMemo(() => {
+    const map = {};
+    if (!allDenominationsData) return map;
+    Object.entries(allDenominationsData).forEach(([countryName, countryData]) => {
+      const matchedCurr = SUPPORTED_CURRENCIES.find((c) => c.country === countryName);
+      const curr = countryData.currency || matchedCurr?.code || countryName;
+      const symbol = countryData.symbol || matchedCurr?.symbol || "$";
+      (countryData.notes || []).forEach((item) => {
+        map[item.item_code] = { ...item, currency: curr, symbol, country: countryName };
+      });
+      (countryData.coins || []).forEach((item) => {
+        map[item.item_code] = { ...item, currency: curr, symbol, country: countryName };
+      });
+    });
+    return map;
+  }, [allDenominationsData]);
+
+  // Breakdown across all counted currencies
+  const bulkBreakdown = useMemo(() => {
+    const breakdown = {};
+    Object.entries(denomCounts).forEach(([code, qty]) => {
+      const numQty = Number(qty) || 0;
+      if (numQty > 0 && itemLookup[code]) {
+        const item = itemLookup[code];
+        const curr = item.currency || "FJD";
+        if (!breakdown[curr]) {
+          breakdown[curr] = {
+            currency: curr,
+            symbol: item.symbol || "$",
+            country: item.country,
+            count: 0,
+            amount: 0,
+            items: [],
+          };
+        }
+        breakdown[curr].count += numQty;
+        breakdown[curr].amount += numQty * (item.value || 0);
+        breakdown[curr].items.push({
+          item_code: item.item_code,
+          item_name: item.item_name,
+          qty: numQty,
+          value: item.value,
+          subtotal: numQty * item.value,
+        });
+      }
+    });
+    return breakdown;
+  }, [denomCounts, itemLookup]);
+
+  const bulkActiveCurrenciesList = useMemo(() => Object.values(bulkBreakdown), [bulkBreakdown]);
+
+  const totalBulkPieces = useMemo(() => {
+    return Object.values(denomCounts).reduce((sum, q) => sum + (Number(q) || 0), 0);
+  }, [denomCounts]);
+
+  const getCurrencyPiecesCount = useCallback(
+    (code) => {
+      return bulkBreakdown[code]?.count || 0;
+    },
+    [bulkBreakdown]
+  );
+
+  // Tab and Mode Handlers
+  const handleSelectCurrency = (currencyCode) => {
+    setSelectedCurrency(currencyCode);
+    if (transferMode === "SINGLE") {
+      setDenomCounts({});
+    }
+  };
+
+  const handleToggleMode = (newMode) => {
+    if (newMode === transferMode) return;
+    setTransferMode(newMode);
+    if (newMode === "SINGLE") {
+      const currentCodes = new Set(allItemsList.map((i) => i.item_code));
+      setDenomCounts((prev) => {
+        const next = {};
+        Object.entries(prev).forEach(([code, qty]) => {
+          if (currentCodes.has(code)) {
+            next[code] = qty;
+          }
+        });
+        return next;
+      });
+    }
+  };
+
+  const handleClearCurrency = (currencyCode) => {
+    setDenomCounts((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((code) => {
+        if (itemLookup[code]?.currency === currencyCode) {
+          delete next[code];
+        }
+      });
+      return next;
+    });
+  };
 
   // Count Handlers
   const handleCountChange = (itemCode, newQty, maxAvail) => {
@@ -375,11 +504,7 @@ export default function VaultTransfer() {
     setDenomCounts({});
   };
 
-  const notesList = denominationsData?.notes || [];
-  const coinsList = denominationsData?.coins || [];
-  const allItemsList = useMemo(() => [...notesList, ...coinsList], [notesList, coinsList]);
-
-  // Calculate Totals
+  // Calculate Single Mode Totals
   const { totalPieces, totalTransferAmount } = useMemo(() => {
     let pieces = 0;
     let amount = 0;
@@ -399,22 +524,45 @@ export default function VaultTransfer() {
       alert("Transfer location not ready. Please verify your assigned location in Settings.");
       return;
     }
-    if (totalPieces <= 0 || totalTransferAmount <= 0) {
+
+    const isBulk = transferMode === "BULK";
+    const payloadItems = [];
+
+    if (isBulk) {
+      Object.entries(denomCounts).forEach(([code, qty]) => {
+        const count = Number(qty) || 0;
+        if (count > 0 && itemLookup[code]) {
+          const item = itemLookup[code];
+          payloadItems.push({
+            item_code: item.item_code,
+            qty: count,
+            rate: item.value,
+            currency: item.currency,
+          });
+        }
+      });
+    } else {
+      for (const item of allItemsList) {
+        const count = denomCounts[item.item_code] || 0;
+        if (count > 0) {
+          payloadItems.push({
+            item_code: item.item_code,
+            qty: count,
+            rate: item.value,
+            currency: selectedCurrency,
+          });
+        }
+      }
+    }
+
+    if (payloadItems.length === 0) {
       alert("Please enter at least one denomination count to transfer.");
       return;
     }
 
-    const payloadItems = [];
-    for (const item of allItemsList) {
-      const count = denomCounts[item.item_code] || 0;
-      if (count > 0) {
-        payloadItems.push({
-          item_code: item.item_code,
-          qty: count,
-          rate: item.value,
-        });
-      }
-    }
+    const curCount = isBulk ? bulkActiveCurrenciesList.length : 1;
+    const curLabel = isBulk && curCount > 1 ? "MULTI" : selectedCurrency;
+    const countryLabel = isBulk && curCount > 1 ? "All" : selectedCountryObj.country;
 
     try {
       setIsSubmitting(true);
@@ -425,9 +573,13 @@ export default function VaultTransfer() {
           to_warehouse: targetWarehouse,
           items: payloadItems,
           direction,
-          currency: selectedCurrency,
-          country: selectedCountryObj.country,
-          remarks: remarks || `Vault Transfer ${direction === "VAULT_TO_COUNTER" ? "Vault -> Counter" : "Counter -> Vault"}`,
+          currency: curLabel,
+          country: countryLabel,
+          remarks:
+            remarks ||
+            `${isBulk && curCount > 1 ? "Bulk Multi-Currency " : ""}Vault Transfer (${
+              direction === "VAULT_TO_COUNTER" ? "Vault -> Counter" : "Counter -> Vault"
+            })`,
         },
         {
           headers: {
@@ -484,43 +636,83 @@ export default function VaultTransfer() {
         </div>
 
         {/* ── Page Header ─────────────────────────────────────────────────── */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-gray-900 text-3xl sm:text-4xl font-black tracking-tight leading-tight">
               Vault <span className="text-[#E00000] italic">Transfer</span>
             </h1>
             <p className="text-gray-500 text-sm mt-1">
-              Transfer physical cash notes and coins between Cash Counter and Vault.
+              Transfer physical cash notes and coins between Cash Counter and Vault in both directions.
             </p>
           </div>
 
-          {/* Simple Direction Switcher */}
-          <div className="inline-flex p-1 rounded-2xl bg-white border border-gray-200 shadow-xs">
-            <button
-              type="button"
-              onClick={() => setDirection("VAULT_TO_COUNTER")}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-                direction === "VAULT_TO_COUNTER"
-                  ? "bg-[#E00000] text-white shadow-sm font-black"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              <span>🏦 Vault &rarr; 🏪 Counter</span>
-              <span className="text-[10px] opacity-80">(Cash In)</span>
-            </button>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Transfer Mode Switcher: Single vs Bulk Multi-Currency */}
+            <div className="inline-flex p-1 rounded-2xl bg-white border border-gray-200 shadow-xs">
+              <button
+                type="button"
+                onClick={() => handleToggleMode("SINGLE")}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  transferMode === "SINGLE"
+                    ? "bg-gray-900 text-white shadow-xs font-black"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                <DollarSign size={13} className={transferMode === "SINGLE" ? "text-white" : "text-gray-400"} />
+                <span>Single</span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setDirection("COUNTER_TO_VAULT")}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-                direction === "COUNTER_TO_VAULT"
-                  ? "bg-[#E00000] text-white shadow-sm font-black"
-                  : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              <span>🏪 Counter &rarr; 🏦 Vault</span>
-              <span className="text-[10px] opacity-80">(Cash Out)</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => handleToggleMode("BULK")}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  transferMode === "BULK"
+                    ? "bg-[#E00000] text-white shadow-xs font-black"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                <Layers size={13} className={transferMode === "BULK" ? "text-white" : "text-gray-400"} />
+                <span>Bulk Multi-Currency</span>
+                {bulkActiveCurrenciesList.length > 0 && (
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                      transferMode === "BULK" ? "bg-white text-[#E00000]" : "bg-red-100 text-[#E00000]"
+                    }`}
+                  >
+                    {bulkActiveCurrenciesList.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Direction Switcher (Both ways: Cash In and Cash Out) */}
+            <div className="inline-flex p-1 rounded-2xl bg-white border border-gray-200 shadow-xs">
+              <button
+                type="button"
+                onClick={() => setDirection("VAULT_TO_COUNTER")}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  direction === "VAULT_TO_COUNTER"
+                    ? "bg-[#E00000] text-white shadow-sm font-black"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                <span>🏦 Vault &rarr; 🏪 Counter</span>
+                <span className="text-[10px] opacity-80">(Cash In)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDirection("COUNTER_TO_VAULT")}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  direction === "COUNTER_TO_VAULT"
+                    ? "bg-[#E00000] text-white shadow-sm font-black"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                <span>🏪 Counter &rarr; 🏦 Vault</span>
+                <span className="text-[10px] opacity-80">(Cash Out)</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -530,25 +722,52 @@ export default function VaultTransfer() {
           <div className="lg:col-span-8 flex flex-col gap-6">
             {/* Currency Tabs */}
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
-              <p className="text-xs font-bold tracking-widest uppercase text-[#E00000] mb-3">
-                Select Currency
-              </p>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-bold tracking-widest uppercase text-[#E00000]">
+                    Select Currency
+                  </p>
+                  {transferMode === "BULK" && (
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-[#E00000] border border-red-100">
+                      Multi-Currency Mode Active
+                    </span>
+                  )}
+                </div>
+                {transferMode === "BULK" && (
+                  <span className="text-xs text-gray-400 hidden sm:inline">
+                    Switch between tabs to count multiple currencies
+                  </span>
+                )}
+              </div>
+
               <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
                 {SUPPORTED_CURRENCIES.map((c) => {
                   const isActive = selectedCurrency === c.code;
+                  const countedUnits = getCurrencyPiecesCount(c.code);
                   return (
                     <button
                       key={c.code}
                       type="button"
-                      onClick={() => setSelectedCurrency(c.code)}
-                      className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer border ${
+                      onClick={() => handleSelectCurrency(c.code)}
+                      className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer border flex items-center gap-1.5 ${
                         isActive
                           ? "bg-[#E00000] text-white border-[#E00000] shadow-sm"
+                          : countedUnits > 0
+                          ? "bg-red-50 text-gray-900 border-red-300 font-extrabold"
                           : "bg-gray-50 text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-100"
                       }`}
                     >
                       <span>{c.code}</span>
-                      <span className="opacity-75 ml-1">({c.symbol})</span>
+                      <span className="opacity-75">({c.symbol})</span>
+                      {countedUnits > 0 && (
+                        <span
+                          className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
+                            isActive ? "bg-white text-[#E00000]" : "bg-[#E00000] text-white"
+                          }`}
+                        >
+                          {countedUnits}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -559,22 +778,40 @@ export default function VaultTransfer() {
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 md:p-8">
               <div className="flex items-center justify-between pb-4 mb-6 border-b border-gray-100">
                 <div>
-                  <h2 className="text-base font-black text-gray-900">
-                    Enter Denomination Counts
+                  <h2 className="text-base font-black text-gray-900 flex items-center gap-2">
+                    <span>Enter {selectedCurrency} Denominations</span>
+                    {transferMode === "BULK" && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 uppercase">
+                        Bulk Mode
+                      </span>
+                    )}
                   </h2>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    Count notes and coins to transfer {direction === "VAULT_TO_COUNTER" ? "from Vault into Counter" : "from Counter into Vault"}.
+                    Count notes and coins to transfer {direction === "VAULT_TO_COUNTER" ? "from Vault into Counter (Cash In)" : "from Counter into Vault (Cash Out)"}.
                   </p>
                 </div>
-                {totalPieces > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleClearAll}
-                    className="text-xs font-bold text-red-500 hover:text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
-                  >
-                    Reset
-                  </button>
-                )}
+                <div className="flex items-center gap-2">
+                  {transferMode === "BULK" && getCurrencyPiecesCount(selectedCurrency) > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => handleClearCurrency(selectedCurrency)}
+                      className="text-xs font-bold text-gray-500 hover:text-red-600 px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 size={12} />
+                      <span>Clear {selectedCurrency}</span>
+                    </button>
+                  )}
+                  {((transferMode === "BULK" && totalBulkPieces > 0) || (transferMode === "SINGLE" && totalPieces > 0)) && (
+                    <button
+                      type="button"
+                      onClick={handleClearAll}
+                      className="text-xs font-bold text-red-500 hover:text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-1 cursor-pointer"
+                    >
+                      <RotateCcw size={12} />
+                      <span>{transferMode === "BULK" ? "Reset All" : "Reset"}</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {denomLoading ? (
@@ -813,38 +1050,119 @@ export default function VaultTransfer() {
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 md:p-7 flex flex-col gap-6">
               <div className="flex items-center justify-between pb-4 border-b border-gray-100">
                 <span className="text-xs font-bold tracking-widest uppercase text-gray-500">
-                  Transfer Summary
+                  {transferMode === "BULK" ? "Bulk Summary" : "Transfer Summary"}
                 </span>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-50 text-[#E00000]">
-                  {selectedCurrency}
-                </span>
+                {transferMode === "BULK" ? (
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-50 text-[#E00000] border border-red-100">
+                    {bulkActiveCurrenciesList.length} {bulkActiveCurrenciesList.length === 1 ? "Currency" : "Currencies"}
+                  </span>
+                ) : (
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-50 text-[#E00000]">
+                    {selectedCurrency}
+                  </span>
+                )}
               </div>
 
-              {/* Total Amount Callout */}
-              <div className="p-5 rounded-2xl bg-gray-50 border border-gray-200 text-center">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block mb-1">
-                  Total Transfer Amount
-                </span>
-                <div className="text-3xl font-black text-gray-900 tracking-tight">
-                  <span>{selectedCountryObj.symbol}</span>
-                  <span>{totalTransferAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              {transferMode === "BULK" ? (
+                /* ── Bulk Multi-Currency Summary Card ── */
+                <div className="flex flex-col gap-4">
+                  {/* Total Units Callout */}
+                  <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200 text-center">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block mb-1">
+                      Total Pieces to Transfer
+                    </span>
+                    <div className="text-3xl font-black text-gray-900 tracking-tight">
+                      <span>{totalBulkPieces}</span>
+                      <span className="text-sm font-bold text-gray-500 ml-1.5">units</span>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      Across <strong className="text-gray-900">{bulkActiveCurrenciesList.length}</strong> active {bulkActiveCurrenciesList.length === 1 ? "currency" : "currencies"}
+                    </div>
+                  </div>
+
+                  {/* Per-Currency Breakdown List */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      <span>Selected Currencies</span>
+                      {totalBulkPieces > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleClearAll}
+                          className="text-[11px] text-red-500 hover:text-red-700 cursor-pointer font-bold lowercase"
+                        >
+                          clear all
+                        </button>
+                      )}
+                    </div>
+
+                    {bulkActiveCurrenciesList.length === 0 ? (
+                      <div className="p-4 rounded-2xl border border-dashed border-gray-200 text-center text-xs text-gray-400">
+                        No denomination counts added yet. Select currency tabs on the left and enter quantities.
+                      </div>
+                    ) : (
+                      <div className="max-h-60 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+                        {bulkActiveCurrenciesList.map((item) => (
+                          <div
+                            key={item.currency}
+                            className="p-3 rounded-2xl bg-gray-50 border border-gray-200 flex items-center justify-between text-xs transition-all hover:border-gray-300"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="w-8 h-8 rounded-lg bg-red-600 text-white font-black text-xs flex items-center justify-center shadow-2xs">
+                                {item.currency}
+                              </span>
+                              <div>
+                                <div className="font-bold text-gray-900">
+                                  {item.symbol} {item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </div>
+                                <div className="text-[10px] text-gray-400">
+                                  {item.count} {item.count === 1 ? "unit" : "units"} ({item.country})
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleClearCurrency(item.currency)}
+                              title={`Remove ${item.currency}`}
+                              className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="text-xs text-gray-500 mt-2">
-                  Total Items: <strong className="text-gray-900">{totalPieces} units</strong>
+              ) : (
+                /* ── Single Currency Summary Card ── */
+                <div className="p-5 rounded-2xl bg-gray-50 border border-gray-200 text-center">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block mb-1">
+                    Total Transfer Amount
+                  </span>
+                  <div className="text-3xl font-black text-gray-900 tracking-tight">
+                    <span>{selectedCountryObj.symbol}</span>
+                    <span>{totalTransferAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-2">
+                    Total Items: <strong className="text-gray-900">{totalPieces} units</strong>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Direction Breakdown */}
               <div className="space-y-2 text-xs">
                 <div className="flex items-center justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500">Transfer Type:</span>
                   <span className="font-bold text-gray-900">
-                    {direction === "VAULT_TO_COUNTER" ? "Vault Replenish (In)" : "Vault Deposit (Out)"}
+                    {direction === "VAULT_TO_COUNTER" ? "Vault Replenish (Cash In)" : "Vault Deposit (Cash Out)"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                  <span className="text-gray-500">Currency:</span>
-                  <span className="font-bold text-gray-900">{selectedCountryObj.label}</span>
+                  <span className="text-gray-500">Mode:</span>
+                  <span className="font-bold text-gray-900">
+                    {transferMode === "BULK" ? "Bulk Multi-Currency" : selectedCountryObj.label}
+                  </span>
                 </div>
               </div>
 
@@ -866,9 +1184,34 @@ export default function VaultTransfer() {
               <div className="pt-2">
                 <CredSlider
                   onConfirm={handleExecuteTransfer}
-                  disabled={totalPieces <= 0 || !sourceWarehouse || !targetWarehouse}
-                  amount={totalTransferAmount}
-                  currency={selectedCurrency}
+                  disabled={
+                    transferMode === "BULK"
+                      ? totalBulkPieces <= 0 || !sourceWarehouse || !targetWarehouse
+                      : totalPieces <= 0 || !sourceWarehouse || !targetWarehouse
+                  }
+                  amount={
+                    transferMode === "BULK"
+                      ? bulkActiveCurrenciesList.length === 1
+                        ? bulkActiveCurrenciesList[0]?.amount
+                        : 0
+                      : totalTransferAmount
+                  }
+                  currency={
+                    transferMode === "BULK"
+                      ? bulkActiveCurrenciesList.length === 1
+                        ? bulkActiveCurrenciesList[0]?.currency
+                        : ""
+                      : selectedCurrency
+                  }
+                  customLabel={
+                    transferMode === "BULK"
+                      ? totalBulkPieces <= 0
+                        ? "Select Denominations to Transfer"
+                        : `Slide to Transfer ${totalBulkPieces} units (${bulkActiveCurrenciesList.length} ${
+                            bulkActiveCurrenciesList.length === 1 ? "currency" : "currencies"
+                          }) \u2192`
+                      : null
+                  }
                   loading={isSubmitting}
                 />
               </div>
@@ -915,12 +1258,39 @@ export default function VaultTransfer() {
               Transfer Successful
             </div>
 
-            <h2 className="text-2xl font-black text-gray-900 mb-1">
-              ${Number(transferSuccessData.total_amount).toFixed(2)} {selectedCurrency}
-            </h2>
-            <p className="text-xs text-gray-500 mb-5">
-              Transferred {transferSuccessData.total_qty} units successfully.
-            </p>
+            {transferSuccessData.currency_totals && Object.keys(transferSuccessData.currency_totals).length > 1 ? (
+              <div className="mb-4">
+                <h2 className="text-2xl font-black text-gray-900 mb-1">
+                  Bulk Multi-Currency Transfer
+                </h2>
+                <p className="text-xs text-gray-500 mb-3">
+                  Transferred <strong className="text-gray-900">{transferSuccessData.total_qty} units</strong> across{" "}
+                  <strong className="text-gray-900">{Object.keys(transferSuccessData.currency_totals).length} currencies</strong>.
+                </p>
+
+                {/* Multi-currency breakdown pills */}
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {Object.entries(transferSuccessData.currency_totals).map(([curr, amt]) => (
+                    <span
+                      key={curr}
+                      className="px-2.5 py-1 rounded-xl bg-gray-100 border border-gray-200 text-xs font-bold text-gray-800"
+                    >
+                      <span className="text-[#E00000] mr-1">{curr}</span>
+                      <span>{Number(amt).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="mb-4">
+                <h2 className="text-2xl font-black text-gray-900 mb-1">
+                  ${Number(transferSuccessData.total_amount).toFixed(2)} {selectedCurrency}
+                </h2>
+                <p className="text-xs text-gray-500">
+                  Transferred {transferSuccessData.total_qty} units successfully.
+                </p>
+              </div>
+            )}
 
             {/* Details Box */}
             <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200 text-left text-xs space-y-2 mb-6">

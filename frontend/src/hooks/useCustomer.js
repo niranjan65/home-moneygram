@@ -15,7 +15,7 @@ export function useCustomers() {
         setError(null);
 
         const response = await fetch(
-          "/api/resource/Customer?fields=[\"name\",\"customer_name\",\"customer_group\",\"territory\"]&limit_page_length=500",
+          "/api/resource/Customer?fields=[\"name\",\"customer_name\",\"customer_group\",\"territory\"]&filters=[[\"Customer\",\"customer_group\",\"not in\",[\"Warehouse Branch\",\"Warehouse Vault\"]]]&limit_page_length=500",
           {
             method: "GET",
             headers: {

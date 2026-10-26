@@ -220,6 +220,9 @@ export const GovernmentIdSection = ({ exchangeType, isCreditExceeded, forexAmoun
             const sTerm = searchTerm.trim();
             const directCustRes = await axios.get('/api/resource/Customer', {
               params: {
+                filters: JSON.stringify([
+                  ['customer_group', 'not in', ['Warehouse Branch', 'Warehouse Vault']],
+                ]),
                 or_filters: JSON.stringify([
                   ['mobile_no', 'like', `%${sTerm}%`],
                   ['custom_customer_id', 'like', `%${sTerm}%`],

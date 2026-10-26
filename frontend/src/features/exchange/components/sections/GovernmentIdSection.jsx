@@ -958,16 +958,6 @@ export const GovernmentIdSection = ({ exchangeType, isCreditExceeded, forexAmoun
                   >
                     <Search size={11} /> Search by ID
                   </button>
-                  {!selectedCustomer && (
-                    <button
-                      type="button"
-                      onClick={handleRegenerateId}
-                      className="text-[11px] text-gray-500 hover:text-[#E00000] flex items-center gap-1 font-medium transition-colors cursor-pointer"
-                      title="Generate another 6-character code"
-                    >
-                      <RefreshCw size={11} /> Regenerate ID
-                    </button>
-                  )}
                 </>
               )}
             </div>
@@ -1013,35 +1003,10 @@ export const GovernmentIdSection = ({ exchangeType, isCreditExceeded, forexAmoun
                 placeholder="Auto-generating 6-character ID..."
                 value={customerId || ''}
                 {...register('customer_id', { required: 'Customer ID is required' })}
-                className={`w-full px-3.5 py-2.5 rounded-lg border font-mono font-bold tracking-widest text-sm bg-gray-50 pr-24 ${
+                className={`w-full px-3.5 py-2.5 rounded-lg border font-mono font-bold tracking-widest text-sm bg-gray-50 ${
                   customerId ? 'text-[#E00000] border-gray-300' : 'text-gray-400 border-gray-200'
                 }`}
               />
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsIdSearchMode(true);
-                    setIsIdDropdownOpen(true);
-                    if (!selectedCustomer) {
-                      setValue('customer_id', '');
-                      setIdQuery('');
-                    } else {
-                      setIdQuery(customerId || '');
-                    }
-                    if (customers.length === 0) searchCustomers('');
-                  }}
-                  className="p-1 text-gray-400 hover:text-[#E00000] rounded hover:bg-gray-100 transition-colors cursor-pointer"
-                  title="Search Customer by ID"
-                >
-                  <Search size={14} />
-                </button>
-                {customerId && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider bg-gray-200 text-gray-700">
-                    {selectedCustomer ? 'EXISTING' : 'NEW'}
-                  </span>
-                )}
-              </div>
             </div>
           )}
           <ErrorMsg message={errors.customer_id?.message} />

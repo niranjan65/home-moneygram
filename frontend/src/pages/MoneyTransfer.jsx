@@ -2856,16 +2856,6 @@ const MoneyTransfer = () => {
                   >
                     <Search size={11} /> Search by ID
                   </button>
-                  {!selectedCustomer && (
-                    <button
-                      type="button"
-                      onClick={handleRegenerateId}
-                      className="text-[11px] text-gray-500 hover:text-[#E00000] flex items-center gap-1 font-medium transition-colors cursor-pointer"
-                      title="Generate another 6-character code"
-                    >
-                      <RefreshCw size={11} /> Regenerate ID
-                    </button>
-                  )}
                 </>
               )}
             </div>
@@ -2908,32 +2898,12 @@ const MoneyTransfer = () => {
                 readOnly
                 placeholder="Auto-generating 6-character ID..."
                 value={form.customer_id || ""}
-                className={`${getInputStyle("customer_id")} font-mono font-bold tracking-widest text-sm bg-gray-50 pr-24 ${
+                className={`${getInputStyle("customer_id")} font-mono font-bold tracking-widest text-sm bg-gray-50 ${
                   form.customer_id
                     ? "text-[#E00000] border-gray-300"
                     : "text-gray-400 border-gray-200"
                 }`}
               />
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsIdSearchMode(true);
-                    if (!selectedCustomer) {
-                      setForm((prev) => ({ ...prev, customer_id: "" }));
-                    }
-                  }}
-                  className="p-1 text-gray-400 hover:text-[#E00000] rounded hover:bg-gray-100 transition-colors"
-                  title="Search Customer by ID"
-                >
-                  <Search size={14} />
-                </button>
-                {form.customer_id && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider bg-gray-200 text-gray-700">
-                    {selectedCustomer ? "EXISTING" : "NEW"}
-                  </span>
-                )}
-              </div>
             </div>
           )}
           {renderFieldError("customer_id")}

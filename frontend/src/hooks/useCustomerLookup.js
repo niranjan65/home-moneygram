@@ -23,6 +23,7 @@ export const useCustomerLookup = (setValue) => {
       if (!res.ok) return;
 
       const { data } = await res.json();
+      if (["Warehouse Branch", "Warehouse Vault"].includes(data?.customer_group)) return;
 
       setValue("firstName", data.custom_first_name || "");
       setValue("lastName", data.custom_last_name || "");

@@ -1,4 +1,5 @@
-import React, { useId } from 'react';
+import React, { useEffect, useId, useState } from 'react';
+import { sessionFetch } from '../api/sessionClient.js';
 import { FileText, Plus, Trash2, UploadCloud } from 'lucide-react';
 
 const inputStyle = 'h-12 w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#E00000] focus:bg-white transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60';
@@ -6,6 +7,40 @@ const documentTypes = ['ID', 'Additional Info', 'Tax Clearance', 'Passport', 'Go
 
 export default function DocumentUploadTable({ rows = [], onChange, disabled = false }) {
   const typesId = useId();
+  const [maxFileSize, setMaxFileSize] = useState(null);
+  const [limitError, setLimitError] = useState(false);
+  const [warning, setWarning] = useState('');
+  const [limitAttempt, setLimitAttempt] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    sessionFetch('/api/method/frappe.core.api.file.get_max_file_size', {
+      signal: controller.signal,
+    }).then(async response => {
+      if (!response.ok) throw new Error('Unable to load file size limit');
+      const data = await response.json();
+      const size = Number(data.message);
+      if (!Number.isFinite(size) || size <= 0) throw new Error('Invalid file size limit');
+      if (!controller.signal.aborted) setMaxFileSize(size);
+    }).catch(() => {
+      if (!controller.signal.aborted) setLimitError(true);
+    });
+    return () => controller.abort();
+  }, [limitAttempt]);
+
+  const maxSizeMB = maxFileSize === null ? '' : maxFileSize / (1024 * 1024);
+  const selectFile = (event, index) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (maxFileSize === null) return;
+    if (file.size > maxFileSize) {
+      setWarning(`“${file.name}” exceeds the maximum allowed file size of ${maxSizeMB} MB. Please choose a smaller file.`);
+      return;
+    }
+    setWarning('');
+    update(index, 'attachment', file);
+  };
   const update = (index, field, value) => onChange(rows.map((row, i) => i === index ? { ...row, [field]: value } : row));
 
   return (
@@ -24,6 +59,13 @@ export default function DocumentUploadTable({ rows = [], onChange, disabled = fa
           <Plus size={16} aria-hidden="true" /> Add Document
         </button>
       </div>
+
+      <p className="mb-3 text-sm text-gray-500" aria-live="polite">
+        {maxFileSize !== null ? `Maximum file size: ${maxSizeMB} MB per document.` : limitError ? (
+          <>Unable to load the file size limit. <button type="button" onClick={() => { setLimitError(false); setLimitAttempt(attempt => attempt + 1); }} className="font-semibold text-[#E00000] underline">Retry</button></>
+        ) : 'Loading file size limit…'}
+      </p>
+      {warning && <p role="alert" className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{warning}</p>}
 
       <div className="overflow-x-auto rounded-2xl border border-gray-200/80 bg-white">
         <table className="w-full min-w-[760px] table-fixed text-left text-sm">
@@ -53,12 +95,12 @@ export default function DocumentUploadTable({ rows = [], onChange, disabled = fa
                   </td>
                   <td className="px-4 py-4 align-middle">
                     <div className="flex min-w-0 items-center gap-2">
-                    <label title={fileName || 'Choose a supporting document'} className={`group relative flex h-12 min-w-0 flex-1 items-center gap-2 rounded-xl border-2 border-dashed border-gray-200 px-3 transition focus-within:border-[#E00000] focus-within:ring-2 focus-within:ring-[#E00000]/20 ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-[#E00000]'}`}>
+                    <label title={fileName || 'Choose a supporting document'} className={`group relative flex h-12 min-w-0 flex-1 items-center gap-2 rounded-xl border-2 border-dashed border-gray-200 px-3 transition focus-within:border-[#E00000] focus-within:ring-2 focus-within:ring-[#E00000]/20 ${disabled || maxFileSize === null ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-[#E00000]'}`}>
                       <UploadCloud size={20} aria-hidden="true" className="shrink-0 text-gray-400 group-hover:text-[#E00000]" />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold text-gray-600">{fileName || 'Click to upload'}</span>
                       </span>
-                      <input aria-label={`Upload document ${index + 1}`} type="file" disabled={disabled} onChange={e => { const file = e.target.files?.[0]; if (file) update(index, 'attachment', file); }} className="sr-only" />
+                      <input aria-label={`Upload document ${index + 1}`} type="file" disabled={disabled || maxFileSize === null} onChange={e => selectFile(e, index)} className="sr-only" />
                     </label>
                     {typeof row.attachment === 'string' && row.attachment && (
                       <a href={row.attachment} target="_blank" rel="noopener noreferrer" aria-label={`View document ${index + 1}`} title="View document" className="inline-flex h-12 w-10 shrink-0 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-[#E00000] transition hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E00000]">

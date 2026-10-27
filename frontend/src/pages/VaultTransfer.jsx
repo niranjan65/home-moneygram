@@ -25,21 +25,6 @@ import {
   RotateCcw,
 } from "lucide-react";
 
-// ── Supported Currencies ────────────────────────────────────────────────────
-const SUPPORTED_CURRENCIES = [
-  { code: "FJD", country: "Fiji", label: "Fiji Dollar", symbol: "$" },
-  { code: "AUD", country: "Australia", label: "Australian Dollar", symbol: "A$" },
-  { code: "USD", country: "USA", label: "US Dollar", symbol: "$" },
-  { code: "NZD", country: "New Zealand", label: "NZ Dollar", symbol: "NZ$" },
-  { code: "EUR", country: "Euro", label: "Euro", symbol: "€" },
-  { code: "GBP", country: "UK", label: "British Pound", symbol: "£" },
-  { code: "CAD", country: "Canada", label: "Canadian Dollar", symbol: "C$" },
-  { code: "JPY", country: "Japan", label: "Japanese Yen", symbol: "¥" },
-  { code: "VUV", country: "Vanuatu", label: "Vanuatu Vatu", symbol: "VT" },
-  { code: "WST", country: "Samoa", label: "Samoan Tala", symbol: "WS$" },
-  { code: "TOP", country: "Tonga", label: "Tongan Paʻanga", symbol: "T$" },
-];
-
 // ── Print Slip Helper ───────────────────────────────────────────────────────
 function printVaultTransferSlip({ transferData, fromWh, toWh, direction, tellerName, company }) {
   const printWindow = window.open("", "_blank", "width=420,height=650");
@@ -262,18 +247,40 @@ export default function VaultTransfer() {
   // Transfer Mode: "SINGLE" | "BULK"
   const [transferMode, setTransferMode] = useState("SINGLE");
 
-  // Selected Currency
-  const [selectedCurrency, setSelectedCurrency] = useState("FJD");
-  const selectedCountryObj = useMemo(
-    () => SUPPORTED_CURRENCIES.find((c) => c.code === selectedCurrency) || SUPPORTED_CURRENCIES[0],
-    [selectedCurrency]
-  );
-
   // All Denominations & Count State
   const [allDenominationsData, setAllDenominationsData] = useState(null);
   const [denomLoading, setDenomLoading] = useState(false);
   const [denomCounts, setDenomCounts] = useState({});
   const [remarks, setRemarks] = useState("");
+
+  // Dynamically derived currencies directly from ERPNext denominations data
+  const dynamicCurrencies = useMemo(() => {
+    if (!allDenominationsData || Object.keys(allDenominationsData).length === 0) {
+      return [{ code: "FJD", country: "Fiji", label: "Fiji Dollar", symbol: "$" }];
+    }
+    return Object.values(allDenominationsData)
+      .filter((c) => (c.notes && c.notes.length > 0) || (c.coins && c.coins.length > 0))
+      .map((c) => ({
+        code: c.currency || c.country,
+        country: c.country,
+        label: `${c.country} (${c.currency || ""})`,
+        symbol: c.symbol || "$",
+      }));
+  }, [allDenominationsData]);
+
+  // Selected Currency
+  const [selectedCurrency, setSelectedCurrency] = useState("FJD");
+  const selectedCountryObj = useMemo(
+    () => dynamicCurrencies.find((c) => c.code === selectedCurrency) || dynamicCurrencies[0] || { code: "FJD", country: "Fiji", symbol: "$" },
+    [dynamicCurrencies, selectedCurrency]
+  );
+
+  // Keep selectedCurrency valid when dynamic currencies load from ERPNext
+  useEffect(() => {
+    if (dynamicCurrencies.length > 0 && !dynamicCurrencies.some((c) => c.code === selectedCurrency)) {
+      setSelectedCurrency(dynamicCurrencies[0].code);
+    }
+  }, [dynamicCurrencies, selectedCurrency]);
 
   // Submission & CRED Success Modal
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -383,7 +390,7 @@ export default function VaultTransfer() {
     const map = {};
     if (!allDenominationsData) return map;
     Object.entries(allDenominationsData).forEach(([countryName, countryData]) => {
-      const matchedCurr = SUPPORTED_CURRENCIES.find((c) => c.country === countryName);
+      const matchedCurr = dynamicCurrencies.find((c) => c.country === countryName);
       const curr = countryData.currency || matchedCurr?.code || countryName;
       const symbol = countryData.symbol || matchedCurr?.symbol || "$";
       (countryData.notes || []).forEach((item) => {
@@ -394,7 +401,7 @@ export default function VaultTransfer() {
       });
     });
     return map;
-  }, [allDenominationsData]);
+  }, [allDenominationsData, dynamicCurrencies]);
 
   // Breakdown across all counted currencies
   const bulkBreakdown = useMemo(() => {
@@ -741,7 +748,7 @@ export default function VaultTransfer() {
               </div>
 
               <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
-                {SUPPORTED_CURRENCIES.map((c) => {
+                {dynamicCurrencies.map((c) => {
                   const isActive = selectedCurrency === c.code;
                   const countedUnits = getCurrencyPiecesCount(c.code);
                   return (

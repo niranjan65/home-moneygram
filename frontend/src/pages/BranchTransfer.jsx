@@ -20,20 +20,6 @@ import {
   Landmark,
 } from "lucide-react";
 
-const SUPPORTED_CURRENCIES = [
-  { code: "FJD", country: "Fiji", label: "Fiji Dollar", symbol: "$" },
-  { code: "AUD", country: "Australia", label: "Australian Dollar", symbol: "A$" },
-  { code: "USD", country: "USA", label: "US Dollar", symbol: "$" },
-  { code: "NZD", country: "New Zealand", label: "NZ Dollar", symbol: "NZ$" },
-  { code: "EUR", country: "Euro Area", label: "Euro", symbol: "€" },
-  { code: "GBP", country: "UK", label: "British Pound", symbol: "£" },
-  { code: "CAD", country: "Canada", label: "Canadian Dollar", symbol: "C$" },
-  { code: "JPY", country: "Japan", label: "Japanese Yen", symbol: "¥" },
-  { code: "VUV", country: "Vanuatu", label: "Vanuatu Vatu", symbol: "VT" },
-  { code: "WST", country: "Samoa", label: "Samoan Tala", symbol: "WS$" },
-  { code: "TOP", country: "Tonga", label: "Tongan Paʻanga", symbol: "T$" },
-];
-
 export default function BranchTransfer() {
   const loginUser = useUser();
   const { selectedWarehouse } = useSettings();
@@ -50,17 +36,41 @@ export default function BranchTransfer() {
   const [loadingWarehouses, setLoadingWarehouses] = useState(true);
   const [targetBranch, setTargetBranch] = useState("");
 
-  // Currency & Denominations
-  const [selectedCurrency, setSelectedCurrency] = useState("FJD");
-  const selectedCountryObj = useMemo(
-    () => SUPPORTED_CURRENCIES.find((c) => c.code === selectedCurrency) || SUPPORTED_CURRENCIES[0],
-    [selectedCurrency]
-  );
-
+  // All Denominations & Count State
   const [denominationsData, setDenominationsData] = useState(null);
   const [denomLoading, setDenomLoading] = useState(false);
   const [denomCounts, setDenomCounts] = useState({});
   const [remarks, setRemarks] = useState("");
+
+  // Dynamically derived currencies directly from ERPNext denominations data
+  const dynamicCurrencies = useMemo(() => {
+    if (!denominationsData || Object.keys(denominationsData).length === 0) {
+      return [{ code: "FJD", country: "Fiji", label: "Fiji Dollar", symbol: "$" }];
+    }
+    return Object.values(denominationsData)
+      .filter((c) => (c.notes && c.notes.length > 0) || (c.coins && c.coins.length > 0))
+      .map((c) => ({
+        code: c.currency || c.country,
+        country: c.country,
+        label: `${c.country} (${c.currency || ""})`,
+        symbol: c.symbol || "$",
+      }));
+  }, [denominationsData]);
+
+  // Currency & Denominations
+  const [selectedCurrency, setSelectedCurrency] = useState("FJD");
+  const selectedCountryObj = useMemo(
+    () => dynamicCurrencies.find((c) => c.code === selectedCurrency) || dynamicCurrencies[0] || { code: "FJD", country: "Fiji", symbol: "$" },
+    [dynamicCurrencies, selectedCurrency]
+  );
+
+  // Keep selectedCurrency valid when dynamic currencies load from ERPNext
+  useEffect(() => {
+    if (dynamicCurrencies.length > 0 && !dynamicCurrencies.some((c) => c.code === selectedCurrency)) {
+      setSelectedCurrency(dynamicCurrencies[0].code);
+    }
+  }, [dynamicCurrencies, selectedCurrency]);
+
 
   // Feedback states
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -123,7 +133,6 @@ export default function BranchTransfer() {
       .get("/api/method/moneygram.moneygram.api.vault_transfer.get_warehouse_denominations_stock", {
         params: {
           warehouse: sourceStockWarehouse,
-          country: selectedCountryObj.country,
         },
       })
       .then((res) => {
@@ -141,7 +150,7 @@ export default function BranchTransfer() {
   useEffect(() => {
     fetchDenominationsStock();
     setDenomCounts({});
-  }, [sourceStockWarehouse, selectedCountryObj.country, transferMode]);
+  }, [sourceStockWarehouse, transferMode]);
 
   const currentCountryDenom = denominationsData?.[selectedCountryObj.country] || null;
   const notesList = currentCountryDenom?.notes || [];
@@ -422,7 +431,7 @@ export default function BranchTransfer() {
                 Select Currency
               </p>
               <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
-                {SUPPORTED_CURRENCIES.map((c) => {
+                {dynamicCurrencies.map((c) => {
                   const isActive = selectedCurrency === c.code;
                   return (
                     <button

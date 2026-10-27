@@ -79,6 +79,9 @@ export const getCustomerById = async (customerId, loginUser) => {
         const queryJson = await queryRes.json();
         if (queryJson.data && queryJson.data.length > 0) {
           const cust = queryJson.data[0];
+          if (["Warehouse Branch", "Warehouse Vault"].includes(cust.customer_group)) {
+            return null;
+          }
           const phoneVal = cust.mobile_no || cust.phone || cust.phone_number || cust.custom_contact_number || cust.contact_number || "";
           return {
             ...cust,
@@ -95,6 +98,9 @@ export const getCustomerById = async (customerId, loginUser) => {
     }
 
     const { data } = await res.json();
+    if (["Warehouse Branch", "Warehouse Vault"].includes(data?.customer_group)) {
+      return null;
+    }
 
     // Determine Government ID Type
     const governmentIdType =

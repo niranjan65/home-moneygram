@@ -340,6 +340,19 @@ export const createMoneyTransfer = async (
       currency_denomination: enableCurrencyDenomination
         ? currencyDenomination
         : [],
+      enable_split_payout: form.enable_split_payout ? 1 : 0,
+      customer_consent: form.customer_consent ? 1 : 0,
+      distribution_legs: form.enable_split_payout && Array.isArray(form.distribution_legs)
+        ? form.distribution_legs.map((leg, idx) => ({
+            doctype: "Remittance Distribution Leg",
+            channel: leg.channel || "Cash",
+            amount: Number(leg.amount || 0),
+            wallet_reference: leg.wallet_reference || "",
+            status: leg.status || "Planned",
+            notes: leg.notes || "",
+            idx: idx + 1,
+          }))
+        : [],
       warehouse:
         selectedWarehouse?.warehouse ||
         (typeof selectedWarehouse === "string" ? selectedWarehouse : null) ||
@@ -432,6 +445,9 @@ export const createMoneyTransfer = async (
       currency_denomination: enableCurrencyDenomination
         ? currencyDenomination
         : [],
+      enable_split_payout: payload.enable_split_payout,
+      customer_consent: payload.customer_consent,
+      distribution_legs: payload.distribution_legs,
     };
 
     console.log(

@@ -30,6 +30,7 @@ import { useAppConfiguration } from "../hooks/useAppConfiguration";
 import { createMoneyTransfer } from "../features/exchange/api/createMoneyTransfer";
 import TransferAmountSection from "../features/exchange/components/TransferAmountSection";
 import { DenominationPanel } from "../features/exchange/components/sections/DenominationPanel";
+import SplitRemittanceSection from "../features/remittance/SplitRemittanceSection";
 import { MoneyTransferInvoiceDocument } from "../components/MoneyTransferInvoice";
 import { CustomerPhotoCard } from "../features/exchange/components/CustomerPhotoCard";
 import { useBaseCurrency } from "../hooks/useDenomination";
@@ -563,6 +564,9 @@ const MoneyTransfer = () => {
   const [form, setForm] = useState({ transfer_type: "Send", oet_code: "18" });
   const [currencyDenominationRows, setCurrencyDenominationRows] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [enableSplitPayout, setEnableSplitPayout] = useState(false);
+  const [splitLegs, setSplitLegs] = useState([]);
+  const [splitConsent, setSplitConsent] = useState(false);
   const [successInfo, setSuccessInfo] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
   const [submitError, setSubmitError] = useState("");
@@ -2075,6 +2079,40 @@ const MoneyTransfer = () => {
       }
     }
 
+    // Split Remittance multi-channel payout validation
+    if (enableSplitPayout) {
+      const targetAmount = parseFloat(form.amount || 0);
+      if (splitLegs.length === 0) {
+        const msg = "Please add at least one payout channel leg or disable split payout.";
+        setSubmitError(msg);
+        setIsSubmitting(false);
+        return;
+      }
+      const sumLegs = splitLegs.reduce((sum, leg) => sum + (parseFloat(leg.amount) || 0), 0);
+      const diff = Math.round((targetAmount - sumLegs) * 100) / 100;
+      if (Math.abs(diff) >= 0.01) {
+        const msg = `Split Remittance total (${sumLegs.toFixed(2)}) must exactly equal transfer amount (${targetAmount.toFixed(2)}). Difference: ${diff > 0 ? "+" : ""}${diff.toFixed(2)}`;
+        setSubmitError(msg);
+        setIsSubmitting(false);
+        return;
+      }
+      for (let i = 0; i < splitLegs.length; i++) {
+        const leg = splitLegs[i];
+        if (leg.channel !== "Cash" && (!leg.wallet_reference || !leg.wallet_reference.trim())) {
+          const msg = `Please enter mobile/wallet number for leg #${i + 1} (${leg.channel}).`;
+          setSubmitError(msg);
+          setIsSubmitting(false);
+          return;
+        }
+      }
+      if (!splitConsent) {
+        const msg = "Customer consent acknowledgment is required for split remittance distribution.";
+        setSubmitError(msg);
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
     try {
       const uploadedDocuments = [];
       for (const row of documentRows) {
@@ -2085,8 +2123,15 @@ const MoneyTransfer = () => {
         uploadedDocuments.push({ document_type: row.document_type.trim(), attachment, notes: row.notes || "" });
       }
       const documentUrl = uploadedDocuments.find(row => row.document_type === "ID")?.attachment || "";
-      const submissionForm = { ...form, documents: uploadedDocuments, document_upload: documentUrl,
-        upload_additional_info: uploadedDocuments.find(row => row.document_type === "Additional Info")?.attachment || "" };
+      const submissionForm = { 
+        ...form, 
+        documents: uploadedDocuments, 
+        document_upload: documentUrl,
+        upload_additional_info: uploadedDocuments.find(row => row.document_type === "Additional Info")?.attachment || "",
+        enable_split_payout: enableSplitPayout ? 1 : 0,
+        customer_consent: splitConsent ? 1 : 0,
+        distribution_legs: enableSplitPayout ? splitLegs : [],
+      };
 
       console.log("Using loginUser for createCustomer:", loginUser);
       console.log("Currency Denomination Rows:", currencyDenominationRows);
@@ -2213,6 +2258,9 @@ const MoneyTransfer = () => {
           currencyDenominationRows.length > 0
             ? currencyDenominationRows
             : transfer.currency_denomination || [],
+        enable_split_payout: enableSplitPayout ? 1 : 0,
+        customer_consent: splitConsent ? 1 : 0,
+        distribution_legs: enableSplitPayout ? splitLegs : [],
       };
 
       // success info
@@ -2393,6 +2441,9 @@ const MoneyTransfer = () => {
     setCurrencyDenominationRows([]);
     denomStatusRef.current = { total: 0, target: 0 };
     setDenomBalanceError("");
+    setEnableSplitPayout(false);
+    setSplitLegs([]);
+    setSplitConsent(false);
   };
 
   const buildMoneyTransferInvoiceData = (transfer, info = successInfo) => {
@@ -2519,6 +2570,9 @@ const MoneyTransfer = () => {
       transfer_type: transferType,
       transaction_type: transferType,
       enable_currency_denomination: isDenomEnabled ? 1 : 0,
+      enable_split_payout: transfer.enable_split_payout ?? (enableSplitPayout ? 1 : 0),
+      customer_consent: transfer.customer_consent ?? (splitConsent ? 1 : 0),
+      distribution_legs: transfer.distribution_legs || splitLegs || [],
       posting_date: cleanPostingDate,
       posting_time: cleanPostingTime,
       net_total: amount,
@@ -3453,6 +3507,35 @@ const MoneyTransfer = () => {
                   <div id="field-documents" data-fieldname="documents" className="mt-6 w-full min-w-0">
                     <DocumentUploadTable rows={documentRows} onChange={rows => setForm(prev => ({ ...prev, documents: rows, document_upload: "", upload_additional_info: "" }))} disabled={isFormLocked || isSubmitting} />
                     {renderFieldError("documents")}
+                  </div>
+
+                  {/* SPLIT REMITTANCE PAYOUT (MULTI-CHANNEL) */}
+                  <div className="mt-8 col-span-1 md:col-span-2 w-full min-w-0">
+                    <SplitRemittanceSection
+                      netAmount={parseFloat(form.amount || 0)}
+                      currency={form.currency || baseCurrencyData?.currency || "FJD"}
+                      enabled={enableSplitPayout}
+                      onToggle={(val) => {
+                        setEnableSplitPayout(val);
+                        if (val && splitLegs.length === 0) {
+                          const amt = parseFloat(form.amount || 0);
+                          setSplitLegs([
+                            {
+                              channel: "Cash",
+                              amount: amt > 0 ? amt : 0,
+                              wallet_reference: "",
+                              status: "Planned",
+                              notes: "Primary over-counter cash leg",
+                            },
+                          ]);
+                        }
+                      }}
+                      legs={splitLegs}
+                      onChangeLegs={setSplitLegs}
+                      consent={splitConsent}
+                      onChangeConsent={setSplitConsent}
+                      disabled={isFormLocked || isSubmitting}
+                    />
                   </div>
 
                   {/* CURRENCY DENOMINATION PANEL */}

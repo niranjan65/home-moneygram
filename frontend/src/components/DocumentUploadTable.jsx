@@ -1,9 +1,10 @@
 import React, { useEffect, useId, useState } from 'react';
 import { sessionFetch } from '../api/sessionClient.js';
-import { FileText, Plus, Trash2, UploadCloud } from 'lucide-react';
+import { FileText, Plus, Trash2, UploadCloud, Camera } from 'lucide-react';
+import CustomerSelfieModal from './CustomerSelfieModal';
 
 const inputStyle = 'h-12 w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#E00000] focus:bg-white transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60';
-const documentTypes = ['ID', 'Additional Info', 'Tax Clearance', 'Passport', 'Government ID', "Driver's Licence", 'Voter ID Card', 'Ticket', 'RBF Document', 'Annual Compliance', 'Other'];
+const documentTypes = ['Customer Photo', 'ID', 'Additional Info', 'Tax Clearance', 'Passport', 'Government ID', "Driver's Licence", 'Voter ID Card', 'Ticket', 'RBF Document', 'Annual Compliance', 'Other'];
 
 export default function DocumentUploadTable({ rows = [], onChange, disabled = false }) {
   const typesId = useId();
@@ -11,6 +12,7 @@ export default function DocumentUploadTable({ rows = [], onChange, disabled = fa
   const [limitError, setLimitError] = useState(false);
   const [warning, setWarning] = useState('');
   const [limitAttempt, setLimitAttempt] = useState(0);
+  const [activeCameraRow, setActiveCameraRow] = useState(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -48,16 +50,31 @@ export default function DocumentUploadTable({ rows = [], onChange, disabled = fa
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-lg font-bold text-gray-700">Documents</h3>
-          <p className="mt-1 text-sm text-gray-400">Upload ID, additional information, and supporting documents.</p>
+          <p className="mt-1 text-sm text-gray-400">Upload ID, customer photos, and supporting compliance documents.</p>
         </div>
-        <button
-          type="button"
-          disabled={disabled}
-          onClick={() => onChange([...rows, { document_type: '', attachment: '', notes: '' }])}
-          className="inline-flex items-center gap-2 rounded-2xl bg-[#E00000] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#c70000] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E00000] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <Plus size={16} aria-hidden="true" /> Add Document
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => {
+              const newIndex = rows.length;
+              onChange([...rows, { document_type: 'Customer Photo', attachment: '', notes: '' }]);
+              setActiveCameraRow(newIndex);
+            }}
+            className="inline-flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-50 hover:border-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E00000] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Camera size={16} className="text-[#E00000]" aria-hidden="true" />
+            <span>Take Live Photo</span>
+          </button>
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange([...rows, { document_type: '', attachment: '', notes: '' }])}
+            className="inline-flex items-center gap-2 rounded-2xl bg-[#E00000] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#c70000] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E00000] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Plus size={16} aria-hidden="true" /> Add Document
+          </button>
+        </div>
       </div>
 
       <p className="mb-3 text-sm text-gray-500" aria-live="polite">
@@ -102,6 +119,15 @@ export default function DocumentUploadTable({ rows = [], onChange, disabled = fa
                       </span>
                       <input aria-label={`Upload document ${index + 1}`} type="file" disabled={disabled || maxFileSize === null} onChange={e => selectFile(e, index)} className="sr-only" />
                     </label>
+                    <button
+                      type="button"
+                      title="Take photo with webcam"
+                      disabled={disabled}
+                      onClick={() => setActiveCameraRow(index)}
+                      className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-gray-50 text-gray-500 transition hover:border-[#E00000] hover:bg-red-50 hover:text-[#E00000] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E00000] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <Camera size={18} aria-hidden="true" />
+                    </button>
                     {typeof row.attachment === 'string' && row.attachment && (
                       <a href={row.attachment} target="_blank" rel="noopener noreferrer" aria-label={`View document ${index + 1}`} title="View document" className="inline-flex h-12 w-10 shrink-0 items-center justify-center rounded-xl border border-red-100 bg-red-50 text-[#E00000] transition hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E00000]">
                         <FileText size={16} aria-hidden="true" />
@@ -131,6 +157,19 @@ export default function DocumentUploadTable({ rows = [], onChange, disabled = fa
         </table>
       </div>
       <datalist id={typesId}>{documentTypes.map(type => <option key={type} value={type} />)}</datalist>
+
+      <CustomerSelfieModal
+        isOpen={activeCameraRow !== null}
+        onClose={() => setActiveCameraRow(null)}
+        onCapture={({ file }) => {
+          if (activeCameraRow !== null) {
+            update(activeCameraRow, 'attachment', file);
+            if (!rows[activeCameraRow]?.document_type) {
+              update(activeCameraRow, 'document_type', 'Customer Photo');
+            }
+          }
+        }}
+      />
     </section>
   );
 }

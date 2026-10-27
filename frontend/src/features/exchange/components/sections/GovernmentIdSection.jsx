@@ -23,6 +23,7 @@ import {
   Search,
   Phone,
   MessageSquare,
+  Camera,
 } from 'lucide-react';
 import { FieldLabel, fieldCls, ErrorMsg } from '../ui/FormUtilities';
 import { useCustomer } from '../../hooks/useCustomer';
@@ -32,6 +33,7 @@ import { useAppConfiguration } from '../../../../hooks/useAppConfiguration';
 import { useUser } from '../../../../context/UserContext';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import CustomerSelfieModal from '../../../../components/CustomerSelfieModal';
 
 export const GovernmentIdSection = ({ exchangeType, isCreditExceeded, forexAmount, onCustomerChange, useDocumentTable = false }) => {
   const loginUser = useUser();
@@ -46,6 +48,7 @@ export const GovernmentIdSection = ({ exchangeType, isCreditExceeded, forexAmoun
   const [ticketPreview, setTicketPreview] = useState(null);
   const [ticketFile, setTicketFile] = useState(null);
   const [ticketDragOver, setTicketDragOver] = useState(false);
+  const [isSelfieModalOpen, setIsSelfieModalOpen] = useState(false);
 
   const {
     previewUrl,
@@ -1595,9 +1598,19 @@ export const GovernmentIdSection = ({ exchangeType, isCreditExceeded, forexAmoun
         </div>
 
         {!useDocumentTable && (<div id="field-docFile">
-          <FieldLabel required icon={Upload}>
-            {governmentId === 'Passport' ? 'Passport Photo / Scan' : 'Government ID Photo / Scan'}
-          </FieldLabel>
+          <div className="flex items-center justify-between">
+            <FieldLabel required icon={Upload}>
+              {governmentId === 'Passport' ? 'Passport Photo / Scan' : 'Government ID Photo / Scan'}
+            </FieldLabel>
+            <button
+              type="button"
+              onClick={() => setIsSelfieModalOpen(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#E00000] hover:text-[#c00000] bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg transition"
+            >
+              <Camera size={13} />
+              <span>Take Live Photo</span>
+            </button>
+          </div>
           <div className="mt-1">
             {previewUrl ? (
               <div className={`rounded-lg border overflow-hidden ${errors.docFile ? 'border-[#E00000]/30' : 'border-gray-200'}`}>
@@ -1653,6 +1666,12 @@ export const GovernmentIdSection = ({ exchangeType, isCreditExceeded, forexAmoun
           </div>
           <ErrorMsg message={errors.docFile?.message} />
         </div>)}
+
+        <CustomerSelfieModal
+          isOpen={isSelfieModalOpen}
+          onClose={() => setIsSelfieModalOpen(false)}
+          onCapture={({ file }) => handleFile(file)}
+        />
 
         {/* Travel Details — only for SELL */}
         {exchangeType === 'SELL' && (

@@ -169,6 +169,13 @@ export const MoneyTransferInvoiceDocument = ({ invoiceData }) => {
     d.enable_currency_denomination === true
   );
 
+  // Multi-Leg Split Remittance Payout
+  const distributionLegs = Array.isArray(d.distribution_legs) ? d.distribution_legs : [];
+  const isSplitPayout = Boolean(
+    (d.enable_split_payout === 1 || d.enable_split_payout === '1' || d.enable_split_payout === true) &&
+    distributionLegs.length > 0
+  );
+
   const rows = (d.items ?? []).map((item) => ({
     code: item.item_code ?? '—',
     name: item.item_name ?? '—',
@@ -318,6 +325,44 @@ export const MoneyTransferInvoiceDocument = ({ invoiceData }) => {
           </div>
         </div>
       </div>
+
+      {/* ── Multi-Leg Distribution Payout (Split Remittance) ── */}
+      {isSplitPayout && (
+        <div className="mb-4">
+          <div className="text-[10px] uppercase font-bold text-slate-500 mb-1.5 tracking-wider flex items-center justify-between">
+            <span>Multi-Channel Split Remittance Distribution</span>
+            <span className="text-[9px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              Customer Consent Acknowledged
+            </span>
+          </div>
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="text-white text-[10px] uppercase tracking-wider bg-slate-900">
+                <th className="p-2.5 rounded-tl-lg text-left">Payout Channel</th>
+                <th className="p-2.5 text-left">Wallet / Account Mobile</th>
+                <th className="p-2.5 text-center w-24">Leg Status</th>
+                <th className="p-2.5 text-right w-36 rounded-tr-lg">Amount ({currency})</th>
+              </tr>
+            </thead>
+            <tbody className="text-xs">
+              {distributionLegs.map((leg, i) => (
+                <tr key={i} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                  <td className="p-2.5 font-bold text-slate-800 text-left">{leg.channel}</td>
+                  <td className="p-2.5 text-left font-mono text-slate-600">
+                    {leg.wallet_reference ? leg.wallet_reference : <span className="text-slate-400 italic">Over Counter</span>}
+                  </td>
+                  <td className="p-2.5 text-center">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-green-50 text-green-700 border border-green-200">
+                      {leg.status || 'Paid'}
+                    </span>
+                  </td>
+                  <td className="p-2.5 text-right font-bold font-mono text-slate-900">{fmt(leg.amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* ── Denomination Table: ONLY rendered if enable_currency_denomination is checked and has rows ── */}
       {isDenominationEnabled && rows.length > 0 && (

@@ -4,7 +4,7 @@ import { FileText, Plus, Trash2, UploadCloud, Camera } from 'lucide-react';
 import CustomerSelfieModal from './CustomerSelfieModal';
 
 const inputStyle = 'h-12 w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#E00000] focus:bg-white transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60';
-const documentTypes = ['Customer Photo', 'ID', 'Additional Info', 'Tax Clearance', 'Passport', 'Government ID', "Driver's Licence", 'Voter ID Card', 'Ticket', 'RBF Document', 'Annual Compliance', 'Other'];
+const documentTypes = ['Customer Photo', 'ID', 'Additional Info', 'Tax Clearance', 'Passport', 'Government ID', "Driver's Licence", 'Voter ID Card', 'Ticket', 'Other'];
 
 export default function DocumentUploadTable({ rows = [], onChange, disabled = false }) {
   const typesId = useId();

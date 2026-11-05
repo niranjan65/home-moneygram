@@ -44,8 +44,6 @@ const MoneyExchange = () => {
   const [customerMode, setCustomerMode] = useState('new'); // 'new' or 'existing'
 
   // Holds raw Files between DETAILS → REVIEW steps.
-  const rbfDocumentFileRef = React.useRef(null);
-  const taxClearanceFileRef = React.useRef(null);
   const ticketFileRef = React.useRef(null);
   const customerImageFileRef = React.useRef(null);
 
@@ -171,20 +169,6 @@ const MoneyExchange = () => {
   const handleContinue = useCallback((data) => {
     // Keep the raw File object in a ref — sessionStorage can't hold Files.
     // GovernmentIdSection stores a File directly via setValue (not a FileList).
-    if (data.rbfDocument instanceof File) {
-      rbfDocumentFileRef.current = data.rbfDocument;
-      console.log('[RBF DEBUG] 4. handleContinue - File captured in ref ✅', data.rbfDocument.name);
-    } else {
-      rbfDocumentFileRef.current = null;
-      console.log('[RBF DEBUG] 4. handleContinue - data.rbfDocument is NOT a File ❌', typeof data.rbfDocument, data.rbfDocument);
-    }
-
-    if (data.taxClearanceFile instanceof File) {
-      taxClearanceFileRef.current = data.taxClearanceFile;
-    } else {
-      taxClearanceFileRef.current = null;
-    }
-
     if (data.ticket instanceof File) {
       ticketFileRef.current = data.ticket;
     } else {
@@ -220,8 +204,6 @@ const MoneyExchange = () => {
 
   // Called from ReviewStep → Cancel → reset everything and go back to DETAILS
   const handleCancel = useCallback(() => {
-    rbfDocumentFileRef.current = null;
-    taxClearanceFileRef.current = null;
     ticketFileRef.current = null;
     customerImageFileRef.current = null;
     setCustomerImageFile(null);
@@ -301,9 +283,7 @@ const MoneyExchange = () => {
       }
       const documentUrl = type => uploadedDocuments.find(row => row.document_type === type)?.attachment || null;
       const uploadedFileUrl = documentUrl(transferPayload.government_id || (transferPayload.idType === 'PASSPORT' ? 'Passport' : 'Government ID')) || uploadedDocuments[0]?.attachment || null;
-      const taxClearanceDocUrl = documentUrl('Annual Compliance');
       const ticketDocUrl = documentUrl('Ticket');
-      const rbfDocumentUrl = documentUrl('RBF Document');
 
     let customerPhotoUrl = null;
     const custPhoto = customerImageFileRef.current || (transferPayload.customerImageFile instanceof File ? transferPayload.customerImageFile : null);
@@ -481,10 +461,8 @@ const MoneyExchange = () => {
 
       const apiPayload = {
         data: {
-          custom_available_currency_transfer_balance: transferPayload.availableBalance !== undefined && transferPayload.availableBalance !== null ? parseFloat(transferPayload.availableBalance) : 2000,
           verification_id_type: transferPayload.idType,
           documents: uploadedDocuments,
-          rbf_document: rbfDocumentUrl,
           passport_number: transferPayload.idNumber,
           first_name: transferPayload.firstName,
           last_name: transferPayload.lastName,
@@ -512,6 +490,8 @@ const MoneyExchange = () => {
 
 
           local_amount: localAmount,
+          fjd_equivalent: localAmount,
+          local_currency: "FJD",
           local_currency_type: transferPayload.localCurrency,
 
           foreign_amount: foreignAmount,
@@ -527,10 +507,24 @@ const MoneyExchange = () => {
           send_amount: transferPayload.sendAmount,
           total_amount: transferPayload.sendAmount + summary.fee,
 
-          rbf_number: transferPayload.rbfNumber || null,
+          customer_request_reference: transferPayload.request_reference || null,
+          rbf_purpose: transferPayload.rbf_purpose || null,
+          rbf_documents: transferPayload.rbf_documents || [],
+          nationality: transferPayload.nationality || null,
+          nationality_type: transferPayload.nationality_type || null,
+          other_nationality: transferPayload.other_nationality || null,
+          residency_status: transferPayload.residency_status || null,
+          source_of_funds: transferPayload.source_of_funds || null,
+          rbf_approval: transferPayload.rbf_approval || null,
+          rbf_beneficiary_reference: transferPayload.rbf_beneficiary_reference || null,
+          rbf_student_reference: transferPayload.rbf_student_reference || null,
+          rbf_family_reference: transferPayload.rbf_family_reference || null,
+          rbf_invoice_reference: transferPayload.rbf_invoice_reference || null,
+          imported_funds_available_fjd: transferPayload.imported_funds_available_fjd || null,
+          passport_endorsement_completed: transferPayload.passport_endorsement_completed ? 1 : 0,
+          tf_form_reference: transferPayload.tf_form_reference || null,
+          sanctions_acknowledged_references: transferPayload.sanctions_acknowledged_references || "",
           tin_number: transferPayload.tinNumber || null,
-          annual_compliance: taxClearanceDocUrl || null,
-          tax_clearance_document: taxClearanceDocUrl || null,
           risk_level: transferPayload.risk_level || 'Low',
           remarks: transferPayload.remarks || '',
 
@@ -605,8 +599,6 @@ const MoneyExchange = () => {
 
 
   const handleDashboard = useCallback(() => {
-    rbfDocumentFileRef.current = null;
-    taxClearanceFileRef.current = null;
     ticketFileRef.current = null;
     customerImageFileRef.current = null;
     setCustomerImageFile(null);

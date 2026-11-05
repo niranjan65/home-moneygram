@@ -317,40 +317,6 @@ export const createCustomer = async (
     }
 
     // --------------------------------------------------
-    // 3. Fetch App Configuration
-    // --------------------------------------------------
-    console.log("Fetching App Configuration...");
-
-    const configRes = await fetch(
-      buildApiUrl(
-        "api/resource/App Configuration/App Configuration"
-      ),
-      getFetchOptions({
-        method: "GET",
-      })
-    );
-
-    const configData = await configRes.json();
-
-    if (!configRes.ok) {
-      console.error(
-        "Failed to fetch App Configuration:",
-        configData
-      );
-
-      throw new Error(
-        configData?.exception ||
-        configData?.message ||
-        configData?._server_messages ||
-        "Failed to fetch App Configuration"
-      );
-    }
-
-    const appConfig = configData?.data || {};
-
-    console.log("App Configuration:", appConfig);
-
-    // --------------------------------------------------
     // 4. Normalize Government ID Type
     // --------------------------------------------------
     const normalizedGovId = normalizeGovId(
@@ -382,18 +348,6 @@ export const createCustomer = async (
 
       mobile_no: (form.phone_number || form.mobile_no || form.phone || "").trim(),
       custom_risk_level: form.risk_level || form.custom_risk_level || "Low",
-
-      // ----------------------------------------------
-      // Customer limits from App Configuration
-      // ----------------------------------------------
-      custom_available_currency_transfer_balance:
-        Number(appConfig.annual_fx_limit) || 0,
-
-      custom_annual_fx_and_moneygram_limit:
-        Number(appConfig.annual_fx_and_moneygram_limit) || 0,
-
-      custom_annual_compliance_limit:
-        Number(appConfig.annual_compliance_limit) || 0,
     };
 
     // --------------------------------------------------

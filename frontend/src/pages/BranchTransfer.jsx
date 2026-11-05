@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/layout/Navbar";
 import { useSettings } from "../context/SettingsContext";
 import { useUser } from "../context/UserContext";
 import { sessionAxios as axios } from "../api/sessionClient.js";
+import { DenominationPanel } from "../features/exchange/components/sections/DenominationPanel";
 import {
   Building2,
   ArrowRight,
@@ -23,7 +24,6 @@ import {
   Edit3,
   Printer,
   RotateCcw,
-  Sparkles,
 } from "lucide-react";
 
 export default function BranchTransfer() {
@@ -142,11 +142,16 @@ export default function BranchTransfer() {
   const [currenciesData, setCurrenciesData] = useState([]);
   const [loadingCurrencies, setLoadingCurrencies] = useState(false);
   const [selectedCurrencyCode, setSelectedCurrencyCode] = useState("USD");
-  const [customRate, setCustomRate] = useState("");
-  const [isCustomRateActive, setIsCustomRateActive] = useState(false);
+  const [transferAmount, setTransferAmount] = useState("");
 
   // Denomination counts & remarks
-  const [denomCounts, setDenomCounts] = useState({});
+  const foreignDenomRowsRef = useRef([]);
+  const fjdDenomRowsRef = useRef([]);
+  const [foreignDenomStatus, setForeignDenomStatus] = useState({ total: 0, target: 0 });
+  const [fjdDenomStatus, setFjdDenomStatus] = useState({ total: 0, target: 0 });
+  const [destinationCurrenciesData, setDestinationCurrenciesData] = useState([]);
+  const [loadingDestinationFjd, setLoadingDestinationFjd] = useState(false);
+  const [enableCash, setEnableCash] = useState(false);
   const [remarks, setRemarks] = useState("");
 
   // Feedback states
@@ -169,7 +174,7 @@ export default function BranchTransfer() {
       )
       .then((res) => {
         if (res.data?.message?.currencies) {
-          const list = res.data.message.currencies;
+          const list = res.data.message.currencies.filter((currency) => currency.code !== "FJD");
           setCurrenciesData(list);
 
           // Default to USD or first available foreign currency
@@ -189,13 +194,40 @@ export default function BranchTransfer() {
       .finally(() => setLoadingCurrencies(false));
   };
 
+  const fetchDestinationFjdStock = (warehouseName) => {
+    if (!warehouseName) return;
+    setLoadingDestinationFjd(true);
+    axios.get("/api/method/moneygram.moneygram.api.branch_transfer.get_branch_transfer_currencies_and_rates", { params: { warehouse: warehouseName } })
+      .then((res) => setDestinationCurrenciesData(res.data?.message?.currencies || []))
+      .catch((err) => {
+        console.error("Error loading destination FJD stock:", err);
+        setErrorMsg("Failed to load FJD denomination stock for the destination branch.");
+      })
+      .finally(() => setLoadingDestinationFjd(false));
+  };
+
   // Re-fetch currencies & stock when Route is confirmed or fromBranch changes
   useEffect(() => {
-    if (isRouteConfirmed && fromBranch) {
+    if (isRouteConfirmed && fromBranch && toBranch) {
       fetchCurrenciesAndStock(fromBranch);
-      setDenomCounts({});
+      foreignDenomRowsRef.current = [];
+      fjdDenomRowsRef.current = [];
+      setFjdDenomStatus({ total: 0, target: 0 });
+      setTransferAmount("");
     }
-  }, [isRouteConfirmed, fromBranch]);
+  }, [isRouteConfirmed, fromBranch, toBranch]);
+
+  // Destination FJD stock is relevant only when physical cash is enabled.
+  useEffect(() => {
+    if (isRouteConfirmed && toBranch && enableCash) {
+      fetchDestinationFjdStock(toBranch);
+      return;
+    }
+    setDestinationCurrenciesData([]);
+    fjdDenomRowsRef.current = [];
+    setFjdDenomStatus({ total: 0, target: 0 });
+    setLoadingDestinationFjd(false);
+  }, [isRouteConfirmed, toBranch, enableCash]);
 
   // Currently selected currency object
   const activeCurrency = useMemo(() => {
@@ -218,58 +250,44 @@ export default function BranchTransfer() {
     );
   }, [currenciesData, selectedCurrencyCode]);
 
-  // Effective Exchange Rate: FJD per 1 foreign unit
-  const effectiveFjdRate = useMemo(() => {
-    if (isCustomRateActive && customRate && parseFloat(customRate) > 0) {
-      return parseFloat(customRate);
-    }
-    return activeCurrency?.fjd_rate || 1.0;
-  }, [isCustomRateActive, customRate, activeCurrency]);
+  // Effective Exchange Rate: FJD per 1 foreign unit, sourced from Currency Master Data.
+  const effectiveFjdRate = activeCurrency?.fjd_rate || 1.0;
 
   const notesList = activeCurrency?.notes || [];
   const coinsList = activeCurrency?.coins || [];
   const allItemsList = useMemo(() => [...notesList, ...coinsList], [notesList, coinsList]);
+  const destinationFjd = useMemo(() => destinationCurrenciesData.find((currency) => currency.code === "FJD"), [destinationCurrenciesData]);
+  const fjdItemsList = useMemo(() => [...(destinationFjd?.notes || []), ...(destinationFjd?.coins || [])], [destinationFjd]);
 
-  // Calculations for total transfer value
-  const { totalPieces, totalForeignAmount, totalLocalFjdAmount } = useMemo(() => {
-    let pieces = 0;
-    let foreignAmt = 0;
-    for (const item of allItemsList) {
-      const count = denomCounts[item.item_code] || 0;
-      if (count > 0) {
-        pieces += count;
-        foreignAmt += count * (item.value || 0);
-      }
-    }
-    const localFjd = foreignAmt * effectiveFjdRate;
-    return {
-      totalPieces: pieces,
-      totalForeignAmount: foreignAmt,
-      totalLocalFjdAmount: localFjd,
-    };
-  }, [allItemsList, denomCounts, effectiveFjdRate]);
+  const totalForeignAmount = Math.max(0, Number(transferAmount) || 0);
+  const totalLocalFjdAmount = totalForeignAmount * effectiveFjdRate;
+  const roundedLocalFjdAmount = Math.round(totalLocalFjdAmount * 20) / 20;
+  const totalPieces = foreignDenomRowsRef.current.reduce((sum, row) => sum + Number(row.count || 0), 0);
+  const isForeignBalanced = totalForeignAmount > 0 && Math.abs(foreignDenomStatus.total - totalForeignAmount) < 0.01;
+  const isFjdBalanced = roundedLocalFjdAmount > 0 && Math.abs(fjdDenomStatus.total - roundedLocalFjdAmount) < 0.01;
 
-  // Denomination count handler
-  const handleCountChange = (itemCode, value, maxAvail) => {
-    const numeric = parseInt(value, 10);
-    if (isNaN(numeric) || numeric <= 0) {
-      setDenomCounts((prev) => {
-        const next = { ...prev };
-        delete next[itemCode];
-        return next;
-      });
-      return;
-    }
-    if (maxAvail !== undefined && numeric > maxAvail) {
-      alert(`Entered count (${numeric}) exceeds available stock in branch (${maxAvail}).`);
-      setDenomCounts((prev) => ({ ...prev, [itemCode]: maxAvail }));
-      return;
-    }
-    setDenomCounts((prev) => ({ ...prev, [itemCode]: numeric }));
-  };
+  const handleForeignRowsChange = useCallback((rows) => {
+    foreignDenomRowsRef.current = rows;
+    setForeignDenomStatus({
+      total: rows.reduce((sum, row) => sum + row.denom * row.count, 0),
+      target: totalForeignAmount,
+    });
+  }, [totalForeignAmount]);
+
+  const handleFjdRowsChange = useCallback((rows) => {
+    fjdDenomRowsRef.current = rows;
+    setFjdDenomStatus({
+      total: rows.reduce((sum, row) => sum + row.denom * row.count, 0),
+      target: roundedLocalFjdAmount,
+    });
+  }, [roundedLocalFjdAmount]);
 
   const handleClearAll = () => {
-    setDenomCounts({});
+    setTransferAmount("");
+    foreignDenomRowsRef.current = [];
+    fjdDenomRowsRef.current = [];
+    setForeignDenomStatus({ total: 0, target: 0 });
+    setFjdDenomStatus({ total: 0, target: 0 });
     setRemarks("");
   };
 
@@ -283,21 +301,40 @@ export default function BranchTransfer() {
       alert("Source Branch and Target Branch cannot be the same.");
       return;
     }
-    if (totalPieces <= 0 || totalForeignAmount <= 0) {
-      alert("Please enter at least one denomination count to transfer.");
+    if (totalForeignAmount <= 0) {
+      alert("Please enter the foreign currency amount to transfer.");
+      return;
+    }
+    if (!isForeignBalanced) {
+      alert(`Foreign denominations must equal ${totalForeignAmount.toFixed(2)} ${activeCurrency.code}.`);
+      return;
+    }
+    if (enableCash && !isFjdBalanced) {
+      alert(`FJD denominations must equal the cash value of $${roundedLocalFjdAmount.toFixed(2)}.`);
       return;
     }
 
-    const payloadItems = [];
-    for (const item of allItemsList) {
-      const count = denomCounts[item.item_code] || 0;
-      if (count > 0) {
-        payloadItems.push({
-          item_code: item.item_code,
-          qty: count,
-          rate: item.value,
-        });
-      }
+    const mapRowsToItems = (rows, configuredItems, label) => rows
+      .filter((row) => row.count > 0)
+      .map((row) => {
+        const configured = configuredItems.find((item) => Math.abs(Number(item.value) - Number(row.denom)) < 0.001);
+        if (!configured) throw new Error(`${label} denomination ${row.denom} is not configured in ERPNext.`);
+        if (Number(row.count) > Number(configured.available_qty || 0)) {
+          throw new Error(`${configured.item_code} has only ${configured.available_qty || 0} pieces available.`);
+        }
+        return { item_code: configured.item_code, qty: row.count, rate: configured.value };
+      });
+
+    let payloadItems;
+    let payloadFjdItems;
+    try {
+      payloadItems = mapRowsToItems(foreignDenomRowsRef.current, allItemsList, activeCurrency.code);
+      payloadFjdItems = enableCash
+        ? mapRowsToItems(fjdDenomRowsRef.current, fjdItemsList, "FJD")
+        : [];
+    } catch (error) {
+      alert(error.message);
+      return;
     }
 
     setIsSubmitting(true);
@@ -312,11 +349,11 @@ export default function BranchTransfer() {
           currency: activeCurrency.code,
           country: activeCurrency.country,
           items: payloadItems,
+          fjd_items: payloadFjdItems,
           exchange_rate: effectiveFjdRate,
           fjd_rate: effectiveFjdRate,
-          remarks:
-            remarks ||
-            `Inter-Branch FX Transfer: ${totalForeignAmount.toFixed(2)} ${activeCurrency.code} (${fromBranch} -> ${toBranch})`,
+          enable_cash: enableCash ? 1 : 0,
+          remarks: remarks.trim(),
         }
       );
 
@@ -334,8 +371,23 @@ export default function BranchTransfer() {
       }
     } catch (err) {
       console.error("Branch Transfer Error:", err);
-      const msg =
-        err.response?.data?.message || err.message || "Failed to execute branch transfer.";
+      const responseData = err.response?.data || {};
+      let serverMessage = responseData.message || responseData.exception || "";
+      if (!serverMessage && responseData._server_messages) {
+        try {
+          const messages = JSON.parse(responseData._server_messages);
+          const parsed = messages.map((message) => {
+            try { return JSON.parse(message).message || message; } catch { return message; }
+          });
+          serverMessage = parsed.join(" ");
+        } catch {
+          serverMessage = responseData._server_messages;
+        }
+      }
+      const msg = String(serverMessage || err.message || "Failed to execute branch transfer.")
+        .replace(/<[^>]*>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
       setErrorMsg(msg);
     } finally {
       setIsSubmitting(false);
@@ -555,21 +607,6 @@ export default function BranchTransfer() {
                       </p>
                     </div>
 
-                    {/* Rate Display / Custom Rate Toggle */}
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setIsCustomRateActive(!isCustomRateActive)}
-                        className={`text-[11px] font-bold px-3 py-1.5 rounded-lg border transition-all flex items-center gap-1 cursor-pointer ${
-                          isCustomRateActive
-                            ? "bg-amber-50 border-amber-300 text-amber-900"
-                            : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
-                        }`}
-                      >
-                        <Edit3 size={11} />
-                        <span>{isCustomRateActive ? "Custom Rate Active" : "Edit Rate"}</span>
-                      </button>
-                    </div>
                   </div>
 
                   {/* Currencies Pills */}
@@ -588,9 +625,9 @@ export default function BranchTransfer() {
                             type="button"
                             onClick={() => {
                               setSelectedCurrencyCode(c.code);
-                              setDenomCounts({});
-                              setIsCustomRateActive(false);
-                              setCustomRate("");
+                              setTransferAmount("");
+                              foreignDenomRowsRef.current = [];
+                              fjdDenomRowsRef.current = [];
                             }}
                             className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer border flex items-center gap-1.5 ${
                               isActive
@@ -623,32 +660,56 @@ export default function BranchTransfer() {
                     </div>
 
                     <div className="text-right">
-                      {isCustomRateActive ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-500 font-bold">1 {activeCurrency.code} =</span>
-                          <input
-                            type="number"
-                            step="0.0001"
-                            value={customRate}
-                            placeholder={activeCurrency.fjd_rate?.toString()}
-                            onChange={(e) => setCustomRate(e.target.value)}
-                            className="w-24 px-2 py-1 text-xs font-mono font-bold bg-white border border-amber-400 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500"
-                          />
-                          <span className="text-xs font-bold text-gray-700">FJD</span>
-                        </div>
-                      ) : (
-                        <div>
-                          <div className="text-xs font-black text-emerald-800">
-                            1 {activeCurrency.code} = {effectiveFjdRate?.toFixed(4)} FJD
-                          </div>
-                          <div className="text-[10px] text-gray-400">Live Valuation Multiplier</div>
-                        </div>
-                      )}
+                      <div className="text-xs font-black text-emerald-800">
+                        1 {activeCurrency.code} = {effectiveFjdRate?.toFixed(4)} FJD
+                      </div>
+                      <div className="text-[10px] text-gray-400">Currency Master Data rate</div>
                     </div>
                   </div>
+
+                  <div className="mt-4 grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 sm:grid-cols-2 sm:items-end">
+                    <label>
+                      <span className="mb-1.5 block text-[11px] font-black uppercase tracking-wider text-gray-500">Foreign amount to transfer</span>
+                      <div className="flex overflow-hidden rounded-xl border border-gray-300 focus-within:border-[#E00000] focus-within:ring-2 focus-within:ring-[#E00000]/10">
+                        <input type="number" min="0" step="0.01" value={transferAmount} onChange={(event) => setTransferAmount(event.target.value)} placeholder="0.00" className="min-w-0 flex-1 px-4 py-3 text-lg font-black outline-none" />
+                        <span className="flex items-center bg-gray-50 px-4 text-sm font-black text-gray-600">{activeCurrency.code}</span>
+                      </div>
+                    </label>
+                    <div className="rounded-xl bg-gray-50 px-4 py-3">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">FJD cash value</span>
+                      <div className="mt-0.5 text-xl font-black text-gray-900">${roundedLocalFjdAmount.toFixed(2)} <span className="text-xs text-gray-500">FJD</span></div>
+                    </div>
+                  </div>
+
+                  <details className="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-white">
+                    <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-xs font-black text-gray-800 hover:bg-gray-50">
+                      <span>
+                        View selected-route stock: {activeCurrency.code} at Location A
+                        {enableCash ? " and FJD at Location B" : ""}
+                      </span>
+                      <ChevronRight size={15} className="text-gray-400" />
+                    </summary>
+                    <div className={`grid gap-4 border-t border-gray-100 bg-gray-50/60 p-4 ${enableCash ? "md:grid-cols-2" : ""}`}>
+                      <div className="rounded-xl border border-red-100 bg-white p-3">
+                        <div className="text-[10px] font-black uppercase tracking-widest text-red-500">{fromBranch} · {activeCurrency.code} Stock</div>
+                        <div className="mt-3 space-y-1.5">
+                          {allItemsList.map((item) => <div key={item.item_code} className="flex items-center justify-between text-xs"><span className="text-gray-600">{activeCurrency.symbol}{Number(item.value).toFixed(Number(item.value) < 1 ? 2 : 0)}</span><b className="text-gray-900">{Number(item.available_qty || 0).toLocaleString()} pcs</b></div>)}
+                          {!allItemsList.length && <div className="text-xs text-gray-400">No {activeCurrency.code} denomination stock configured.</div>}
+                        </div>
+                      </div>
+                      {enableCash && <div className="rounded-xl border border-emerald-100 bg-white p-3">
+                        <div className="text-[10px] font-black uppercase tracking-widest text-emerald-600">{toBranch} · FJD Stock</div>
+                        <div className="mt-3 space-y-1.5">
+                          {fjdItemsList.map((item) => <div key={item.item_code} className="flex items-center justify-between text-xs"><span className="text-gray-600">${Number(item.value).toFixed(Number(item.value) < 1 ? 2 : 0)}</span><b className="text-gray-900">{Number(item.available_qty || 0).toLocaleString()} pcs</b></div>)}
+                          {!fjdItemsList.length && <div className="text-xs text-gray-400">No FJD denomination stock configured.</div>}
+                        </div>
+                      </div>}
+                    </div>
+                  </details>
                 </div>
 
-                {/* Denomination Counts Card */}
+                {false && <>
+                {/* Legacy denomination layout retained temporarily for rollback safety. */}
                 <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 md:p-8">
                   <div className="flex items-center justify-between pb-4 mb-6 border-b border-gray-100">
                     <div>
@@ -844,6 +905,111 @@ export default function BranchTransfer() {
                     </div>
                   )}
                 </div>
+
+                {/* FJD cash is paid by the destination branch and received by the source branch. */}
+                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 md:p-8">
+                  <div className="flex flex-col gap-3 border-b border-gray-100 pb-4 mb-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-base font-black text-gray-900">Select Local Currency Denominations (FJD)</h2>
+                      <p className="mt-0.5 text-xs text-gray-400">
+                        FJD stock goes out from destination branch <span className="font-bold text-gray-700">{toBranch}</span> and comes into <span className="font-bold text-gray-700">{fromBranch}</span>.
+                      </p>
+                    </div>
+                    <div className={`rounded-xl border px-3 py-2 text-right ${isFjdBalanced ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Expected / Counted</div>
+                      <div className={`text-sm font-black ${isFjdBalanced ? "text-emerald-700" : "text-[#E00000]"}`}>
+                        ${roundedLocalFjdAmount.toFixed(2)} / ${totalSelectedFjd.toFixed(2)} FJD
+                      </div>
+                    </div>
+                  </div>
+                  <FjdDenominationSelector
+                    items={fjdItemsList}
+                    counts={fjdDenomCounts}
+                    onCountChange={handleFjdCountChange}
+                    loading={loadingDestinationFjd}
+                    warehouse={toBranch}
+                  />
+                  {!isFjdBalanced && totalForeignAmount > 0 && (
+                    <div className="mt-3 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+                      <AlertCircle size={14} />
+                      FJD denomination count is {fjdDifference > 0 ? "over" : "short"} by ${Math.abs(fjdDifference).toFixed(2)}.
+                    </div>
+                  )}
+                </div>
+                </>}
+
+                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 md:p-8">
+                  <div className="mb-5 flex items-center justify-between border-b border-gray-100 pb-4">
+                    <div>
+                      <h2 className="text-base font-black text-gray-900">Cash Denomination Counts</h2>
+                    </div>
+                    {totalForeignAmount > 0 && <button type="button" onClick={handleClearAll} className="rounded-lg px-3 py-1.5 text-xs font-bold text-red-500 hover:bg-red-50">Reset</button>}
+                  </div>
+                  {loadingCurrencies || (enableCash && loadingDestinationFjd) ? (
+                    <div className="py-14 text-center text-xs font-semibold text-gray-400"><RefreshCw size={20} className="mx-auto mb-2 animate-spin text-[#E00000]" />Loading denomination data...</div>
+                  ) : (
+                    <div className={`grid grid-cols-1 gap-4 ${enableCash ? "md:grid-cols-2" : ""}`}>
+                      <div className="flex min-w-0 flex-col gap-3">
+                        <div className="rounded-xl border border-red-200 bg-red-50/60 p-3">
+                          <div className="text-[10px] font-black uppercase tracking-widest text-red-500">Location A · Provides Foreign Currency</div>
+                          <div className="mt-1 truncate text-sm font-black text-gray-900">{fromBranch}</div>
+                          <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
+                            <div><span className="block text-gray-400">Currency</span><b className="text-gray-800">{activeCurrency.code}</b></div>
+                            <div><span className="block text-gray-400">Cash movement</span><b className="text-red-700">Goes out</b></div>
+                            <div><span className="block text-gray-400">Transfer value</span><b className="text-gray-800">{activeCurrency.symbol}{totalForeignAmount.toFixed(2)}</b></div>
+                            <div><span className="block text-gray-400">Received by</span><b className="text-gray-800">Location B</b></div>
+                          </div>
+                        </div>
+                        <DenominationPanel
+                          title={`${activeCurrency.code} Provided by Location A`}
+                          subtitle={`Count foreign currency held at ${fromBranch}`}
+                          flag=""
+                          symbol={activeCurrency.symbol}
+                          currency={activeCurrency.code}
+                          notes={notesList.map((item) => Number(item.value))}
+                          coins={coinsList.map((item) => Number(item.value))}
+                          targetAmount={totalForeignAmount}
+                          onRowsChange={handleForeignRowsChange}
+                          availabilityByDenomination={Object.fromEntries(allItemsList.map((item) => [String(Number(item.value)), Number(item.available_qty || 0)]))}
+                          accentColor="#dc2626"
+                        />
+                      </div>
+                      {enableCash && <div className="flex min-w-0 flex-col gap-3">
+                        <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
+                          <div className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Location B · Buys Foreign Currency with FJD</div>
+                          <div className="mt-1 truncate text-sm font-black text-gray-900">{toBranch}</div>
+                          <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
+                            <div><span className="block text-gray-400">Currency</span><b className="text-gray-800">FJD</b></div>
+                            <div><span className="block text-gray-400">Cash movement</span><b className="text-emerald-700">Goes out</b></div>
+                            <div><span className="block text-gray-400">Transfer value</span><b className="text-gray-800">${roundedLocalFjdAmount.toFixed(2)}</b></div>
+                            <div><span className="block text-gray-400">Received by</span><b className="text-gray-800">Location A</b></div>
+                          </div>
+                        </div>
+                        <DenominationPanel
+                          title="FJD Paid by Location B"
+                          subtitle={`Count local currency held at ${toBranch}`}
+                          flag=""
+                          symbol="$"
+                          currency="FJD"
+                          notes={(destinationFjd?.notes || []).map((item) => Number(item.value))}
+                          coins={(destinationFjd?.coins || []).map((item) => Number(item.value))}
+                          targetAmount={roundedLocalFjdAmount}
+                          onRowsChange={handleFjdRowsChange}
+                          availabilityByDenomination={Object.fromEntries(fjdItemsList.map((item) => [String(Number(item.value)), Number(item.available_qty || 0)]))}
+                          accentColor="#059669"
+                        />
+                      </div>}
+                    </div>
+                  )}
+                  {totalForeignAmount > 0 && (!isForeignBalanced || (enableCash && !isFjdBalanced)) && (
+                    <div className="mt-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+                      <AlertCircle size={14} />
+                      {enableCash
+                        ? "Both denomination panels must be balanced before transfer."
+                        : "The foreign denomination panel must be balanced before transfer."}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Right Column: Transfer Summary & Execution */}
@@ -858,13 +1024,15 @@ export default function BranchTransfer() {
 
                   <div className="flex flex-col gap-3">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-400 font-medium">Source Warehouse (A)</span>
+                      <span className="text-gray-400 font-medium">Location A provides {activeCurrency.code}</span>
                       <span className="font-bold text-gray-800 text-right truncate max-w-[170px]">
                         {fromBranch}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-400 font-medium">Destination Warehouse (B)</span>
+                      <span className="text-gray-400 font-medium">
+                        {enableCash ? "Location B pays physical FJD" : "Location B settles FJD by accounting"}
+                      </span>
                       <span className="font-bold text-gray-800 text-right truncate max-w-[170px]">
                         {toBranch}
                       </span>
@@ -895,14 +1063,16 @@ export default function BranchTransfer() {
                   {/* Local Currency FJD Equivalent Box */}
                   <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200">
                     <span className="text-[11px] uppercase font-bold text-gray-400 block mb-1">
-                      Local Currency Value (FJD)
+                      {enableCash ? "FJD Denominations Counted" : "FJD Accounting Value"}
                     </span>
                     <div className="text-xl font-black text-gray-900">
-                      ${totalLocalFjdAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
+                      ${(enableCash ? fjdDenomStatus.total : roundedLocalFjdAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
                       <span className="text-xs font-bold text-gray-500">FJD</span>
                     </div>
                     <span className="text-[10px] text-gray-400 mt-0.5 block">
-                      Valued at mapped cash accounts and stock ledgers
+                      {enableCash
+                        ? `Exchange value: $${roundedLocalFjdAmount.toFixed(2)} FJD`
+                        : "No physical FJD denomination stock movement"}
                     </span>
                   </div>
 
@@ -920,29 +1090,32 @@ export default function BranchTransfer() {
                     />
                   </div>
 
-                  {/* Automated Accounting Flow Breakdown */}
-                  <div className="p-3.5 rounded-2xl bg-blue-50/60 border border-blue-100 text-[11px] text-blue-900 flex flex-col gap-1.5">
-                    <span className="font-black uppercase tracking-wider text-[10px] text-blue-700 flex items-center gap-1">
-                      <Sparkles size={12} />
-                      Automated Accounting &amp; Stock Flow:
+                  <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                    <input
+                      type="checkbox"
+                      checked={enableCash}
+                      onChange={(event) => setEnableCash(event.target.checked)}
+                      className="mt-0.5 h-4 w-4 accent-[#E00000]"
+                    />
+                    <span>
+                      <span className="block text-xs font-black text-gray-900">Enable Cash</span>
+                      <span className="mt-1 block text-[10px] leading-4 text-gray-500">
+                        Count and move physical FJD denominations. Leave unchecked for accounting-only FJD settlement.
+                      </span>
                     </span>
-                    <div>• <b>Sales Invoice</b> (Stock out from {fromBranch}, Customer = {toBranch})</div>
-                    <div>• <b>Purchase Invoice</b> (Stock in to {toBranch}, Supplier = {fromBranch})</div>
-                    <div>• <b>Payment Entries</b> via mapped cash accounts for {fromBranch} and {toBranch}</div>
-                    <div>• <b>Material Receipt</b> (FJD) at {fromBranch} &amp; <b>Material Issue</b> (FJD) at {toBranch}</div>
-                  </div>
+                  </label>
 
                   {/* Action Button */}
                   <button
                     type="button"
                     onClick={handleSubmitTransfer}
-                    disabled={isSubmitting || totalPieces <= 0 || !fromBranch || !toBranch}
+                    disabled={isSubmitting || totalPieces <= 0 || !isForeignBalanced || (enableCash && !isFjdBalanced) || !fromBranch || !toBranch}
                     className="w-full py-3.5 px-6 rounded-2xl bg-[#E00000] hover:bg-[#b70000] text-white font-black text-sm shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
                   >
                     {isSubmitting ? (
                       <>
                         <RefreshCw size={16} className="animate-spin" />
-                        Executing 6-Document Flow...
+                        {enableCash ? "Executing Cash Transfer..." : "Executing Accounting Transfer..."}
                       </>
                     ) : (
                       <>
@@ -968,9 +1141,7 @@ export default function BranchTransfer() {
                   </div>
                   <div>
                     <h3 className="text-lg font-black text-gray-900">Branch Transfer Complete</h3>
-                    <p className="text-xs text-gray-500">
-                      All 6 ERPNext accounting and stock documents generated successfully
-                    </p>
+                    <p className="text-xs text-gray-500">Transfer completed successfully</p>
                   </div>
                 </div>
                 <button
@@ -1003,39 +1174,6 @@ export default function BranchTransfer() {
                   <span className="text-xs font-black text-emerald-900">
                     ${successInfo.total_local_amount?.toFixed(2)} FJD
                   </span>
-                </div>
-              </div>
-
-              {/* Linked Documents Reference Table */}
-              <div className="rounded-2xl border border-gray-200 overflow-hidden mb-6 text-xs">
-                <div className="bg-gray-100/80 px-4 py-2 font-bold text-gray-700 uppercase tracking-wider text-[10px]">
-                  Generated ERPNext Transactions
-                </div>
-                <div className="divide-y divide-gray-100 bg-white">
-                  <div className="px-4 py-2.5 flex items-center justify-between">
-                    <span className="font-semibold text-gray-600">1. Sales Invoice (Out of {successInfo.from_warehouse})</span>
-                    <span className="font-mono font-bold text-gray-900">{successInfo.sales_invoice}</span>
-                  </div>
-                  <div className="px-4 py-2.5 flex items-center justify-between">
-                    <span className="font-semibold text-gray-600">2. Purchase Invoice (Into {successInfo.to_warehouse})</span>
-                    <span className="font-mono font-bold text-gray-900">{successInfo.purchase_invoice}</span>
-                  </div>
-                  <div className="px-4 py-2.5 flex items-center justify-between">
-                    <span className="font-semibold text-gray-600">3. Payment Entry (Sales Invoice Receipt)</span>
-                    <span className="font-mono font-bold text-gray-900">{successInfo.payment_entry_sales}</span>
-                  </div>
-                  <div className="px-4 py-2.5 flex items-center justify-between">
-                    <span className="font-semibold text-gray-600">4. Payment Entry (Purchase Invoice Payment)</span>
-                    <span className="font-mono font-bold text-gray-900">{successInfo.payment_entry_purchase}</span>
-                  </div>
-                  <div className="px-4 py-2.5 flex items-center justify-between">
-                    <span className="font-semibold text-gray-600">5. Stock Entry Material Receipt (Local FJD at {successInfo.from_warehouse})</span>
-                    <span className="font-mono font-bold text-gray-900">{successInfo.material_receipt_a}</span>
-                  </div>
-                  <div className="px-4 py-2.5 flex items-center justify-between">
-                    <span className="font-semibold text-gray-600">6. Stock Entry Material Issue (Local FJD at {successInfo.to_warehouse})</span>
-                    <span className="font-mono font-bold text-gray-900">{successInfo.material_issue_b}</span>
-                  </div>
                 </div>
               </div>
 

@@ -1,5 +1,9 @@
 # Home App (MH Money Express Frontend & Web Portal) — Project Handover & Developer Guide
 
+> **Current cross-application handover:** Read `/home/erpnext/frappe-mmel/MMEL_CURRENT_HANDOVER.md` first. It records the live November 2026 RBF/sanctions state and current dirty branches. This file remains detailed background.
+
+> **Site policy (5 November 2026):** `rbf-test.local` has been deleted. Use only `mmel.local`, and never create a Frappe site or database without the user's explicit permission. Prefer preview-only checks unless a state-changing test is separately approved.
+
 ## 1. Executive Summary & Purpose
 
 The **Home** application (`apps/home`) is a high-performance Single Page Application (SPA) built using **React 19**, **Vite**, and **Tailwind CSS**, integrated into the **Frappe / ERPNext** backend framework. It serves as the primary teller, cashier, dealer, and customer-facing portal for **MH Money Express (MMEL)**, providing:

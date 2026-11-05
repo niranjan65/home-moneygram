@@ -162,16 +162,16 @@ export default function Navbar() {
 
   const isLoginPage = location.pathname === "/login";
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [transferDropdownOpen, setTransferDropdownOpen] = useState(false);
-  const transferDropdownRef = useRef(null);
+  const [openDropdown, setOpenDropdown] = useState(null);
+  const dropdownsRef = useRef(null);
 
   useEffect(() => {
     function handleClickOutside(event) {
       if (
-        transferDropdownRef.current &&
-        !transferDropdownRef.current.contains(event.target)
+        dropdownsRef.current &&
+        !dropdownsRef.current.contains(event.target)
       ) {
-        setTransferDropdownOpen(false);
+        setOpenDropdown(null);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -196,9 +196,26 @@ export default function Navbar() {
   };
 
   const navItems = [
-    { label: "Money Transfer", href: "/money-transfer" },
-    { label: "Currency Exchange", href: "/exchange" },
-    { label: "Dealer Exchange", href: "/dealer-exchange" },
+    { label: "MH Money Transfer", href: "/money-transfer" },
+    { label: "Customer Requests", href: "/customer-requests" },
+    {
+      label: "Exchange",
+      isDropdown: true,
+      children: [
+        {
+          label: "Currency Exchange",
+          href: "/exchange",
+          description: "Customer foreign-currency exchange",
+          icon: ArrowLeftRight,
+        },
+        {
+          label: "Dealer Exchange",
+          href: "/dealer-exchange",
+          description: "Commercial dealer currency exchange",
+          icon: Landmark,
+        },
+      ],
+    },
     {
       label: "Transfer",
       isDropdown: true,
@@ -252,16 +269,16 @@ export default function Navbar() {
         {!isLoginPage && isLoggedIn && (
           <>
             {/* Desktop */}
-            <div className="hidden md:flex items-center gap-2 lg:gap-3 xl:gap-5">
+            <div ref={dropdownsRef} className="hidden md:flex items-center gap-2 lg:gap-3 xl:gap-5">
               {navItems.map((item) => {
                 if (item.isDropdown) {
                   const isAnyActive = item.children.some((child) => location.pathname === child.href);
 
                   return (
-                    <div key={item.label} className="relative" ref={transferDropdownRef}>
+                    <div key={item.label} className="relative">
                       <button
                         type="button"
-                        onClick={() => setTransferDropdownOpen((prev) => !prev)}
+                        onClick={() => setOpenDropdown((current) => current === item.label ? null : item.label)}
                         className={`px-3 lg:px-3.5 py-1.5 lg:py-2 rounded-lg text-sm font-bold transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${
                           isAnyActive
                             ? "bg-white text-[#E00000] shadow-sm dark:bg-white dark:text-[#E00000]"
@@ -272,13 +289,13 @@ export default function Navbar() {
                         <ChevronDown
                           size={14}
                           className={`transition-transform duration-200 ${
-                            transferDropdownOpen ? "rotate-180 text-[#E00000]" : "text-gray-400"
+                            openDropdown === item.label ? "rotate-180 text-[#E00000]" : "text-gray-400"
                           }`}
                         />
                       </button>
 
                       {/* Dropdown Menu */}
-                      {transferDropdownOpen && (
+                      {openDropdown === item.label && (
                         <div className="absolute top-full left-0 mt-1.5 w-60 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                           {item.children.map((child) => {
                             const isChildActive = location.pathname === child.href;
@@ -288,7 +305,7 @@ export default function Navbar() {
                               <Link
                                 key={child.label}
                                 to={child.href}
-                                onClick={() => setTransferDropdownOpen(false)}
+                                onClick={() => setOpenDropdown(null)}
                                 className={`flex items-start gap-3 p-2.5 rounded-xl transition-all ${
                                   isChildActive
                                     ? "bg-red-50/70 text-[#E00000] dark:bg-red-950/40"

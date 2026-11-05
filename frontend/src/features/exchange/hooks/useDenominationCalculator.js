@@ -1,32 +1,35 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 
-export function buildRows(amount, denoms) {
+export function buildRows(amount, denoms, availabilityByDenomination) {
   const rows = [];
   if (!amount || !denoms?.length) return rows;
   let remaining = Math.round(parseFloat(amount) * 100);
   const sortedDenoms = [...denoms].map(d => Math.round(d * 100)).sort((a, b) => b - a);
   for (let i = 0; i < sortedDenoms.length; i++) {
     const dc    = sortedDenoms[i];
-    const count = Math.floor(remaining / dc);
+    const requestedCount = Math.floor(remaining / dc);
+    const available = availabilityByDenomination?.[String(dc / 100)];
+    const count = available === undefined ? requestedCount : Math.min(requestedCount, Math.max(0, Number(available) || 0));
     rows.push({ id: `${dc}-${i}`, denom: dc / 100, count: count > 0 ? count : 0 });
     remaining -= count * dc;
   }
   return rows;
 }
 
-export const useDenominationCalculator = ({ currency, targetAmount, notes, coins, onRowsChange }) => {
+export const useDenominationCalculator = ({ currency, targetAmount, notes, coins, onRowsChange, availabilityByDenomination }) => {
   const [rows, setRows] = useState([]);
   const [customDenom, setCustomDenom] = useState('');
   const [showCustom, setShowCustom] = useState(false);
   const prevKey = useRef('');
+  const availabilityKey = JSON.stringify(availabilityByDenomination || {});
 
   useEffect(() => {
-    const key = `${currency}:${targetAmount}:${(notes||[]).length}:${(coins||[]).length}`;
+    const key = `${currency}:${targetAmount}:${(notes||[]).length}:${(coins||[]).length}:${availabilityKey}`;
     if (prevKey.current !== key) {
       prevKey.current = key;
-      setRows(buildRows(targetAmount, [...(notes||[]), ...(coins||[])]));
+      setRows(buildRows(targetAmount, [...(notes||[]), ...(coins||[])], availabilityByDenomination));
     }
-  }, [currency, targetAmount, notes, coins]);
+  }, [currency, targetAmount, notes, coins, availabilityKey]);
 
   useEffect(() => { onRowsChange?.(rows); }, [rows, onRowsChange]);
 
@@ -43,7 +46,7 @@ export const useDenominationCalculator = ({ currency, targetAmount, notes, coins
   
   const removeRow = useCallback((id) => setRows(p => p.filter(r => r.id!==id)), []);
   
-  const reset = useCallback(() => setRows(buildRows(targetAmount, [...(notes||[]), ...(coins||[])])), [targetAmount, notes, coins]);
+  const reset = useCallback(() => setRows(buildRows(targetAmount, [...(notes||[]), ...(coins||[])], availabilityByDenomination)), [targetAmount, notes, coins, availabilityKey]);
 
   const activeDenomSet = new Set(rows.map(r => r.denom));
   const addablePresets = [...(notes||[]), ...(coins||[])].filter(d => !activeDenomSet.has(d));

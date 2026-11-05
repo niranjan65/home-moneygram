@@ -18,6 +18,7 @@ import Reports from "./pages/Reports";
 import VaultTransfer from "./pages/VaultTransfer";
 import BranchTransfer from "./pages/BranchTransfer";
 import { Navigate } from "react-router-dom";
+import CustomerRequests from "./pages/CustomerRequestsReports";
 
 function App() {
   // Dynamic socket connection (if needed):
@@ -80,6 +81,8 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        <Route path="/customer-requests" element={<ProtectedRoute><CustomerRequests /></ProtectedRoute>} />
 
         <Route
           path="/transactions"

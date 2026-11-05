@@ -15,7 +15,6 @@ import {
   ArrowDownLeft,
   ArrowLeftRight,
   CheckCircle2,
-  Wallet,
   ChevronDown,
   User,
   Phone,
@@ -30,7 +29,7 @@ import { useAppConfiguration } from "../hooks/useAppConfiguration";
 import { createMoneyTransfer } from "../features/exchange/api/createMoneyTransfer";
 import TransferAmountSection from "../features/exchange/components/TransferAmountSection";
 import { DenominationPanel } from "../features/exchange/components/sections/DenominationPanel";
-import SplitRemittanceSection from "../features/remittance/SplitRemittanceSection";
+import { RbfComplianceSection } from "../features/exchange/components/sections/RbfComplianceSection";
 import { MoneyTransferInvoiceDocument } from "../components/MoneyTransferInvoice";
 import { CustomerPhotoCard } from "../features/exchange/components/CustomerPhotoCard";
 import { useBaseCurrency } from "../hooks/useDenomination";
@@ -700,25 +699,6 @@ const MoneyTransfer = () => {
     });
   }, [metaFields, fetchLinkOptions]);
 
-  const [defaultLimits, setDefaultLimits] = useState(null);
-
-  useEffect(() => {
-    getDefaultCustomerLimits().then((limits) => {
-      if (limits) {
-        setDefaultLimits(limits);
-        setForm((prev) => ({
-          ...prev,
-          custom_available_currency_transfer_balance:
-            prev.custom_available_currency_transfer_balance || limits.annual_fx_limit || 0,
-          custom_annual_fx_and_moneygram_limit:
-            prev.custom_annual_fx_and_moneygram_limit || limits.annual_fx_and_moneygram_limit || 0,
-          custom_annual_compliance_limit:
-            prev.custom_annual_compliance_limit || limits.annual_compliance_limit || 0,
-        }));
-      }
-    });
-  }, []);
-
   // console.log("Current User:", loginUser);
   const settings = useSettings();
   const selectedWarehouse =
@@ -739,6 +719,7 @@ const MoneyTransfer = () => {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerImageFile, setCustomerImageFile] = useState(null);
   const [customerImageUrl, setCustomerImageUrl] = useState("");
+  const requestPrefillAppliedRef = useRef(false);
 
   const [isIdSearchMode, setIsIdSearchMode] = useState(false);
 
@@ -1122,7 +1103,7 @@ const MoneyTransfer = () => {
     const transferTypeField = sorted.find((f) => f.fieldname === "transfer_type");
     const amountField = sorted.find((f) => f.fieldname === "amount");
     const checkFields = sorted.filter(
-      (f) => f.fieldname === "enable_currency_denomination" || f.fieldtype === "Check"
+      (f) => f.fieldtype === "Check" && f.fieldname !== "enable_currency_denomination"
     );
 
     let result = [...sorted];
@@ -1136,6 +1117,7 @@ const MoneyTransfer = () => {
         (f) =>
           f.fieldname !== "transfer_type" &&
           f.fieldname !== "amount" &&
+          f.fieldname !== "enable_currency_denomination" &&
           !checkFields.some((c) => c.fieldname === f.fieldname)
       );
 
@@ -1161,7 +1143,7 @@ const MoneyTransfer = () => {
       return remaining;
     } else if (checkFields.length > 0) {
       const remaining = result.filter(
-        (f) => !checkFields.some((c) => c.fieldname === f.fieldname)
+        (f) => f.fieldname !== "enable_currency_denomination" && !checkFields.some((c) => c.fieldname === f.fieldname)
       );
 
       const cIdIdx = remaining.findIndex((f) => f.fieldname === "customer_id");
@@ -1178,7 +1160,7 @@ const MoneyTransfer = () => {
       return remaining;
     }
 
-    return positionOetCode(sorted);
+    return positionOetCode(sorted.filter((f) => f.fieldname !== "enable_currency_denomination"));
   }, [usableFields]);
 
   const inputStyle =
@@ -1515,8 +1497,9 @@ const MoneyTransfer = () => {
       custom_date_of_birth: c.custom_date_of_birth || c.dob || prev.custom_date_of_birth || "",
       passport_number: c.custom_passport_number || prev.passport_number || "",
       custom_passport_number: c.custom_passport_number || prev.custom_passport_number || "",
-      document_upload: c.custom_government_document || prev.document_upload || "",
-      custom_government_document: c.custom_government_document || prev.custom_government_document || "",
+      // Evidence attachments are transaction-specific and must be uploaded again.
+      document_upload: "",
+      custom_government_document: "",
       custom_government_id: govIdType || prev.custom_government_id || "",
       government_id_type: govIdType || prev.government_id_type || "",
       government_id_number: govIdNumber || prev.government_id_number || "",
@@ -1531,9 +1514,6 @@ const MoneyTransfer = () => {
       id_issue_country: c.custom_id_issue_country || prev.id_issue_country || "",
       id_issue_state: c.custom_id_issue_stateprovince || prev.id_issue_state || "",
       risk_level: c.custom_risk_level || c.risk_level || prev.risk_level || "Low",
-      custom_available_currency_transfer_balance: c.custom_available_currency_transfer_balance ?? prev.custom_available_currency_transfer_balance ?? 0,
-      custom_annual_fx_and_moneygram_limit: c.custom_annual_fx_and_moneygram_limit ?? prev.custom_annual_fx_and_moneygram_limit ?? 0,
-      custom_annual_compliance_limit: c.custom_annual_compliance_limit ?? prev.custom_annual_compliance_limit ?? 0,
     }));
 
     try {
@@ -1547,7 +1527,7 @@ const MoneyTransfer = () => {
 
         // Fetch existing customer photo if present
         const existingImg = customer.image || customer.custom_image || "";
-        setCustomerImageUrl(existingImg);
+        setCustomerImageUrl(existingImg || c.image || c.custom_image || "");
         setCustomerImageFile(null);
 
         setForm((prev) => ({
@@ -1686,18 +1666,57 @@ const MoneyTransfer = () => {
             customer.risk_level ||
             prev.risk_level ||
             "Low",
-          custom_available_currency_transfer_balance:
-            customer.custom_available_currency_transfer_balance ?? prev.custom_available_currency_transfer_balance ?? 0,
-          custom_annual_fx_and_moneygram_limit:
-            customer.custom_annual_fx_and_moneygram_limit ?? prev.custom_annual_fx_and_moneygram_limit ?? 0,
-          custom_annual_compliance_limit:
-            customer.custom_annual_compliance_limit ?? prev.custom_annual_compliance_limit ?? 0,
         }));
       }
     } catch (err) {
       console.error("Error auto-filling customer from dropdown:", err);
     }
   };
+
+  // Use the normal customer-selection flow for Customer Requests so DOB,
+  // identity, address, limits, documents, and contact data all come from the
+  // current Customer record. Apply request-specific transaction values after
+  // that customer lookup finishes.
+  useEffect(() => {
+    if (requestPrefillAppliedRef.current || !loginUser?.user) return;
+    const raw = sessionStorage.getItem("customerMoneyTransferRequestPrefill");
+    if (!raw) return;
+
+    requestPrefillAppliedRef.current = true;
+    const applyRequestPrefill = async () => {
+      try {
+        const prefill = JSON.parse(raw);
+        const data = prefill?.data || {};
+        if (data.customer_id) {
+          await handleSelectCustomer({
+            name: data.customer_id,
+            customer_id: data.customer_id,
+            custom_customer_id: data.customer_id,
+            custom_full_name: data.full_name,
+            mobile_no: data.phone_number,
+          });
+        }
+        setForm((previous) => ({
+          ...previous,
+          amount: data.amount,
+          currency: data.currency,
+          destination_country: data.destination_country,
+          receive_currency: data.receive_currency,
+          receiver_name: data.receiver_name,
+          purpose_of_transaction: data.purpose_of_transaction,
+          source_of_funds: data.source_of_funds,
+          remarks: data.remarks,
+          customer_request_reference: prefill.request_name,
+        }));
+      } catch (error) {
+        console.warn("Unable to apply customer request prefill", error);
+      } finally {
+        sessionStorage.removeItem("customerMoneyTransferRequestPrefill");
+      }
+    };
+
+    applyRequestPrefill();
+  }, [loginUser?.user]);
 
   useEffect(() => {
     const fetchCustomer = async () => {
@@ -1716,9 +1735,6 @@ const MoneyTransfer = () => {
         setForm((prev) => ({
           ...prev,
           customer: "",
-          custom_available_currency_transfer_balance: "",
-          custom_annual_fx_and_moneygram_limit: "",
-          custom_annual_compliance_limit: "",
         }));
 
         return;
@@ -1757,15 +1773,6 @@ const MoneyTransfer = () => {
         // =====================================================
         if (customer?.name) {
           console.log("✅ CUSTOMER FOUND:", customer);
-
-          console.log("💰 LIMITS FROM CUSTOMER:", {
-            available:
-              customer.custom_available_currency_transfer_balance,
-            fx_moneygram:
-              customer.custom_annual_fx_and_moneygram_limit,
-            compliance:
-              customer.custom_annual_compliance_limit,
-          });
 
           setCustomerFound(true);
           setCustomerLookupDone(true);
@@ -1908,17 +1915,6 @@ const MoneyTransfer = () => {
               prev.postal_code ||
               "",
 
-            // ==========================================
-            // CUSTOMER LIMITS
-            // ==========================================
-            custom_available_currency_transfer_balance:
-              customer.custom_available_currency_transfer_balance ?? 0,
-
-            custom_annual_fx_and_moneygram_limit:
-              customer.custom_annual_fx_and_moneygram_limit ?? 0,
-
-            custom_annual_compliance_limit:
-              customer.custom_annual_compliance_limit ?? 0,
           }));
 
           return;
@@ -1934,23 +1930,10 @@ const MoneyTransfer = () => {
           setCustomerImageUrl("");
         }
 
-        const limits = await getDefaultCustomerLimits();
-
-        console.log("💰 DEFAULT LIMITS:", limits);
-
         setForm((prev) => ({
           ...prev,
 
           customer: "",
-
-          custom_available_currency_transfer_balance:
-            limits?.annual_fx_limit ?? 0,
-
-          custom_annual_fx_and_moneygram_limit:
-            limits?.annual_fx_and_moneygram_limit ?? 0,
-
-          custom_annual_compliance_limit:
-            limits?.annual_compliance_limit ?? 0,
         }));
 
         setCustomerLookupDone(true);
@@ -1962,41 +1945,9 @@ const MoneyTransfer = () => {
          * If your getCustomerById throws a 404 instead of
          * returning null, treat that as a new customer.
          */
-        try {
-          const limits = await getDefaultCustomerLimits();
-
-          console.log(
-            "💰 Customer lookup failed/not found. Using defaults:",
-            limits
-          );
-
-          setCustomerFound(false);
-
-          setForm((prev) => ({
-            ...prev,
-
-            customer: "",
-
-            custom_available_currency_transfer_balance:
-              limits?.annual_fx_limit ?? 0,
-
-            custom_annual_fx_and_moneygram_limit:
-              limits?.annual_fx_and_moneygram_limit ?? 0,
-
-            custom_annual_compliance_limit:
-              limits?.annual_compliance_limit ?? 0,
-          }));
-
-          setCustomerLookupDone(true);
-
-        } catch (limitErr) {
-          console.error(
-            "❌ Could not load default limits:",
-            limitErr
-          );
-
-          setCustomerLookupDone(true);
-        }
+        setCustomerFound(false);
+        setForm((prev) => ({ ...prev, customer: "" }));
+        setCustomerLookupDone(true);
       }
     };
 
@@ -2004,26 +1955,6 @@ const MoneyTransfer = () => {
 
     return () => clearTimeout(delay);
   }, [form.full_name, form.dob]);
-
-  useEffect(() => {
-    console.log("🔥 FORM CUSTOMER LIMIT STATE:", {
-      customer: form.customer,
-
-      available:
-        form.custom_available_currency_transfer_balance,
-
-      fx_moneygram:
-        form.custom_annual_fx_and_moneygram_limit,
-
-      compliance:
-        form.custom_annual_compliance_limit,
-    });
-  }, [
-    form.customer,
-    form.custom_available_currency_transfer_balance,
-    form.custom_annual_fx_and_moneygram_limit,
-    form.custom_annual_compliance_limit,
-  ]);
 
   // Replace your existing warehouse extraction logic in MoneyTransfer.jsx
   // inside runStockCheck() with the following:
@@ -2233,6 +2164,22 @@ const MoneyTransfer = () => {
         selectedWarehouse
       );
 
+      if (form.customer_request_reference && transfer?.name) {
+        try {
+          await fetch("/api/method/moneygram.moneygram.api.customer_requests.complete_money_transfer_request", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              request_name: form.customer_request_reference,
+              money_transfer_reference: transfer.name,
+            }),
+          });
+        } catch (requestError) {
+          console.warn("Money transfer created, but request completion could not be recorded", requestError);
+        }
+      }
+
       const currency =
         transfer.currency ||
         form.currency ||
@@ -2408,9 +2355,6 @@ const MoneyTransfer = () => {
       id_issue_country: "",
       id_issue_state: "",
       risk_level: defaultRisk,
-      custom_available_currency_transfer_balance: 0,
-      custom_annual_fx_and_moneygram_limit: 0,
-      custom_annual_compliance_limit: 0,
     }));
   };
 
@@ -3292,124 +3236,6 @@ const MoneyTransfer = () => {
   };
 
 
-  const getDefaultCustomerLimits = async () => {
-    try {
-      const url = buildApiUrl(
-        "api/method/moneygram.moneygram.api.app_configuration.get_annual_compliance_limit"
-      );
-
-      const res = await fetch(
-        url,
-        getFetchOptions({
-          method: "GET",
-        })
-      );
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        throw new Error(
-          data?.exception ||
-          data?.message ||
-          "Unable to fetch annual compliance limits."
-        );
-      }
-
-      console.log("Default annual limits:", data);
-
-      // frappe whitelisted methods normally return inside `message`
-      return data?.message || {};
-    } catch (err) {
-      console.error("Unable to fetch annual compliance limits:", err);
-
-      return {
-        annual_fx_limit: 0,
-        annual_fx_and_moneygram_limit: 0,
-        annual_compliance_limit: 0,
-      };
-    }
-  };
-
-  const renderCustomerLimitsCard = () => {
-    const rawFxMg = form.custom_annual_fx_and_moneygram_limit ?? defaultLimits?.annual_fx_and_moneygram_limit ?? null;
-    const rawCompliance = form.custom_annual_compliance_limit ?? defaultLimits?.annual_compliance_limit ?? null;
-    const rawFx = form.custom_available_currency_transfer_balance ?? defaultLimits?.annual_fx_limit ?? null;
-
-    const formatLimit = (val) => {
-      if (val === null || val === undefined || val === "" || isNaN(Number(val))) return "—";
-      return Number(val).toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
-    };
-
-    const isCustomerActive = Boolean(form.customer || (customerLookupDone && customerFound));
-
-    return (
-      <div className="rounded-3xl border border-gray-100 bg-white shadow-[0_10px_40px_rgba(0,0,0,0.06)] p-6 sm:p-7 flex flex-col gap-5">
-        <div className="flex items-center justify-between pb-4 border-b border-gray-100">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-[#E00000]/10 flex items-center justify-center text-[#E00000]">
-              <Wallet size={18} />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-gray-800">Customer Limits</h3>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3.5">
-          {/* Annual FX & Moneygram Limit */}
-          <div className="p-4 bg-gray-50/80 border border-gray-200/80 rounded-2xl">
-            <span className="text-[11px] uppercase font-bold text-gray-500 mb-1 flex items-center gap-1.5">
-              <Wallet size={13} className="text-[#E00000]" />
-              Annual FX &amp; MG Limit
-            </span>
-            <div className="text-xl font-black text-gray-900 mt-1">
-              {formatLimit(rawFxMg)} FJD
-            </div>
-            {rawFxMg !== null && Number(rawFxMg) <= 0 && (
-              <span className="text-[10px] font-semibold text-orange-600 mt-1 block">
-                Limit threshold reached
-              </span>
-            )}
-          </div>
-
-          {/* Annual Compliance Limit */}
-          <div className="p-4 bg-gray-50/80 border border-gray-200/80 rounded-2xl">
-            <span className="text-[11px] uppercase font-bold text-gray-500 mb-1 flex items-center gap-1.5">
-              <Wallet size={13} className="text-[#E00000]" />
-              Annual Compliance Limit
-            </span>
-            <div className="text-xl font-black text-gray-900 mt-1">
-              {formatLimit(rawCompliance)} FJD
-            </div>
-            {rawCompliance !== null && Number(rawCompliance) <= 0 && (
-              <span className="text-[10px] font-semibold text-orange-600 mt-1 block">
-                Limit threshold reached
-              </span>
-            )}
-          </div>
-
-          {/* Annual Send Limit */}
-          <div className="p-4 bg-gray-50/80 border border-gray-200/80 rounded-2xl">
-            <span className="text-[11px] uppercase font-bold text-gray-500 mb-1 flex items-center gap-1.5">
-              <Wallet size={13} className="text-[#E00000]" />
-              Annual Send Limit
-            </span>
-            <div className="text-xl font-black text-gray-900 mt-1">
-              {formatLimit(rawFx)} FJD
-            </div>
-            {rawFx !== null && Number(rawFx) <= 0 && (
-              <span className="text-[10px] font-semibold text-orange-600 mt-1 block">
-                Limit threshold reached
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
   const isFormLocked = Boolean(successInfo);
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -3421,7 +3247,7 @@ const MoneyTransfer = () => {
           {/* HEADER */}
           <div>
             <h1 className="text-gray-900 text-3xl sm:text-5xl font-black tracking-tight leading-none">
-              Money{" "}
+              MH Money{" "}
               <span className="text-[#E00000] italic">
                 Transfer
               </span>
@@ -3509,34 +3335,17 @@ const MoneyTransfer = () => {
                     {renderFieldError("documents")}
                   </div>
 
-                  {/* SPLIT REMITTANCE PAYOUT (MULTI-CHANNEL) */}
-                  <div className="mt-8 col-span-1 md:col-span-2 w-full min-w-0">
-                    <SplitRemittanceSection
-                      netAmount={parseFloat(form.amount || 0)}
-                      currency={form.currency || baseCurrencyData?.currency || "FJD"}
-                      enabled={enableSplitPayout}
-                      onToggle={(val) => {
-                        setEnableSplitPayout(val);
-                        if (val && splitLegs.length === 0) {
-                          const amt = parseFloat(form.amount || 0);
-                          setSplitLegs([
-                            {
-                              channel: "Cash",
-                              amount: amt > 0 ? amt : 0,
-                              wallet_reference: "",
-                              status: "Planned",
-                              notes: "Primary over-counter cash leg",
-                            },
-                          ]);
-                        }
-                      }}
-                      legs={splitLegs}
-                      onChangeLegs={setSplitLegs}
-                      consent={splitConsent}
-                      onChangeConsent={setSplitConsent}
-                      disabled={isFormLocked || isSubmitting}
-                    />
-                  </div>
+                  <RbfComplianceSection
+                    transactionType="MONEY_TRANSFER"
+                    fjdAmount={Number(form.amount || 0)}
+                    exchangeType={form.transfer_type || "Send"}
+                    currency="FJD"
+                    customerId={form.customer_id || form.customer}
+                    recipientName={form.receiver_name || form.receiver_full_name}
+                    value={form}
+                    onChange={setForm}
+                    disabled={isFormLocked || isSubmitting}
+                  />
 
                   {/* CURRENCY DENOMINATION PANEL */}
                   {form.enable_currency_denomination === 1 ||
@@ -3603,6 +3412,23 @@ const MoneyTransfer = () => {
                     </div>
                   )}
 
+                  {/* Enable Cash is intentionally placed immediately before Submit. */}
+                  <label htmlFor="enable_currency_denomination_submit" className="mt-6 flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm hover:border-red-200 hover:bg-red-50/30">
+                    <input
+                      id="enable_currency_denomination_submit"
+                      type="checkbox"
+                      disabled={isFormLocked || isSubmitting}
+                      checked={
+                        form.enable_currency_denomination === 1 ||
+                        form.enable_currency_denomination === "1" ||
+                        form.enable_currency_denomination === true
+                      }
+                      onChange={(event) => handleChange("enable_currency_denomination", event.target.checked ? 1 : 0)}
+                      className="h-5 w-5 shrink-0 rounded border-gray-300 text-[#E00000] focus:ring-[#E00000]"
+                    />
+                    <span className="text-sm font-bold text-gray-800">Enable Cash</span>
+                  </label>
+
                   {/* BUTTON */}
                   <button
                     onClick={handleSubmit}
@@ -3625,10 +3451,8 @@ const MoneyTransfer = () => {
               </div>
             </div>
 
-            {/* RIGHT: CUSTOMER CURRENCY LIMITS & PHOTO SIDEBAR */}
+            {/* RIGHT: CUSTOMER PHOTO SIDEBAR */}
             <div className="lg:col-span-4 lg:sticky lg:top-8 flex flex-col gap-6 w-full min-w-0">
-              {renderCustomerLimitsCard()}
-
               {/* CUSTOMER PHOTO CARD */}
               <CustomerPhotoCard
                 customerImageUrl={customerImageUrl}

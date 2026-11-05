@@ -16,7 +16,7 @@ import { PersonalInfoSection } from './sections/PersonalInfoSection';
 import { ExchangeSection } from './sections/ExchangeSection';
 import { DenominationSection } from './sections/DenominationSection';
 import { SectionDivider } from './ui/FormUtilities';
-import CreditLimit from './sections/CreditLimit';
+import { RbfComplianceSection } from './sections/RbfComplianceSection';
 
 export const ReceiverForm = ({
   initialData,
@@ -30,8 +30,6 @@ export const ReceiverForm = ({
   const methods = useForm({
     defaultValues: {
       documents: initialData?.documents,
-      rbfNumber: initialData?.rbfNumber || '',
-      rbfDocument: initialData?.rbfDocument || null,
       country: initialData?.country || '',
       firstName: initialData?.firstName || '',
       lastName: initialData?.lastName || '',
@@ -57,22 +55,24 @@ export const ReceiverForm = ({
       idIssueState: initialData?.idIssueState || '',
       occupation: initialData?.occupation || 'Accountant / Auditor',
       secondLastName: initialData?.secondLastName || '',
-      availableBalance: initialData?.availableBalance !== undefined ? initialData.availableBalance : null,
-      annualFxAndMoneygramLimit: initialData?.annualFxAndMoneygramLimit !== undefined ? initialData.annualFxAndMoneygramLimit : null,
-      annualComplianceLimit: initialData?.annualComplianceLimit !== undefined ? initialData.annualComplianceLimit : null,
       tinNumber: initialData?.tinNumber || '',
-      taxClearanceFile: initialData?.taxClearanceFile || null,
       risk_level: initialData?.risk_level || 'Low',
       remarks: initialData?.remarks || '',
       id_issue_date: initialData?.id_issue_date || null,
       id_expiry_date: initialData?.id_expiry_date || null,
+      rbf_purpose: initialData?.rbf_purpose || '',
+      rbf_documents: initialData?.rbf_documents || [],
+      nationality: initialData?.nationality || '',
+      residency_status: initialData?.residency_status || '',
+      source_of_funds: initialData?.source_of_funds || '',
+      passport_endorsed: initialData?.passport_endorsed || false,
+      tf_form_reference: initialData?.tf_form_reference || '',
     },
   });
 
   const { handleSubmit, setFocus } = methods;
   const { receiverGets } = useExchange();
   const { uploadFile, loading: uploadLoading } = useERPFileUpload();
-  const [isCreditExceeded, setIsCreditExceeded] = useState(false);
   const [stockError, setStockError] = useState('');
   const [stockLoading, setStockLoading] = useState(false);
   const [cashAccountError, setCashAccountError] = useState('');
@@ -97,19 +97,15 @@ export const ReceiverForm = ({
   const selectedId = methods.watch('government_id');
   const idDocument = methods.watch('docFile');
   const ticketDocument = methods.watch('ticket');
-  const rbfDocument = methods.watch('rbfDocument');
-  const complianceDocument = methods.watch('taxClearanceFile');
   const documentRows = tableDocuments ?? [
     ...(idDocument ? [{ document_type: selectedId || 'Government ID', attachment: idDocument, notes: '' }] : []),
     ...(ticketDocument ? [{ document_type: 'Ticket', attachment: ticketDocument, notes: '' }] : []),
-    ...(rbfDocument ? [{ document_type: 'RBF Document', attachment: rbfDocument, notes: '' }] : []),
-    ...(complianceDocument ? [{ document_type: 'Annual Compliance', attachment: complianceDocument, notes: '' }] : []),
   ];
   const changeDocuments = rows => {
     methods.setValue('documents', rows, { shouldDirty: true });
     for (const [field, type] of [
       ['docFile', selectedId || 'Government ID'],
-      ['ticket', 'Ticket'], ['rbfDocument', 'RBF Document'], ['taxClearanceFile', 'Annual Compliance'],
+      ['ticket', 'Ticket'],
     ]) {
       methods.setValue(field, (rows.find(row => row.document_type === type)?.attachment || (field === 'docFile' ? rows.find(row => row.attachment)?.attachment : null)) || null, { shouldValidate: true, shouldDirty: true });
     }
@@ -136,9 +132,8 @@ export const ReceiverForm = ({
     noDataForToday,
     onSummaryChange,
     exchangeType,
+    initialCurrencyCode: initialData?.foreignCurrency || initialData?.currency || '',
   });
-
-  const forexAmount = exchangeType === 'BUY' ? (exchangePreview?.rawAmount ?? 0) : (parseFloat(sendAmount) || 0);
 
   const { data: baseCurrencyInfo } = useBaseCurrency();
   const selectedDenomCountry = toCurrency?.country ?? null;
@@ -146,6 +141,9 @@ export const ReceiverForm = ({
 
   const senderInfo = exchangeType === 'BUY' ? baseCurrencyInfo : foreignCurrencyInfo;
   const receiverInfo = exchangeType === 'BUY' ? foreignCurrencyInfo : baseCurrencyInfo;
+  const rbfFjdAmount = exchangeType === 'BUY'
+    ? Number(sendAmount || 0)
+    : Number(exchangePreview?.rawAmount || 0);
 
   // ── Shared stock check (called on blur + on submit) ────────────────────────────
   const runStockCheck = async (si = senderInfo, ri = receiverInfo) => {
@@ -319,6 +317,7 @@ export const ReceiverForm = ({
 
 
     const uploadedDocuments = [];
+    const uploadedRbfDocuments = [];
     try {
       for (const row of documentRows) {
         const attachment = row.attachment instanceof File
@@ -326,6 +325,12 @@ export const ReceiverForm = ({
           : row.attachment;
         if (!attachment) throw new Error(`Unable to upload ${row.document_type}. Please try again.`);
         uploadedDocuments.push({ document_type: row.document_type.trim(), attachment: attachment.replace(/^\/+(?=(?:private\/)?files\/)/, '/'), notes: row.notes || '' });
+      }
+      for (const row of data.rbf_documents || []) {
+        if (!row.document_type || !row.attachment) continue;
+        const attachment = row.attachment instanceof File ? await uploadFile(row.attachment, { isPrivate: 1 }) : row.attachment;
+        if (!attachment) throw new Error(`Unable to upload ${row.document_type}. Please try again.`);
+        uploadedRbfDocuments.push({ document_type: row.document_type, attachment, file_url: attachment, verification_status: row.verification_status || 'UPLOADED' });
       }
       changeDocuments(uploadedDocuments);
     } catch (error) {
@@ -363,17 +368,19 @@ export const ReceiverForm = ({
       pnrNumber: data.pnrNumber,
       ticket: data.ticket || null,
       phone_number: data.phone_number || data.phoneNumber || '',
-      rbfNumber: data.rbfNumber || null,
-      rbfDocument: data.rbfDocument || null,
+      rbf_purpose: data.rbf_purpose || null,
+      rbf_documents: uploadedRbfDocuments,
+      nationality: data.nationality || null,
+      residency_status: data.residency_status || null,
+      source_of_funds: data.source_of_funds || null,
+      passport_endorsement_completed: data.passport_endorsed ? 1 : 0,
+      passport_endorsed: data.passport_endorsed ? 1 : 0,
+      tf_form_reference: data.tf_form_reference || null,
       tinNumber: data.tinNumber || null,
-      taxClearanceFile: data.taxClearanceFile || null,
       risk_level: data.risk_level || 'Low',
       remarks: data.remarks || '',
       id_issue_date: data.id_issue_date ? formatDate(data.id_issue_date) : null,
       id_expiry_date: data.id_expiry_date ? formatDate(data.id_expiry_date) : null,
-      availableBalance: data.availableBalance,
-      annualFxAndMoneygramLimit: data.annualFxAndMoneygramLimit,
-      annualComplianceLimit: data.annualComplianceLimit,
       senderDenominationRows: senderDenomRowsRef.current.filter(r => r.count > 0).map(r => ({
         denomination_value: r.denom,
         denomination_type: getDenomType(r.denom, senderInfo?.notes, senderInfo?.coins),
@@ -393,10 +400,10 @@ export const ReceiverForm = ({
   const FIELD_ORDER = [
     'idName', 'phone_number', 'dateOfBirth', 'government_id', 'idNumber', 'id_issue_date', 'id_expiry_date',
     'idIssueCountry', 'idIssueState', 'oet_code', 'risk_level', 'remarks', 'docFile', 'travelDate', 'destination', 'airwaysName', 'flightNumber', 'pnrNumber', 'ticket',
-    'rbfNumber', 'rbfDocument', 'tinNumber', 'taxClearanceFile',
+    'tinNumber',
     'firstName', 'lastName', 'city', 'country', 'exchangeType',
   ];
-  const FILE_FIELDS = new Set(['docFile', 'rbfDocument', 'taxClearanceFile', 'ticket']);
+  const FILE_FIELDS = new Set(['docFile', 'ticket']);
 
 
   const onError = (errors) => {
@@ -499,12 +506,10 @@ export const ReceiverForm = ({
             </div>
           )} */}
 
-          {/* <CreditLimit sendAmount={sendAmount} onLimitCheck={setIsCreditExceeded} /> */}
           <GovernmentIdSection
             useDocumentTable
+            prefillCustomerId={initialData?.request_customer_id || ''}
             exchangeType={exchangeType}
-            isCreditExceeded={isCreditExceeded}
-            forexAmount={forexAmount}
             onCustomerChange={onCustomerChange}
           />
 
@@ -514,7 +519,7 @@ export const ReceiverForm = ({
           <div id="exchange-documents">
             {selectedId && <p className="mt-4 text-sm font-semibold text-gray-600">Upload an attachment to continue. You can enter any document type.</p>}
             <DocumentUploadTable rows={documentRows} onChange={changeDocuments} disabled={uploadLoading || stockLoading} />
-            {['documents', 'docFile', 'ticket', 'taxClearanceFile'].map(field => methods.formState.errors[field] && (
+            {['documents', 'docFile', 'ticket'].map(field => methods.formState.errors[field] && (
               <p key={field} role="alert" className="mt-2 text-sm text-[#E00000]">{methods.formState.errors[field].message}</p>
             ))}
           </div>
@@ -536,6 +541,14 @@ export const ReceiverForm = ({
             effectiveRate={effectiveRate}
             exchangePreview={exchangePreview}
             onAmountBlur={runStockCheck}
+          />
+
+          <RbfComplianceSection
+            fjdAmount={rbfFjdAmount}
+            exchangeType={exchangeType}
+            currency="FJD"
+            rate={exchangePreview?.rate}
+            customerId={methods.watch('customer_id')}
           />
 
           <SectionDivider label="Cash Denomination Counts" />

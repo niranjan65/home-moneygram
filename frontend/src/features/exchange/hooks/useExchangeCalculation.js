@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 
 // FJD smallest circulating coin is 5 cents — round to nearest 0.05
 export const roundTo5Cents = (amount) =>
@@ -10,6 +10,7 @@ export const useExchangeCalculation = ({
   noDataForToday,
   onSummaryChange,
   exchangeType,
+  initialCurrencyCode,
 }) => {
 
   const [toCurrency, setToCurrency] = useState(null);
@@ -17,8 +18,21 @@ export const useExchangeCalculation = ({
   const [useManualRate, setUseManualRate] = useState(false);
   const [sendAmount, setSendAmount] = useState(externalSendAmount ?? '');
   const [sendAmountError, setSendAmountError] = useState('');
+  const initialCurrencyAppliedRef = useRef(false);
 
-  // No auto-select — user must pick a currency from the dropdown
+  // Customer Request handoff: select the request's foreign currency through
+  // the same rate object used by a normal dropdown selection.
+  useEffect(() => {
+    if (initialCurrencyAppliedRef.current || !initialCurrencyCode || !availableCurrencies?.length) return;
+    const requestedCode = String(initialCurrencyCode).trim().toUpperCase().split(/\s|-/)[0];
+    const requestedCurrency = availableCurrencies.find(
+      (currency) => String(currency.code || '').toUpperCase() === requestedCode
+    );
+    if (requestedCurrency) {
+      setToCurrency(requestedCurrency);
+      initialCurrencyAppliedRef.current = true;
+    }
+  }, [initialCurrencyCode, availableCurrencies]);
 
   // Handle fallback if no data for today
   useEffect(() => {

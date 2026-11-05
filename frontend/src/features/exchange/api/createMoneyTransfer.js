@@ -320,6 +320,26 @@ export const createMoneyTransfer = async (
       upload_additional_info: form.upload_additional_info || null,
 
       amount: form.amount ? Number(form.amount) : 0,
+      rbf_fjd_equivalent: form.amount ? Number(form.amount) : 0,
+
+      // Purpose-based RBF control. The backend re-evaluates this data and
+      // never trusts a compliance status supplied by the browser.
+      rbf_purpose: form.rbf_purpose || null,
+      rbf_source_of_funds: form.rbf_source_of_funds || form.source_of_funds || null,
+      rbf_nationality_type: form.rbf_nationality_type || form.nationality_type || null,
+      rbf_nationality: form.rbf_nationality || form.nationality || null,
+      rbf_other_nationality: form.rbf_other_nationality || form.other_nationality || null,
+      rbf_residency_status: form.rbf_residency_status || form.residency_status || null,
+      rbf_documents_json: JSON.stringify(form.rbf_documents || []),
+      rbf_approval: form.rbf_approval || null,
+      rbf_beneficiary_reference: form.rbf_beneficiary_reference || form.receiver_name || null,
+      rbf_student_reference: form.rbf_student_reference || null,
+      rbf_family_reference: form.rbf_family_reference || null,
+      rbf_invoice_reference: form.rbf_invoice_reference || null,
+      passport_endorsement_completed: form.passport_endorsement_completed ? 1 : 0,
+      tf_form_reference: form.tf_form_reference || null,
+      imported_funds_available_fjd: form.imported_funds_available_fjd || null,
+      sanctions_acknowledged_references: form.sanctions_acknowledged_references || "",
 
       // Sender Details
       address: form.address || form.custom_address || null,
@@ -331,6 +351,7 @@ export const createMoneyTransfer = async (
 
       // Receiver Details
       receiver_address: form.receiver_address || null,
+      receiver_name: form.receiver_name || form.receiver_full_name || null,
       receiver_address_line_2: form.receiver_address_line_2 || null,
       receiver_city: form.receiver_city || null,
       receiver_stateprovince: form.receiver_stateprovince || null,
@@ -395,6 +416,7 @@ export const createMoneyTransfer = async (
       "email",
       "gender",
       "rate",
+      "rbf_documents",
     ]);
 
     Object.keys(form).forEach((k) => {

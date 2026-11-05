@@ -4,7 +4,7 @@ import { useDenominationCalculator } from '../../hooks/useDenominationCalculator
 
 export const DenominationPanel = ({
   title, subtitle, flag, symbol, currency, notes, coins,
-  targetAmount, onRowsChange, accentColor = '#dc2626',
+  targetAmount, onRowsChange, accentColor = '#dc2626', availabilityByDenomination,
 }) => {
   const {
     rows,
@@ -16,7 +16,7 @@ export const DenominationPanel = ({
     step,
     removeRow,
     reset
-  } = useDenominationCalculator({ currency, targetAmount, notes, coins, onRowsChange });
+  } = useDenominationCalculator({ currency, targetAmount, notes, coins, onRowsChange, availabilityByDenomination });
 
   const statusLabel = isBalanced
     ? 'Balanced'
@@ -74,7 +74,7 @@ export const DenominationPanel = ({
       </div>
 
       <div className="grid grid-cols-12 gap-2 px-4 py-1.5 border-b border-gray-100 bg-gray-50/30">
-        {[['col-span-3','Denomination'],['col-span-5','Count'],['col-span-3 text-right','Subtotal'],['col-span-1','']].map(([cls,h]) => (
+        {[['col-span-4','Denomination'],['col-span-5','Count / Available'],['col-span-2 text-right','Subtotal'],['col-span-1','']].map(([cls,h]) => (
           <div key={h} className={`${cls} text-[9px] font-semibold text-gray-400 uppercase tracking-wider`}>{h}</div>
         ))}
       </div>
@@ -89,39 +89,42 @@ export const DenominationPanel = ({
         {rows.map(row => {
           const subtotal = row.denom * row.count;
           const active   = row.count > 0;
+          const available = availabilityByDenomination?.[String(Number(row.denom))];
           return (
             <div key={row.id}
               className="grid grid-cols-12 gap-2 items-center px-4 py-2 transition-colors group hover:bg-gray-50/50"
               style={active ? { background: `${accentColor}06` } : {}}>
-              <div className="col-span-3">
-                <span className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md border text-xs font-semibold transition-colors"
+              <div className="col-span-4 flex min-w-0 items-center">
+                <span className="inline-flex shrink-0 items-center gap-0.5 px-2 py-1 rounded-md border text-xs font-semibold transition-colors"
                   style={active
                     ? { background:`${accentColor}10`, borderColor:`${accentColor}30`, color:accentColor }
                     : { borderColor:'#e5e7eb', color:'#374151' }}>
                   <span className="opacity-50 text-[10px]">{symbol}</span>
                   {row.denom < 1 ? row.denom.toFixed(2) : row.denom.toLocaleString()}
+                  <span className="ml-0.5 text-[9px] opacity-60">{currency}</span>
                 </span>
               </div>
-              <div className="col-span-5 flex items-center gap-1">
+              <div className="col-span-5 flex min-w-0 items-center gap-1">
                 <button type="button" onClick={() => step(row.id,-1)}
-                  className="w-7 h-7 rounded border border-gray-200 flex items-center justify-center text-gray-300 hover:text-[#E00000] hover:border-[#E00000]/20 transition-colors">
+                  className="h-7 w-6 shrink-0 rounded border border-gray-200 flex items-center justify-center text-gray-300 hover:text-[#E00000] hover:border-[#E00000]/20 transition-colors">
                   <MinusCircle size={14} strokeWidth={1.5} />
                 </button>
-                <input type="number" min="0" value={row.count}
-                  onChange={e => updateCount(row.id, e.target.value)}
-                  className="w-14 h-7 rounded border text-center text-sm font-semibold focus:outline-none transition-colors"
+                <input type="number" min="0" max={available} value={row.count}
+                  onChange={e => updateCount(row.id, available === undefined ? e.target.value : Math.min(Number(e.target.value || 0), Number(available)))}
+                  className="h-7 min-w-0 flex-1 rounded border text-center text-sm font-semibold focus:outline-none transition-colors"
                   style={active
                     ? { borderColor:`${accentColor}50`, background:`${accentColor}06` }
                     : { borderColor:'#e5e7eb' }} />
-                <button type="button" onClick={() => step(row.id,1)}
-                  className="w-7 h-7 rounded border flex items-center justify-center transition-colors"
+                {available !== undefined && <span className="shrink-0 whitespace-nowrap text-[10px] font-bold text-gray-500">/ {Number(available).toLocaleString()}</span>}
+                <button type="button" onClick={() => step(row.id,1)} disabled={available !== undefined && row.count >= Number(available)}
+                  className="h-7 w-6 shrink-0 rounded border flex items-center justify-center transition-colors"
                   style={active
                     ? { color:accentColor, borderColor:`${accentColor}40`, background:`${accentColor}08` }
                     : { color:'#d1d5db', borderColor:'#e5e7eb' }}>
                   <PlusCircle size={14} strokeWidth={1.5} />
                 </button>
               </div>
-              <div className="col-span-3 text-right">
+              <div className="col-span-2 text-right min-w-0">
                 <span className="text-sm font-semibold transition-colors"
                   style={{ color: active ? accentColor : '#e5e7eb' }}>
                   {symbol}{subtotal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}

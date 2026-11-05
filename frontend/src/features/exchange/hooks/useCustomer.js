@@ -42,11 +42,7 @@ export const useCustomer = ({ autoFillDocument = true } = {}) => {
     setValue('phone_number', '');
     setValue('phoneNumber', '');
     setValue('docFile', null);
-    setValue('availableBalance', null);
-    setValue('annualFxAndMoneygramLimit', null);
-    setValue('annualComplianceLimit', null);
     setValue('tinNumber', '');
-    setValue('taxClearanceFile', null);
     setValue('risk_level', 'Low');
     setValue('remarks', '');
     setPreviewUrl(null);
@@ -54,7 +50,7 @@ export const useCustomer = ({ autoFillDocument = true } = {}) => {
   }, [setValue]);
 
   const fetchAndFillCustomer = useCallback(async (idNumber) => {
-    if (!idNumber || idNumber.length < 2) return;
+    if (!idNumber || idNumber.length < 2) return null;
     
     setLoading(true);
     const customer = await getCustomerById(idNumber, loginUser);
@@ -86,9 +82,6 @@ export const useCustomer = ({ autoFillDocument = true } = {}) => {
       setValue('idNumber', customer.custom_drivers_licence_number || customer.custom_tin_number || customer.custom_voter_id_number || customer.custom_passport_number || '');
       setValue('idType', customer.custom_government_id || 'Passport');
       setValue('occupation', customer.custom_occupation || '');
-      setValue('availableBalance', customer.custom_available_currency_transfer_balance !== undefined && customer.custom_available_currency_transfer_balance !== null ? customer.custom_available_currency_transfer_balance : 0);
-      setValue('annualFxAndMoneygramLimit', customer.custom_annual_fx_and_moneygram_limit !== undefined && customer.custom_annual_fx_and_moneygram_limit !== null ? customer.custom_annual_fx_and_moneygram_limit : 0);
-      setValue('annualComplianceLimit', customer.custom_annual_compliance_limit !== undefined && customer.custom_annual_compliance_limit !== null ? customer.custom_annual_compliance_limit : 0);
       setValue('tinNumber', customer.custom_tin_number || '');
       const fetchedRisk = customer.custom_risk_level || customer.risk_level || 'Low';
       setValue('risk_level', fetchedRisk, { shouldValidate: true, shouldDirty: true });
@@ -107,15 +100,13 @@ export const useCustomer = ({ autoFillDocument = true } = {}) => {
         setPreviewFile(null);
         setValue('docFile', null);
       }
+      return customer;
     } else {
-      setValue('availableBalance', null);
-      setValue('annualFxAndMoneygramLimit', null);
-      setValue('annualComplianceLimit', null);
       setValue('tinNumber', '');
-      setValue('taxClearanceFile', null);
       setPreviewUrl(null);
       setPreviewFile(null);
       setValue('docFile', null);
+      return null;
     }
   }, [setValue, loginUser, autoFillDocument]);
 

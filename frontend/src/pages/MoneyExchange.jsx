@@ -17,6 +17,7 @@ import { useDispatch } from 'react-redux';
 import { setIsDealer } from '../store/exchangeSlice';
 import { CustomerPhotoCard } from '../features/exchange/components/CustomerPhotoCard';
 import { updateCustomerRiskLevel } from '../features/exchange/api/customer';
+import { useLocation } from 'react-router-dom';
 
 const Step = {
   ESTIMATE: 1,
@@ -30,6 +31,10 @@ const TRANSFER_FEE = 4.99;
 
 
 const MoneyExchange = () => {
+  const location = useLocation();
+  const requestedExchangeType = new URLSearchParams(location.search).get('type')?.toUpperCase();
+  const startNewExchange = new URLSearchParams(location.search).get('new') === '1';
+  const launchExchangeType = ['BUY', 'SELL'].includes(requestedExchangeType) ? requestedExchangeType : null;
   const dispatch = useDispatch();
 
   useEffect(() => {
@@ -72,7 +77,7 @@ const MoneyExchange = () => {
 
   const [currentStep, setCurrentStep] = useState(() => {
     const saved = sessionStorage.getItem('exchangeCurrentStep');
-    return saved ? JSON.parse(saved) : Step.DETAILS;
+    return !startNewExchange && saved ? JSON.parse(saved) : Step.DETAILS;
   });
 
   const [formKey, setFormKey] = useState(0);
@@ -89,7 +94,7 @@ const MoneyExchange = () => {
 
   const [receiverInfo, setReceiverInfo] = useState(() => {
     const saved = sessionStorage.getItem('exchangeReceiverInfo');
-    return saved ? JSON.parse(saved) : {
+    const initial = !startNewExchange && saved ? JSON.parse(saved) : {
       firstName: '',
       lastName: '',
       phone_number: '',
@@ -102,11 +107,12 @@ const MoneyExchange = () => {
       senderCurrency: 'USD',
       receiverCurrency: 'EUR',
     };
+    return launchExchangeType ? { ...initial, exchangeType: launchExchangeType } : initial;
   });
 
   const [summary, setSummary] = useState(() => {
     const saved = sessionStorage.getItem('exchangeSummary');
-    return saved ? JSON.parse(saved) : {
+    const initial = !startNewExchange && saved ? JSON.parse(saved) : {
       sendAmount: null,
       currency: 'USD',
       fee: TRANSFER_FEE,
@@ -115,15 +121,21 @@ const MoneyExchange = () => {
       receiverCurrency: 'EUR',
       exchangeType: 'BUY',
     };
+    return launchExchangeType ? { ...initial, exchangeType: launchExchangeType } : initial;
   });
 
   // Full transfer payload saved when ReceiverForm submits — used by ReviewStep
   const [transferPayload, setTransferPayload] = useState(() => {
     const saved = sessionStorage.getItem('exchangeTransferPayload');
-    return saved ? JSON.parse(saved) : null;
+    return !startNewExchange && saved ? JSON.parse(saved) : null;
   });
 
-  useEffect(() => { sessionStorage.setItem('exchangeCurrentStep', JSON.stringify(currentStep)); }, [currentStep]);
+  useEffect(() => {
+    sessionStorage.setItem('exchangeCurrentStep', JSON.stringify(currentStep));
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [currentStep]);
   useEffect(() => { sessionStorage.setItem('exchangeReceiverInfo', JSON.stringify(receiverInfo)); }, [receiverInfo]);
   useEffect(() => { sessionStorage.setItem('exchangeSummary', JSON.stringify(summary)); }, [summary]);
   useEffect(() => { sessionStorage.setItem('exchangeTransferPayload', JSON.stringify(transferPayload)); }, [transferPayload]);
@@ -680,6 +692,7 @@ const MoneyExchange = () => {
           estimatedArrival="Today by 5:00 PM"
           onDashboard={handleDashboard}
           onDownloadReceipt={handleDownloadReceipt}
+          isExchange={true}
         />
       );
     }
@@ -711,22 +724,22 @@ const MoneyExchange = () => {
 
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-gray-50">
       <Navbar />
 
       <ExchangeProvider summary={summary}>
-        <main className="flex-grow py-8 px-4 sm:px-6 lg:px-8 xl:px-12">
-          <div className="max-w-7xl mx-auto flex flex-col gap-10">
+        <main className="grow py-8 sm:py-10 px-4 sm:px-6 lg:px-8 xl:px-12 w-full pb-28 sm:pb-32">
+          <div className="max-w-[80%] mx-auto flex flex-col gap-6 sm:gap-8 w-full min-w-0">
 
             <Stepper currentStep={currentStep} />
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start w-full min-w-0">
 
               {/* Main Column — full width on success page */}
-              <div className={`${currentStep === Step.PAYMENT ? 'lg:col-span-12' : 'lg:col-span-8'} flex flex-col gap-10`}>
+              <div className={`${currentStep === Step.PAYMENT ? 'lg:col-span-12' : 'lg:col-span-8'} flex flex-col gap-6 w-full min-w-0`}>
                 {currentStep === Step.DETAILS && (
-                  <div className="flex flex-col gap-3">
-                    <h1 className="text-gray-900 text-3xl sm:text-5xl font-black tracking-tight leading-none">
+                  <div className="flex flex-col gap-2">
+                    <h1 className="text-gray-900 text-h1 font-bold tracking-tight">
                       How much money are you exchanging{" "}
                       <span className="text-[#E00000] italic">today ?</span>
                     </h1>
@@ -738,7 +751,7 @@ const MoneyExchange = () => {
 
               {/* Sidebar — hidden on success page */}
               {currentStep !== Step.PAYMENT && (
-                <div className="lg:col-span-4 lg:sticky lg:top-8 flex flex-col gap-6 self-start">
+                <div className="lg:col-span-4 lg:sticky lg:top-8 flex flex-col gap-6 self-start w-full min-w-0">
                   <Summary transferPayload={summaryChange} />
 
                   {/* CUSTOMER PHOTO CARD */}

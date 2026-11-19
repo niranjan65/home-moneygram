@@ -1,8 +1,10 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Home from "./pages/Home";
 import MoneyExchange from "./pages/MoneyExchange";
+import MoneyExchangeNew from "./pages/MoneyExchangeNew";
 import Login from "./pages/Login";
 import MoneyTransfer from "./pages/MoneyTransfer";
+import MoneyTransferNew from "./pages/MoneyTransferNew";
 import TransactionHistory from "./pages/TransactionHistory";
 import Contact from "./pages/ContactUs";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -19,6 +21,8 @@ import VaultTransfer from "./pages/VaultTransfer";
 import BranchTransfer from "./pages/BranchTransfer";
 import { Navigate } from "react-router-dom";
 import CustomerRequests from "./pages/CustomerRequestsReports";
+import CustomPos from "./pages/CustomPos";
+import PosRouteGuard from "./components/PosRouteGuard";
 
 function App() {
   // Dynamic socket connection (if needed):
@@ -39,7 +43,7 @@ function App() {
 
 
   return (
-    <BrowserRouter basename="/home">
+    <BrowserRouter basename="/home" unstable_useTransitions={false}>
       <Routes>
 
         <Route path="/" element={<SoldiLanding />} />
@@ -68,7 +72,7 @@ function App() {
           path="/money-transfer"
           element={
             <ProtectedRoute>
-              <MoneyTransfer />
+              <PosRouteGuard><MoneyTransfer /></PosRouteGuard>
             </ProtectedRoute>
           }
         />
@@ -77,7 +81,25 @@ function App() {
           path="/exchange"
           element={
             <ProtectedRoute>
-              <MoneyExchange />
+              <PosRouteGuard><MoneyExchange /></PosRouteGuard>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/money-transfer-new"
+          element={
+            <ProtectedRoute>
+              <PosRouteGuard><MoneyTransferNew /></PosRouteGuard>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/exchange-new"
+          element={
+            <ProtectedRoute>
+              <PosRouteGuard><MoneyExchangeNew /></PosRouteGuard>
             </ProtectedRoute>
           }
         />
@@ -97,7 +119,7 @@ function App() {
           path="/dealer-exchange"
           element={
             <ProtectedRoute>
-              <DealerExchange />
+              <PosRouteGuard><DealerExchange /></PosRouteGuard>
             </ProtectedRoute>
           }
         />
@@ -106,7 +128,7 @@ function App() {
           path="/vault-transfer"
           element={
             <ProtectedRoute>
-              <VaultTransfer />
+              <PosRouteGuard><VaultTransfer /></PosRouteGuard>
             </ProtectedRoute>
           }
         />
@@ -115,7 +137,7 @@ function App() {
           path="/branch-transfer"
           element={
             <ProtectedRoute>
-              <BranchTransfer />
+              <PosRouteGuard><BranchTransfer /></PosRouteGuard>
             </ProtectedRoute>
           }
         />
@@ -124,6 +146,11 @@ function App() {
           path="/transfer"
           element={<Navigate to="/vault-transfer" replace />}
         />
+
+        <Route path="/pos" element={<ProtectedRoute><CustomPos /></ProtectedRoute>} />
+        <Route path="/pos/open" element={<ProtectedRoute><CustomPos /></ProtectedRoute>} />
+        <Route path="/pos/close" element={<ProtectedRoute><CustomPos /></ProtectedRoute>} />
+        <Route path="/pos/approvals" element={<ProtectedRoute><CustomPos /></ProtectedRoute>} />
 
         <Route
           path="/test"

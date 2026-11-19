@@ -21,7 +21,7 @@ export const personalInfoFields = [
     name: "lastName",
     label: "Last/Family Name",
     placeholder: "e.g. Garcia",
-    rules: { required: 'Last name is required', minLength: { value: 2, message: 'Too short' } },
+    rules: { required: 'Last name is required' },
   },
   {
     name: "secondLastName",

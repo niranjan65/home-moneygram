@@ -9,6 +9,8 @@ import Footer from "../components/layout/Footer";
 const ERPNEXT_BASE_URL = "/";
 
 import { useUser } from "../context/UserContext";
+import { customPos } from "../api/customPos";
+import { syncCashCounterFlag } from "../api/cashCounterSession";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -170,8 +172,15 @@ export default function Login() {
         if (userType === "Admin") {
           window.location.href = `/app`;
         } else {
-          // Tellers route directly to Teller Portal (/money-transfer)
-          navigate("/money-transfer", { replace: true });
+          // Check the selected location after login. A disabled POS goes straight to transactions.
+          if (!primaryWarehouse) {
+            navigate("/settings", { replace: true });
+          } else {
+            const pos = await customPos.getStatus(primaryWarehouse);
+            syncCashCounterFlag(primaryWarehouse, pos?.status, pos?.enabled);
+            if (pos.enabled === false || pos.status === "open") navigate("/home", { replace: true });
+            else navigate("/pos/open", { replace: true });
+          }
         }
       } else {
         // Handle failed authentication

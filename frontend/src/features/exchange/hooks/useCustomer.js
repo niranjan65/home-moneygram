@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { getCustomerById } from '../api/customer';
+import { fetchCustomerLastTransaction, extractExchangePrefill } from '../api/lastTransaction';
 import { useUser } from '../../../context/UserContext';
 
 export const useCustomer = ({ autoFillDocument = true } = {}) => {
@@ -43,6 +44,7 @@ export const useCustomer = ({ autoFillDocument = true } = {}) => {
     setValue('phoneNumber', '');
     setValue('docFile', null);
     setValue('tinNumber', '');
+    setValue('purposeOfTransaction', '');
     setValue('risk_level', 'Low');
     setValue('remarks', '');
     setPreviewUrl(null);
@@ -87,19 +89,75 @@ export const useCustomer = ({ autoFillDocument = true } = {}) => {
       setValue('risk_level', fetchedRisk, { shouldValidate: true, shouldDirty: true });
       console.log('Customer found...', customer);
 
-      if (autoFillDocument && customer.image) {
-        const url = customer.image.startsWith('http') 
-          ? customer.image 
-          : `/${customer.image}`;
+      const docImg = customer.custom_government_document || customer.image;
+      if (docImg) {
+        const url = docImg.startsWith('http') 
+          ? docImg 
+          : `/${docImg.replace(/^\/+/, '')}`;
           
         setPreviewUrl(url);
         setPreviewFile(null);
-        setValue('docFile', url, { shouldValidate: true });
+        setValue('docFile', url, { shouldValidate: true, shouldDirty: true });
+
+        const govIdType = customer.custom_government_id || customer.government_id_type || 'Passport';
+        const govIdNum = customer.custom_passport_number || customer.custom_drivers_licence_number || customer.custom_tin_number || customer.custom_voter_id_number || customer.id_number || '';
+        const currentDocs = getValues ? getValues('documents') : null;
+        if (!currentDocs || currentDocs.length === 0) {
+          setValue('documents', [{
+            document_type: govIdType,
+            document_number: govIdNum,
+            issue_date: customer.custom_id_issue_date || customer.id_issue_date || '',
+            expiry_date: customer.custom_id_expiry_date || customer.id_expiry_date || '',
+            issue_country: customer.custom_id_issue_country || customer.id_issue_country || '',
+            attachment: url,
+            notes: '',
+          }], { shouldValidate: true, shouldDirty: true });
+        }
       } else {
         setPreviewUrl(null);
         setPreviewFile(null);
         setValue('docFile', null);
       }
+
+      // Fetch customer's last transaction and auto-fill form (skipping amount, selected forex, and remarks)
+      try {
+        const lastTxResult = await fetchCustomerLastTransaction(customer, 'Currency Exchange');
+        if (lastTxResult?.data) {
+          customer.lastTransaction = lastTxResult.data;
+          const prefill = extractExchangePrefill(lastTxResult.data);
+          Object.entries(prefill).forEach(([k, v]) => {
+            if (v !== undefined && v !== null && v !== '') {
+              // Never autofill transaction or exchange type (preserve user's active session/tab)
+              if (
+                k === 'exchangeType' ||
+                k === 'exchange_type' ||
+                k === 'transfer_type' ||
+                k === 'transaction_type'
+              ) {
+                return;
+              }
+              if (k === 'documents') {
+                const curDocs = getValues ? getValues('documents') : null;
+                if (!curDocs || curDocs.length === 0) {
+                  setValue('documents', v, { shouldValidate: true, shouldDirty: true });
+                }
+              } else if (k === 'docFile') {
+                const curDocFile = getValues ? getValues('docFile') : null;
+                if (!curDocFile) {
+                  setValue('docFile', v, { shouldValidate: true, shouldDirty: true });
+                  setPreviewUrl(v);
+                  setPreviewFile(null);
+                }
+              } else {
+                setValue(k, v, { shouldValidate: true, shouldDirty: true });
+              }
+            }
+          });
+        }
+      } catch (txErr) {
+        console.warn('[useCustomer] Could not prefill last transaction:', txErr);
+      }
+
       return customer;
     } else {
       setValue('tinNumber', '');
@@ -142,5 +200,6 @@ export const useCustomer = ({ autoFillDocument = true } = {}) => {
     clearCustomerData,
     removeFile,
     handleFile,
+    setPreviewUrl,
   };
 };

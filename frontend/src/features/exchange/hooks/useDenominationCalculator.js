@@ -16,7 +16,7 @@ export function buildRows(amount, denoms, availabilityByDenomination) {
   return rows;
 }
 
-export const useDenominationCalculator = ({ currency, targetAmount, notes, coins, onRowsChange, availabilityByDenomination }) => {
+export const useDenominationCalculator = ({ currency, targetAmount, notes, coins, onRowsChange, availabilityByDenomination, initialRows }) => {
   const [rows, setRows] = useState([]);
   const [customDenom, setCustomDenom] = useState('');
   const [showCustom, setShowCustom] = useState(false);
@@ -27,9 +27,21 @@ export const useDenominationCalculator = ({ currency, targetAmount, notes, coins
     const key = `${currency}:${targetAmount}:${(notes||[]).length}:${(coins||[]).length}:${availabilityKey}`;
     if (prevKey.current !== key) {
       prevKey.current = key;
+      if (initialRows && Array.isArray(initialRows) && initialRows.length > 0) {
+        const total = initialRows.reduce((s, r) => s + (Number(r.denom ?? r.denomination_value ?? 0)) * (Number(r.count ?? r.qty ?? 0)), 0);
+        if (Math.abs(total - (targetAmount || 0)) < 0.01) {
+          const formatted = initialRows.map((r, i) => ({
+            id: r.id || `${r.denom ?? r.denomination_value}-${i}`,
+            denom: Number(r.denom ?? r.denomination_value),
+            count: Number(r.count ?? r.qty ?? 0),
+          }));
+          setRows(formatted);
+          return;
+        }
+      }
       setRows(buildRows(targetAmount, [...(notes||[]), ...(coins||[])], availabilityByDenomination));
     }
-  }, [currency, targetAmount, notes, coins, availabilityKey]);
+  }, [currency, targetAmount, notes, coins, availabilityKey, initialRows]);
 
   useEffect(() => { onRowsChange?.(rows); }, [rows, onRowsChange]);
 

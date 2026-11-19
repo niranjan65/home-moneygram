@@ -1,12 +1,12 @@
 import React from 'react';
 import { useFormContext } from 'react-hook-form';
 import { ChevronDown, FileText, UserPlus, Globe } from 'lucide-react';
-import { FieldLabel, fieldCls, ErrorMsg } from '../ui/FormUtilities';
+import { FieldLabel, fieldCls, selectCls, ErrorMsg } from '../ui/FormUtilities';
 import { personalInfoFields } from '../../config/formFields';
 import { locationFields } from '../../config/formFields';
 import { useCountries } from '../../../../hooks/useCountry';
 
-export const PersonalInfoSection = () => {
+export const PersonalInfoSection = ({ onUserDetailEdit }) => {
   const { register, watch, setValue, formState: { errors } } = useFormContext();
   const { countries, loading: countryLoading, error: countryError } = useCountries();
   const countryValue = watch('country') ?? '';
@@ -38,15 +38,7 @@ export const PersonalInfoSection = () => {
 ];
 
   return (
-    <div className="rounded-xl border border-gray-200 overflow-hidden bg-white">
-      <div className="px-5 py-3.5 border-b border-gray-100 flex items-center gap-3">
-        <UserPlus size={15} className="text-[#E00000]" />
-        <div>
-          <p className="text-sm font-semibold text-gray-800">Customer Name</p>
-          <p className="text-xs text-gray-400">Enter the customer's legal name as on ID</p>
-        </div>
-      </div>
-      <div className="px-5 py-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {personalInfoFields.map(({ name, label, placeholder, rules }) => (
           <div key={name}>
             {
@@ -66,7 +58,7 @@ export const PersonalInfoSection = () => {
         <div>
           <FieldLabel icon={FileText}>Occupation</FieldLabel>
           <div className="relative mt-1">
-            <select className={`${fieldCls(errors.occupation)} appearance-none pr-10`}
+            <select className={selectCls(errors.occupation)}
               {...register('occupation')}>
               {
                 occupations.map((occup, idx) => (
@@ -81,12 +73,6 @@ export const PersonalInfoSection = () => {
         </div>
 
         {/* ── Location Fields ───────────────────────────────────────── */}
-        {/* <div className="col-span-full border-t border-gray-100 pt-4 mt-1 flex items-center gap-2">
-          <Globe size={14} className="text-[#E00000]" />
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Location</p>
-          <p className="text-xs text-gray-400">— Customer's country and city of residence</p>
-        </div> */}
-
         <div>
           <FieldLabel required icon={Globe}>Country</FieldLabel>
           <input type="hidden" {...register('country', { required: 'Please select a country' })} />
@@ -100,7 +86,7 @@ export const PersonalInfoSection = () => {
               <select
                 value={countryValue}
                 onChange={e => setValue('country', e.target.value, { shouldValidate: true })}
-                className={`${fieldCls(errors.country)} appearance-none pl-9 pr-9`}>
+                className={`${selectCls(errors.country)} pl-9 pr-9`}>
                 <option value="">Select Country</option>
                 {countries?.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
               </select>
@@ -123,6 +109,5 @@ export const PersonalInfoSection = () => {
           </div>
         ))}
       </div>
-    </div>
   );
 };

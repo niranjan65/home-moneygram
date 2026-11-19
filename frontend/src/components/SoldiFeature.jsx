@@ -18,7 +18,7 @@ const PhoneTransactionMockup = () => (
       {/* Balance card */}
       <div className="mx-2 rounded-xl bg-gradient-to-br from-green-400 to-green-600 p-2 text-white text-[9px]">
         <p className="opacity-70">Main Wallet</p>
-        <p className="font-bold text-sm">$ 320,299</p>
+        <p className="font-bold text-caption tnum">$ 320,299</p>
         <div className="flex gap-1 mt-1">
           <button className="bg-white/20 rounded-full px-2 py-0.5 text-[8px]">Send Money</button>
           <button className="bg-white/20 rounded-full px-2 py-0.5 text-[8px]">Request Money</button>
@@ -88,14 +88,14 @@ const PersonWithCardsMockup = () => (
       </div>
       <div>
         <p className="text-[10px] text-gray-500">Euro</p>
-        <p className="text-sm font-black text-gray-900">€400</p>
+        <p className="text-body font-bold text-gray-900 tnum">€400</p>
       </div>
     </div>
 
     {/* Balance card */}
     <div className="absolute right-0 top-4 bg-gray-900 rounded-2xl shadow-xl px-3 py-2 z-20 w-28" style={{ transform: "rotate(-6deg)" }}>
       <p className="text-[8px] text-gray-400">Balance</p>
-      <p className="text-white font-bold text-xs">$3,403.09</p>
+      <p className="text-white font-bold text-caption tnum">$3,403.09</p>
       <p className="text-[7px] text-gray-500 mt-0.5">15,000 · Card One</p>
       <div className="flex justify-end mt-1">
         <div className="flex -space-x-1">
@@ -121,7 +121,7 @@ const AccountPhoneMockup = () => (
         </div>
         <div>
           <p className="text-[9px] font-semibold text-gray-700">US Dollar</p>
-          <p className="text-sm font-black text-gray-900">$900</p>
+          <p className="text-body font-bold text-gray-900 tnum">$900</p>
         </div>
       </div>
       {/* Blue card */}
@@ -137,7 +137,7 @@ const AccountPhoneMockup = () => (
       </div>
       {/* Detail info */}
       <div className="mx-2 mt-1 text-[8px] text-gray-500">
-        <p className="font-semibold text-gray-600 mb-0.5">DETAIL INFORMATION</p>
+        <p className="text-overline font-semibold text-gray-600 mb-0.5">Detail Information</p>
         {["Contact Name", "Phone Number", "ID Card", "Email"].map((f) => (
           <div key={f} className="flex justify-between border-b border-gray-50 py-0.5">
             <span className="text-gray-400">{f}</span>
@@ -177,14 +177,14 @@ export default function SoldiFeatures() {
     <div className="min-h-screen bg-[#0d3d2e] text-white font-sans">
       {/* Partners Bar */}
       <div className="border-b border-white/10 px-8 md:px-16 py-5 flex flex-col md:flex-row items-start md:items-center gap-6 md:gap-0 justify-between">
-        <p className="text-[#b5f000] text-xs font-bold leading-tight max-w-[180px] tracking-wide uppercase">
+        <p className="text-[#b5f000] text-overline font-semibold leading-tight max-w-[180px] tracking-wider uppercase">
           We are partnered with more than 1000+ companies around the globe
         </p>
         <div className="flex items-center gap-8 md:gap-12">
           {partners.map((p) => (
             <div key={p.name} className="flex items-center gap-2 opacity-90 hover:opacity-100 transition-opacity cursor-pointer">
               <span className="opacity-70">{p.icon}</span>
-              <span className="text-white font-bold text-sm tracking-tight">{p.name}</span>
+              <span className="text-white font-semibold text-body tracking-tight">{p.name}</span>
             </div>
           ))}
         </div>
@@ -194,11 +194,11 @@ export default function SoldiFeatures() {
       <div className="px-8 md:px-16 py-14">
         {/* Header Row */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-12">
-          <button className="border border-white/30 rounded-full px-5 py-2 text-xs font-semibold tracking-widest uppercase text-white hover:border-white/60 transition-colors">
+          <button className="border border-white/30 rounded-full px-5 py-2 text-overline font-semibold tracking-wider uppercase text-white hover:border-white/60 transition-colors">
             Our Features
           </button>
 
-          <h2 className="text-3xl md:text-4xl font-black text-center leading-snug tracking-tight max-w-md">
+          <h2 className="text-h1 font-bold text-center leading-snug tracking-tight max-w-md">
             Get World Class &amp;{" "}
             <span className="relative inline-block">
               Fastest
@@ -210,7 +210,7 @@ export default function SoldiFeatures() {
             Online Payment Service
           </h2>
 
-          <button className="bg-[#b5f000] hover:bg-[#a3e000] text-gray-900 font-bold px-7 py-3 rounded-xl text-sm transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 whitespace-nowrap">
+          <button className="bg-[#b5f000] hover:bg-[#a3e000] text-gray-900 text-btn-lg font-semibold px-7 py-3 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 whitespace-nowrap">
             Learn More
           </button>
         </div>
@@ -235,10 +235,10 @@ export default function SoldiFeatures() {
                 </div>
 
                 {/* Title */}
-                <h3 className="text-white font-bold text-lg leading-snug mb-3">{f.title}</h3>
+                <h3 className="text-white font-bold text-h3 leading-snug mb-3">{f.title}</h3>
 
                 {/* Description */}
-                <p className="text-white/50 text-sm leading-relaxed">{f.desc}</p>
+                <p className="text-white/50 text-body font-normal leading-relaxed">{f.desc}</p>
               </div>
 
               {/* Mockup */}

@@ -4,6 +4,7 @@ import { sessionAxios as axios } from "../api/sessionClient.js";
 import { useUser } from "../context/UserContext";
 import { useSettings } from "../context/SettingsContext";
 import { useAppConfiguration } from "../hooks/useAppConfiguration";
+import { customPos } from "../api/customPos";
 import {
   ChevronDown,
   Download,
@@ -20,8 +21,24 @@ import {
   ChevronsLeft,
   ChevronsRight,
   CalendarRange,
+  ClipboardCheck,
+  CheckCircle2,
 } from "lucide-react";
 import { printThermalReceipt } from "../components/ThermalReceiptPrint";
+
+const CASH_COUNTER_COUNTRY = {
+  AUD: "Australia", CAD: "Canada", CHF: "Switzerland", EUR: "Euro", FJD: "Fiji",
+  GBP: "UK", HKD: "HongKong", JPY: "Japan", KRW: "Korea", NZD: "New Zealand",
+  PGK: "Papua New Guinea", SGD: "Singapore", TOP: "Tonga", USD: "USA",
+  VUV: "Vanuatu", WST: "Samoa", XPF: "French Pacific",
+};
+const registerLabel = value => String(value || "").toLowerCase() === "opening" ? "Open Register" : String(value || "").toLowerCase() === "closing" ? "Close Register" : String(value || "Register");
+const currencyPair = row => `${row?.from_currency || "—"} → ${row?.to_currency || "—"}`;
+const transactionTypeLabel = row => {
+  const type = row?.type || "Currency Exchange";
+  const action = String(row?.transfer_type || "").trim();
+  return action ? `${type} (${action[0].toUpperCase()}${action.slice(1).toLowerCase()})` : type;
+};
 
 // ── CSV Export Helper ──────────────────────────────────────────────────────
 function downloadCSV(filename, headers, rows) {
@@ -83,8 +100,7 @@ function downloadExcel(filename, headers, rows, sheetTitle = "Report") {
   const headerCells = headers
     .map(
       (h) =>
-        `<th style="background-color:#E00000;color:#ffffff;font-weight:bold;padding:9px 12px;border:1px solid #d00000;font-size:11pt;text-align:${
-          h.align === "right" ? "right" : "left"
+        `<th style="background-color:#E00000;color:#ffffff;font-weight:bold;padding:9px 12px;border:1px solid #d00000;font-size:11pt;text-align:${h.align === "right" ? "right" : "left"
         };">${escapeHTML(typeof h === "object" ? h.label : h)}</th>`
     )
     .join("");
@@ -135,10 +151,10 @@ function downloadExcel(filename, headers, rows, sheetTitle = "Report") {
       </xml>
       <![endif]-->
       <style>
-        body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; }
+        body { font-family: 'Inter', Calibri, Arial, sans-serif; font-size: 11pt; }
         table { border-collapse: collapse; width: 100%; margin-top: 12px; }
-        h2 { color: #E00000; font-family: Calibri, Arial, sans-serif; margin-bottom: 2px; }
-        h3 { color: #1e293b; font-family: Calibri, Arial, sans-serif; margin-top: 2px; margin-bottom: 4px; }
+        h2 { color: #E00000; font-family: 'Inter', Calibri, Arial, sans-serif; margin-bottom: 2px; }
+        h3 { color: #1e293b; font-family: 'Inter', Calibri, Arial, sans-serif; margin-top: 2px; margin-bottom: 4px; }
         p { color: #64748b; font-size: 10pt; margin-top: 0; }
       </style>
     </head>
@@ -198,13 +214,19 @@ function exportToPDF(title, headers, rows, metadata = {}) {
         <meta charset="utf-8" />
         <title>${escapeHTML(title)}</title>
         <style>
+          @font-face {
+            font-family: 'Inter';
+            src: url('${window.location.origin}/assets/home/frontend/Inter.ttf') format('truetype');
+            font-weight: 100 900;
+            font-style: normal;
+          }
           @page {
             size: landscape;
             margin: 12mm 10mm;
           }
           * { box-sizing: border-box; }
           body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
             color: #1f2937;
             margin: 0;
             padding: 16px;
@@ -294,109 +316,106 @@ function exportToPDF(title, headers, rows, metadata = {}) {
           </div>
         </div>
 
-        ${
-          Object.keys(metadata).length > 0
-            ? `
+        ${Object.keys(metadata).length > 0
+      ? `
           <div class="meta-grid">
             ${Object.entries(metadata)
-              .map(
-                ([k, v]) => `
+        .map(
+          ([k, v]) => `
               <div class="meta-item">
                 <span class="label">${escapeHTML(k)}</span>
                 <span class="val">${escapeHTML(v)}</span>
               </div>
             `
-              )
-              .join("")}
+        )
+        .join("")}
           </div>
         `
-            : ""
-        }
+      : ""
+    }
 
         <table>
           <thead>
             <tr>
               <th style="width: 30px;" class="text-center">#</th>
               ${headers
-                .map(
-                  (h) =>
-                    `<th class="${h.align === "right" ? "text-right" : "text-left"}">${escapeHTML(
-                      typeof h === "object" ? h.label : h
-                    )}</th>`
-                )
-                .join("")}
+      .map(
+        (h) =>
+          `<th class="${h.align === "right" ? "text-right" : "text-left"}">${escapeHTML(
+            typeof h === "object" ? h.label : h
+          )}</th>`
+      )
+      .join("")}
             </tr>
           </thead>
           <tbody>
             ${rows
-              .map(
-                (row, idx) => `
+      .map(
+        (row, idx) => `
               <tr>
                 <td class="text-center font-mono">${idx + 1}</td>
                 ${headers
-                  .map((h) => {
-                    const key = typeof h === "object" ? (h.key || h.fieldname) : h;
-                    const accessor = typeof h === "object" ? h.accessor : null;
-                    let val = accessor ? accessor(row) : row[key];
-                    const align = h.align === "right" ? "text-right" : "";
-                    const isStatus = key === "status";
-                    if (isStatus) {
-                      const badgeCls =
-                        String(val).toLowerCase() === "paid"
-                          ? "badge-paid"
-                          : "badge-cancelled";
-                      return `<td><span class="badge ${badgeCls}">${escapeHTML(val)}</span></td>`;
-                    }
-                    if (h.align === "right" && val != null && !isNaN(parseFloat(val))) {
-                      val = parseFloat(val).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      });
-                    }
-                    return `<td class="${align}">${escapeHTML(val)}</td>`;
-                  })
-                  .join("")}
+            .map((h) => {
+              const key = typeof h === "object" ? (h.key || h.fieldname) : h;
+              const accessor = typeof h === "object" ? h.accessor : null;
+              let val = accessor ? accessor(row) : row[key];
+              const align = h.align === "right" ? "text-right" : "";
+              const isStatus = key === "status";
+              if (isStatus) {
+                const badgeCls =
+                  String(val).toLowerCase() === "paid"
+                    ? "badge-paid"
+                    : "badge-cancelled";
+                return `<td><span class="badge ${badgeCls}">${escapeHTML(val)}</span></td>`;
+              }
+              if (h.align === "right" && val != null && !isNaN(parseFloat(val))) {
+                val = parseFloat(val).toLocaleString(undefined, {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                });
+              }
+              return `<td class="${align}">${escapeHTML(val)}</td>`;
+            })
+            .join("")}
               </tr>
             `
-              )
-              .join("")}
+      )
+      .join("")}
           </tbody>
-          ${
-            totalGrand > 0
-              ? `
+          ${totalGrand > 0
+      ? `
             <tfoot class="tfoot">
               <tr>
                 <td colspan="${Math.max(
-                  1,
-                  headers.findIndex(
-                    (h) =>
-                      (h.key || h) === "grand_total" ||
-                      (h.key || h) === "amount" ||
-                      (h.key || h) === "stock_value"
-                  ) + 1
-                )}" style="text-align: right; text-transform: uppercase; color: #E00000;">
+        1,
+        headers.findIndex(
+          (h) =>
+            (h.key || h) === "grand_total" ||
+            (h.key || h) === "amount" ||
+            (h.key || h) === "stock_value"
+        ) + 1
+      )}" style="text-align: right; text-transform: uppercase; color: #E00000;">
                   Total Amount:
                 </td>
                 <td class="text-right" style="color: #111827;">
                   ${totalGrand.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}
                 </td>
-                <td colspan="${
-                  headers.length -
-                  (headers.findIndex(
-                    (h) =>
-                      (h.key || h) === "grand_total" ||
-                      (h.key || h) === "amount" ||
-                      (h.key || h) === "stock_value"
-                  ) + 1)
-                }"></td>
+                <td colspan="${headers.length -
+      (headers.findIndex(
+        (h) =>
+          (h.key || h) === "grand_total" ||
+          (h.key || h) === "amount" ||
+          (h.key || h) === "stock_value"
+      ) + 1)
+      }"></td>
               </tr>
             </tfoot>
           `
-              : ""
-          }
+      : ""
+    }
         </table>
         <script>
           window.onload = () => {
@@ -476,10 +495,10 @@ function getDateBounds(preset, customFrom = "", customTo = "", selectedMonth = "
             ? `Today (${from})`
             : `${from} to ${to}`
           : from
-          ? `From ${from}`
-          : to
-          ? `Up to ${to}`
-          : `Today (${todayStr})`,
+            ? `From ${from}`
+            : to
+              ? `Up to ${to}`
+              : `Today (${todayStr})`,
     };
   }
 
@@ -507,11 +526,10 @@ function ExportDropdown({ onExportCSV, onExportExcel, onExportPDF, disabled }) {
         type="button"
         onClick={() => !disabled && setOpen((prev) => !prev)}
         disabled={disabled}
-        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-bold transition-all shadow-xs ${
-          disabled
-            ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed opacity-60"
-            : "border-gray-200 bg-white text-gray-700 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50 cursor-pointer"
-        }`}
+        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-bold transition-all shadow-xs ${disabled
+          ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed opacity-60"
+          : "border-gray-200 bg-white text-gray-700 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50 cursor-pointer"
+          }`}
         title="Export Report"
       >
         <Download size={14} />
@@ -585,10 +603,13 @@ function Pagination({
 }) {
   if (totalRecords === 0) return null;
 
-  const startRecord = (currentPage - 1) * pageSize + 1;
-  const endRecord = Math.min(currentPage * pageSize, totalRecords);
+  const isAll = pageSize === "all" || pageSize === "All";
+  const numericPageSize = isAll ? totalRecords : Number(pageSize);
+  const startRecord = isAll ? 1 : Math.min((currentPage - 1) * numericPageSize + 1, totalRecords);
+  const endRecord = isAll ? totalRecords : Math.min(currentPage * numericPageSize, totalRecords);
 
   const getPageNumbers = () => {
+    if (totalPages <= 1) return [];
     const pages = [];
     if (totalPages <= 7) {
       for (let i = 1; i <= totalPages; i++) pages.push(i);
@@ -617,84 +638,88 @@ function Pagination({
           <span className="text-gray-400">Rows per page:</span>
           <select
             value={pageSize}
-            onChange={(e) => onPageSizeChange(Number(e.target.value))}
+            onChange={(e) => {
+              const val = e.target.value;
+              onPageSizeChange(val === "all" || val === "All" ? val : Number(val));
+            }}
             className="border border-gray-200 rounded-lg px-2 py-1 text-xs font-semibold bg-gray-50 text-gray-700 cursor-pointer focus:outline-none focus:ring-1 focus:ring-[#E00000]"
           >
             {pageSizeOptions.map((opt) => (
               <option key={opt} value={opt}>
-                {opt}
+                {opt === "all" || opt === "All" ? "All" : opt}
               </option>
             ))}
           </select>
         </div>
       </div>
 
-      <div className="flex items-center gap-1">
-        {/* First page */}
-        <button
-          onClick={() => onPageChange(1)}
-          disabled={currentPage === 1}
-          className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-          title="First Page"
-        >
-          <ChevronsLeft size={14} />
-        </button>
-        {/* Prev page */}
-        <button
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-          className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-          title="Previous Page"
-        >
-          <ChevronLeft size={14} />
-        </button>
+      {totalPages > 1 && (
+        <div className="flex items-center gap-1">
+          {/* First page */}
+          <button
+            onClick={() => onPageChange(1)}
+            disabled={currentPage === 1}
+            className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+            title="First Page"
+          >
+            <ChevronsLeft size={14} />
+          </button>
+          {/* Prev page */}
+          <button
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+            title="Previous Page"
+          >
+            <ChevronLeft size={14} />
+          </button>
 
-        {/* Page pills */}
-        <div className="flex items-center gap-1 mx-1">
-          {getPageNumbers().map((p, idx) => {
-            if (p === "...") {
+          {/* Page pills */}
+          <div className="flex items-center gap-1 mx-1">
+            {getPageNumbers().map((p, idx) => {
+              if (p === "...") {
+                return (
+                  <span key={`ell-${idx}`} className="px-1.5 text-gray-400 font-bold select-none">
+                    …
+                  </span>
+                );
+              }
+              const isCurrent = p === currentPage;
               return (
-                <span key={`ell-${idx}`} className="px-1.5 text-gray-400 font-bold select-none">
-                  …
-                </span>
-              );
-            }
-            const isCurrent = p === currentPage;
-            return (
-              <button
-                key={p}
-                onClick={() => onPageChange(p)}
-                className={`min-w-[28px] h-7 px-2 rounded-lg font-bold transition-all text-xs cursor-pointer ${
-                  isCurrent
+                <button
+                  key={p}
+                  onClick={() => onPageChange(p)}
+                  className={`min-w-[28px] h-7 px-2 rounded-lg font-bold transition-all text-xs cursor-pointer ${isCurrent
                     ? "bg-[#E00000] text-white shadow-xs"
                     : "border border-gray-200 bg-white text-gray-700 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50/50"
-                }`}
-              >
-                {p}
-              </button>
-            );
-          })}
-        </div>
+                    }`}
+                >
+                  {p}
+                </button>
+              );
+            })}
+          </div>
 
-        {/* Next page */}
-        <button
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-          title="Next Page"
-        >
-          <ChevronRight size={14} />
-        </button>
-        {/* Last page */}
-        <button
-          onClick={() => onPageChange(totalPages)}
-          disabled={currentPage === totalPages}
-          className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-          title="Last Page"
-        >
-          <ChevronsRight size={14} />
-        </button>
-      </div>
+          {/* Next page */}
+          <button
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+            title="Next Page"
+          >
+            <ChevronRight size={14} />
+          </button>
+          {/* Last page */}
+          <button
+            onClick={() => onPageChange(totalPages)}
+            disabled={currentPage === totalPages}
+            className="p-1.5 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
+            title="Last Page"
+          >
+            <ChevronsRight size={14} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -758,7 +783,7 @@ function StatusBadge({ status }) {
     Unpaid: "bg-yellow-50 text-yellow-700 border-yellow-200",
     Overdue: "bg-red-50 text-red-500 border-red-200",
     "Part Paid": "bg-blue-50 text-blue-600 border-blue-200",
-    Cancelled: "bg-gray-100 text-gray-400 border-gray-200",
+    Cancelled: "bg-red-50 text-red-700 border-red-200",
     Draft: "bg-gray-50 text-gray-500 border-gray-200",
     Return: "bg-purple-50 text-purple-600 border-purple-200",
   };
@@ -797,14 +822,14 @@ function TextCell({ value, mono = false, muted = false }) {
 function DayEndRow({ label, value, sub, highlight = false }) {
   return (
     <tr className={`border-b border-gray-100 ${highlight ? "bg-red-50/40" : "hover:bg-gray-50"} transition-colors`}>
-      <td className="px-5 py-3.5 text-sm font-semibold text-gray-700">{label}</td>
+      <td className="px-5 py-3.5 text-body font-semibold text-gray-700">{label}</td>
       <td className="px-5 py-3.5 text-right">
-        <span className={`tabular-nums font-black text-base ${highlight ? "text-[#E00000]" : "text-gray-900"}`}>
+        <span className={`tnum font-bold text-btn-lg ${highlight ? "text-[#E00000]" : "text-gray-900"}`}>
           {value ?? "—"}
         </span>
       </td>
       {sub !== undefined && (
-        <td className="px-5 py-3.5 text-right text-xs text-gray-400">{sub}</td>
+        <td className="px-5 py-3.5 text-right text-caption text-gray-400">{sub}</td>
       )}
     </tr>
   );
@@ -824,12 +849,577 @@ function ReportLoader({ label = "Loading report records…" }) {
   );
 }
 
+function CashCounterReportTab({ warehouse, warehouses = [] }) {
+  const assignedLocations = useMemo(
+    () => warehouses.filter(row => row?.warehouse && row.warehouse_type !== "Vault"),
+    [warehouses]
+  );
+  const [allBranchLocations, setAllBranchLocations] = useState([]);
+  const locations = allBranchLocations.length ? allBranchLocations : assignedLocations;
+  const [reportWarehouse, setReportWarehouse] = useState(warehouse?.warehouse || "");
+  const location = reportWarehouse || warehouse?.warehouse;
+  const [entries, setEntries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [selected, setSelected] = useState(null);
+  const [remarks, setRemarks] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [search, setSearch] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [expandedCurrencies, setExpandedCurrencies] = useState({});
+  const [summary, setSummary] = useState(null);
+  const countDetailRef = useRef(null);
+
+  useEffect(() => {
+    if (!selected) return;
+    const frame = window.requestAnimationFrame(() => countDetailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [selected?.name]);
+
+  useEffect(() => {
+    let live = true;
+    axios.get("/api/method/moneygram.moneygram.api.get_transactions.get_warehouses_list")
+      .then(response => {
+        if (!live) return;
+        const rows = response.data?.message || [];
+        const normalized = rows
+          .filter(row => !row?.is_group && !row?.custom_is_vault && row?.warehouse_type !== "Vault")
+          .map(row => ({ ...row, warehouse: row.warehouse || row.name || row.warehouse_name }))
+          .filter(row => row.warehouse);
+        setAllBranchLocations(normalized);
+      })
+      .catch(() => { if (live) setAllBranchLocations([]); });
+    return () => { live = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!reportWarehouse || (reportWarehouse !== "All Locations" && !locations.some(row => row.warehouse === reportWarehouse))) {
+      setReportWarehouse(warehouse?.warehouse || locations[0]?.warehouse || "");
+    }
+  }, [warehouse?.warehouse, locations, reportWarehouse]);
+
+  const load = useCallback(async (append = false, start = 0) => {
+    if (!location) { setEntries([]); setLoading(false); return; }
+    if (append) setBusy(true); else setLoading(true);
+    setError("");
+    try {
+      const result = await customPos.getReportEntries(location, {
+        search: appliedSearch,
+        status: statusFilter,
+        entry_type: typeFilter === "all" ? "" : `${typeFilter[0].toUpperCase()}${typeFilter.slice(1)}`,
+        start,
+        page_length: 20,
+      });
+      const rows = result?.entries || [];
+      // An incident approval is stored as Approved plus the manager decision.
+      // Present it explicitly in the report list instead of hiding it as a normal approval.
+      const displayRows = rows.map(entry => ({ ...entry, status: entry.manager_decision === "Approve With Incident" ? "Approved with Incident" : entry.status }));
+      setEntries(current => append ? [...current, ...displayRows] : displayRows);
+      setTotalRecords(Number(result?.total || 0));
+      setHasMore(Boolean(result?.has_more));
+      if (result?.summary) {
+        setSummary(result.summary);
+      }
+    }
+    catch (cause) { setError(cause.message); }
+    finally { setLoading(false); setBusy(false); }
+  }, [location, appliedSearch, statusFilter, typeFilter]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filteredEntries = entries;
+  const allCount = summary?.all ?? totalRecords;
+  const openingCount = summary?.opening ?? entries.filter(entry => String(entry.entry_type || "").toLowerCase() === "opening").length;
+  const closingCount = summary?.closing ?? entries.filter(entry => String(entry.entry_type || "").toLowerCase() === "closing").length;
+  const pendingCount = summary?.pending ?? entries.filter(entry => entry.status === "Pending Approval").length;
+
+  const isPendingActive = statusFilter === "Pending Approval";
+  const isOpeningActive = typeFilter === "opening" && !isPendingActive;
+  const isClosingActive = typeFilter === "closing" && !isPendingActive;
+  const isAllActive = typeFilter === "all" && statusFilter === "All";
+
+  const handleCardClick = (type, status = "All") => {
+    if (type === "all" && status === "All") {
+      setTypeFilter("all");
+      setStatusFilter("All");
+    } else if (status === "Pending Approval") {
+      if (isPendingActive) {
+        setStatusFilter("All");
+        setTypeFilter("all");
+      } else {
+        setStatusFilter("Pending Approval");
+        setTypeFilter("all");
+      }
+    } else if (type === "opening") {
+      if (isOpeningActive) {
+        setTypeFilter("all");
+        setStatusFilter("All");
+      } else {
+        setTypeFilter("opening");
+        setStatusFilter("All");
+      }
+    } else if (type === "closing") {
+      if (isClosingActive) {
+        setTypeFilter("all");
+        setStatusFilter("All");
+      } else {
+        setTypeFilter("closing");
+        setStatusFilter("All");
+      }
+    }
+  };
+  const statusStyle = status => status === "Pending Approval" ? "border-amber-200 bg-amber-50 text-amber-800" : status === "Approved with Incident" ? "border-orange-200 bg-orange-50 text-orange-800" : status === "Approved" || status === "Warning" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : status === "Rejected" ? "border-red-200 bg-red-50 text-red-700" : "border-gray-200 bg-gray-50 text-gray-700";
+  const denominationHeaders = [{ label: "Currency", key: "currency" }, { label: "Denomination", key: "denomination" }, { label: "Expected quantity", key: "expected_qty" }, { label: "Counted quantity", key: "counted_qty" }, { label: "Difference", key: "difference" }];
+  const denominationRows = (selected?.counts || []).map(count => ({ ...count, difference: Number(count.counted_qty || 0) - Number(count.expected_qty || 0) }));
+  const varianceNotes = (selected?.currency_summary || []).filter(item => Number(item.variance || 0) !== 0).map(item => {
+    const variance = Number(item.variance || 0);
+    const country = item.country || CASH_COUNTER_COUNTRY[item.currency] || item.currency;
+    return { currency: item.currency, country, variance, direction: variance < 0 ? "Short" : "Over" };
+  });
+  const exportFileName = selected ? `Cash_Counter_${String(selected.entry_type || "count")}_${selected.name}`.replace(/[^a-z0-9_-]/gi, "_") : "Cash_Counter_Record";
+  const exportMetadata = selected ? { Location: selected.warehouse || location, "Record ID": selected.name, "Register type": registerLabel(selected.entry_type), Status: selected.status, Teller: selected.submitted_by || "—", Submitted: selected.submitted_at || "—" } : {};
+  const toggleCurrency = currency => setExpandedCurrencies(current => ({ ...current, [currency]: !current[currency] }));
+  const exportCSV = () => downloadCSV(exportFileName, denominationHeaders, denominationRows);
+  const exportExcel = () => downloadExcel(exportFileName, denominationHeaders, denominationRows, registerLabel(selected?.entry_type));
+  const exportPDF = () => exportToPDF(registerLabel(selected?.entry_type), denominationHeaders, denominationRows, exportMetadata);
+  const formatSubmittedAt = value => {
+    if (!value) return "—";
+    const normalized = String(value).replace("T", " ");
+    const [date, time = ""] = normalized.split(" ");
+    return `${date} ${time.slice(0, 5)}`.trim();
+  };
+
+  const decide = async decision => {
+    if (!selected || !remarks.trim()) { setError("Enter manager remarks before making a decision."); return; }
+    setBusy(true); setError("");
+    try {
+      await customPos.reviewEntry(selected.name, decision, remarks.trim());
+      setSelected(null); setRemarks(""); setExpandedCurrencies({}); await load();
+    } catch (cause) { setError(cause.message); }
+    finally { setBusy(false); }
+  };
+
+  if (!location) return <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">Select an active location to view Cash Counter reports.</div>;
+  if (loading) return <ReportLoader label="Loading Cash Counter records…" />;
+
+  return <div className="space-y-5">
+    <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-overline font-semibold uppercase tracking-wider text-[#E00000]">Manager-only report</p>
+          <h2 className="mt-1 text-xl font-bold text-gray-900">Cash Counter records</h2>
+          <p className="mt-1 text-caption text-gray-500">Open and close register history for <b className="text-gray-700">{location}</b>.</p>
+        </div>
+        <button onClick={load} disabled={loading || busy} className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-label font-semibold text-gray-700 hover:border-[#E00000] hover:text-[#E00000] disabled:opacity-50 cursor-pointer">
+          <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
+          Refresh
+        </button>
+      </div>
+      <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <button
+          type="button"
+          onClick={() => handleCardClick("all", "All")}
+          className={`group rounded-xl px-3.5 py-3 text-left transition-all duration-150 cursor-pointer border ${
+            isAllActive
+              ? "border-[#E00000] bg-white ring-2 ring-[#E00000]/20 shadow-xs"
+              : "border-gray-200/80 bg-gray-50 hover:bg-gray-100/80 hover:border-gray-300"
+          }`}
+          title="Filter by all records"
+        >
+          <div className="flex items-center justify-between gap-1">
+            <p className="text-overline font-semibold uppercase tracking-wider text-gray-500">All records</p>
+            {isAllActive && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#E00000] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                <Check size={10} strokeWidth={3} /> Active
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-xl font-bold tnum text-gray-900">{allCount}</p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleCardClick("opening", "All")}
+          className={`group rounded-xl px-3.5 py-3 text-left transition-all duration-150 cursor-pointer border ${
+            isOpeningActive
+              ? "border-[#E00000] bg-blue-50/80 ring-2 ring-[#E00000]/20 shadow-xs"
+              : "border-blue-200/60 bg-blue-50 hover:bg-blue-100/60 hover:border-blue-300"
+          }`}
+          title="Filter by Open Register records"
+        >
+          <div className="flex items-center justify-between gap-1">
+            <p className="text-overline font-semibold uppercase tracking-wider text-blue-600">Open registers</p>
+            {isOpeningActive && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#E00000] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                <Check size={10} strokeWidth={3} /> Active
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-xl font-bold tnum text-blue-900">{openingCount}</p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleCardClick("closing", "All")}
+          className={`group rounded-xl px-3.5 py-3 text-left transition-all duration-150 cursor-pointer border ${
+            isClosingActive
+              ? "border-[#E00000] bg-violet-50/80 ring-2 ring-[#E00000]/20 shadow-xs"
+              : "border-violet-200/60 bg-violet-50 hover:bg-violet-100/60 hover:border-violet-300"
+          }`}
+          title="Filter by Close Register records"
+        >
+          <div className="flex items-center justify-between gap-1">
+            <p className="text-overline font-semibold uppercase tracking-wider text-violet-600">Close registers</p>
+            {isClosingActive && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#E00000] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                <Check size={10} strokeWidth={3} /> Active
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-xl font-bold tnum text-violet-900">{closingCount}</p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleCardClick("all", "Pending Approval")}
+          className={`group rounded-xl px-3.5 py-3 text-left transition-all duration-150 cursor-pointer border ${
+            isPendingActive
+              ? `${pendingCount ? "bg-amber-50/90" : "bg-emerald-50/90"} border-[#E00000] ring-2 ring-[#E00000]/20 shadow-xs`
+              : pendingCount
+                ? "border-amber-200/60 bg-amber-50 hover:bg-amber-100/60 hover:border-amber-300"
+                : "border-emerald-200/60 bg-emerald-50 hover:bg-emerald-100/60 hover:border-emerald-300"
+          }`}
+          title="Filter by pending approval records"
+        >
+          <div className="flex items-center justify-between gap-1">
+            <p className={`text-overline font-semibold uppercase tracking-wider ${pendingCount ? "text-amber-700" : "text-emerald-700"}`}>
+              Pending approval
+            </p>
+            {isPendingActive && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#E00000] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                <Check size={10} strokeWidth={3} /> Active
+              </span>
+            )}
+          </div>
+          <p className={`mt-1 text-xl font-bold tnum ${pendingCount ? "text-amber-900" : "text-emerald-900"}`}>{pendingCount}</p>
+        </button>
+      </div>
+    </section>
+    {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-label font-semibold text-danger">{error}</div>}
+    <form onSubmit={event => { event.preventDefault(); setAppliedSearch(search.trim()); }} className="flex flex-wrap items-end gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+      <label className="min-w-[16rem] text-overline font-semibold uppercase tracking-wider text-gray-500">
+        Location
+        <select value={location || ""} onChange={event => { setReportWarehouse(event.target.value); setSelected(null); setRemarks(""); setExpandedCurrencies({}); }} className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-body font-medium normal-case tracking-normal text-gray-800 outline-none focus:border-[#E00000] focus:ring-2 focus:ring-red-100">
+          <option value="All Locations">All Locations</option>
+          {locations.map(row => <option key={row.warehouse} value={row.warehouse}>{row.warehouse}</option>)}
+        </select>
+      </label>
+      <label className="min-w-[15rem] flex-1 text-overline font-semibold uppercase tracking-wider text-gray-500">
+        Record ID
+        <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search count record ID" className="mt-1.5 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-body font-medium normal-case tracking-normal text-gray-800 outline-none focus:border-[#E00000] focus:ring-2 focus:ring-red-100" />
+      </label>
+      <label className="w-48 text-overline font-semibold uppercase tracking-wider text-gray-500">
+        Status
+        <select value={statusFilter} onChange={event => setStatusFilter(event.target.value)} className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-body font-medium normal-case tracking-normal text-gray-800 outline-none focus:border-[#E00000] focus:ring-2 focus:ring-red-100">
+          <option value="All">All statuses</option>
+          <option value="Pending Approval">Pending approval</option>
+          <option value="Approved">Approved</option>
+          <option value="Approved with Incident">Approved with incident</option>
+          <option value="Warning">Warning</option>
+          <option value="Rejected">Rejected</option>
+        </select>
+      </label>
+      <button type="submit" className="rounded-xl bg-[#E00000] px-4 py-2.5 text-btn-lg font-semibold text-white hover:bg-[#B70000] cursor-pointer">Search</button>
+      <button type="button" onClick={() => { setSearch(""); setAppliedSearch(""); setStatusFilter("All"); setTypeFilter("all"); }} className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-btn-lg font-semibold text-gray-700 hover:bg-gray-50 cursor-pointer">Clear</button>
+      <span className="ml-auto pb-2 text-caption font-semibold text-gray-500">Showing {entries.length} of {totalRecords} records</span>
+    </form>
+    <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
+        <div className="flex flex-wrap gap-2">
+          {[["all", "All"], ["opening", "Open Register"], ["closing", "Close Register"]].map(([value, label]) => {
+            const isActive = value === "all" ? isAllActive : (typeFilter === value && !isPendingActive);
+            return (
+              <button
+                key={value}
+                onClick={() => {
+                  setTypeFilter(value);
+                  if (statusFilter === "Pending Approval" || value === "all") {
+                    setStatusFilter("All");
+                  }
+                }}
+                className={`rounded-lg px-3 py-1.5 text-label font-semibold transition-colors cursor-pointer ${
+                  isActive ? "bg-[#E00000] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-caption font-semibold text-gray-500">
+          {filteredEntries.length} record{filteredEntries.length === 1 ? "" : "s"}
+        </p>
+      </div>
+      {!entries.length ? (
+        <div className="p-10 text-center text-sm text-gray-500">
+          No open or close register records exist for this location.
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-[980px] w-full text-sm">
+            <thead className="bg-gray-50 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">
+              <tr>
+                <th className="w-12 px-3 py-3 text-center"></th>
+                <th className="px-5 py-3">Record</th>
+                <th className="px-5 py-3">Register type</th>
+                <th className="px-5 py-3">Location</th>
+                <th className="px-5 py-3">Status</th>
+                <th className="px-5 py-3">Teller</th>
+                <th className="px-5 py-3">Submitted</th>
+                <th className="px-5 py-3"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredEntries.map((entry) => {
+                const isSelected = selected?.name === entry.name;
+                return (
+                  <tr
+                    key={entry.name}
+                    onClick={() => { setSelected(isSelected ? null : entry); setRemarks(""); setExpandedCurrencies({}); }}
+                    className={`cursor-pointer border-t border-gray-100 transition-colors ${isSelected ? "bg-red-50 font-medium" : "hover:bg-gray-50"
+                      }`}
+                  >
+                    <td
+                      className="w-12 px-3 py-3.5 text-center cursor-pointer"
+                      onClick={event => { event.stopPropagation(); setSelected(isSelected ? null : entry); setRemarks(""); setExpandedCurrencies({}); }}
+                    >
+                      {isSelected ? (
+                        <div className="flex items-center justify-center">
+                          <CheckCircle2 size={18} className="text-[#E00000]" />
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center border rounded-full border-gray size-[18px]">
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-5 py-3.5 whitespace-nowrap text-xs font-bold text-gray-900">{entry.name}</td>
+                    <td className="px-5 py-3.5">
+                      <span
+                        className={`rounded-md px-2 py-1 text-caption font-semibold ${String(entry.entry_type).toLowerCase() === "opening"
+                          ? "bg-blue-50 text-blue-700"
+                          : "bg-violet-50 text-violet-700"
+                          }`}
+                      >
+                        {registerLabel(entry.entry_type)}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-sm font-medium text-gray-600">{entry.warehouse || "—"}</td>
+                    <td className="px-5 py-3.5">
+                      <span className={`rounded-full border px-2.5 py-1 text-caption font-semibold ${statusStyle(entry.status)}`}>
+                        {entry.status}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-xs text-gray-600">{entry.submitted_by}</td>
+                    <td className="px-5 py-3.5 whitespace-nowrap text-xs text-gray-500">{formatSubmittedAt(entry.submitted_at)}</td>
+                    <td className="px-5 py-3.5 text-right">
+                      <button
+                        onClick={event => { event.stopPropagation(); setSelected(isSelected ? null : entry); setRemarks(""); setExpandedCurrencies({}); }}
+                        className="text-label font-semibold text-[#E00000] hover:underline cursor-pointer"
+                      >
+                        {isSelected ? "Hide details" : "View details"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+    {hasMore && (
+      <div className="flex justify-center">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => load(true, entries.length)}
+          className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-btn-lg font-semibold text-gray-700 hover:border-[#E00000] hover:text-[#E00000] disabled:opacity-50 cursor-pointer"
+        >
+          <RefreshCw size={15} className={busy ? "animate-spin" : ""} /> {busy ? "Loading…" : "Load more records"}
+        </button>
+      </div>
+    )}
+    {selected && (
+      <section ref={countDetailRef} className="scroll-mt-24 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 px-5 py-5">
+          <div>
+            <p className="text-overline font-semibold uppercase tracking-wider text-[#E00000]">{registerLabel(selected.entry_type)} detail</p>
+            <h3 className="mt-1 text-h2 font-bold text-gray-900">{selected.name}</h3>
+            <p className="mt-1 text-caption text-gray-500">{selected.warehouse || "—"} · {selected.submitted_by} · {selected.submitted_at}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <ExportDropdown onExportCSV={exportCSV} onExportExcel={exportExcel} onExportPDF={exportPDF} disabled={!denominationRows.length} />
+            <span className={`rounded-full border px-3 py-1.5 text-caption font-semibold ${statusStyle(selected.status)}`}>{selected.status}</span>
+          </div>
+        </div>
+        <div className="p-5">
+          {varianceNotes.length > 0 && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-body text-amber-950">
+              <p className="font-bold">Automatic reconciliation note</p>
+              <p className="mt-1 text-caption text-amber-800">Calculated from the submitted count. This is separate from teller and manager remarks.</p>
+              <ul className="mt-2 space-y-1.5">
+                {varianceNotes.map(note => (
+                  <li key={note.currency} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-lg bg-white/70 px-2.5 py-2">
+                    <span className="font-semibold">{note.country} · {note.currency}</span>
+                    <span className={`font-bold tnum ${note.variance < 0 ? "text-red-700" : "text-emerald-700"}`}>
+                      {note.direction} by {note.currency} {Math.abs(note.variance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {selected.remarks && (
+            <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3 text-body text-gray-700">
+              <b>Teller remarks:</b> {selected.remarks}
+            </div>
+          )}
+          <div className="mt-5">
+            <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h4 className="text-h3 font-bold text-gray-900">Denomination reconciliation report</h4>
+                <p className="mt-1 text-caption text-gray-500">Expand a currency row to review every denomination.</p>
+              </div>
+              <span className="text-caption text-gray-500">{(selected.currency_summary || []).length} currencies</span>
+            </div>
+            <div className="overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
+              <div className="grid grid-cols-[minmax(12rem,1.5fr)_minmax(7rem,1fr)_minmax(7rem,1fr)_auto] gap-3 border-b border-slate-300 bg-slate-100 px-4 py-3 text-overline font-bold uppercase tracking-wider text-slate-700">
+                <span>Country / currency</span>
+                <span className="text-right">Counted total</span>
+                <span className="text-right">Variance</span>
+                <span>Detail</span>
+              </div>
+              <div className="divide-y divide-slate-200">
+                {(selected.currency_summary || []).map(item => {
+                  const currency = item.currency;
+                  const country = item.country || CASH_COUNTER_COUNTRY[currency] || currency;
+                  const currencyRows = denominationRows.filter(row => row.currency === currency);
+                  const isExpanded = Boolean(expandedCurrencies[currency]);
+                  const variance = Number(item.variance || 0);
+                  return (
+                    <div key={currency}>
+                      <button
+                        type="button"
+                        onClick={() => toggleCurrency(currency)}
+                        aria-expanded={isExpanded}
+                        className={`grid w-full grid-cols-[minmax(12rem,1.5fr)_minmax(7rem,1fr)_minmax(7rem,1fr)_auto] items-center gap-3 border-l-4 px-4 py-3.5 text-left text-body transition-all cursor-pointer ${isExpanded ? "border-l-[#E00000] bg-gradient-to-r from-red-50 via-rose-50 to-white shadow-inner" : "border-l-transparent bg-white hover:bg-slate-50"}`}
+                      >
+                        <span>
+                          <b className="font-bold text-slate-950">{country}</b>
+                          <span className={`ml-2 rounded-md px-2 py-1 text-caption font-bold ${isExpanded ? "bg-[#E00000] text-white" : "bg-slate-200 text-slate-700"}`}>{currency}</span>
+                        </span>
+                        <span className="text-right font-bold tnum text-slate-950">
+                          {currency} {Number(item.counted_total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                        <span className={`text-right font-bold tnum ${variance < 0 ? "text-red-700" : variance > 0 ? "text-emerald-700" : "text-slate-600"}`}>
+                          {variance > 0 ? "+" : ""}{currency} {variance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                        <span className={`flex h-7 w-7 items-center justify-center rounded-full transition-colors ${isExpanded ? "bg-[#E00000] text-white" : "bg-slate-100 text-slate-500"}`}><ChevronDown size={16} className={`transition-transform ${isExpanded ? "rotate-180" : ""}`} /></span>
+                      </button>
+                      {isExpanded && (
+                        <div className="border-t border-slate-200 bg-slate-50 px-4 py-3">
+                          <div className="overflow-x-auto">
+                            <table className="w-full min-w-[720px] text-body">
+                              <thead className="bg-slate-200/70 text-left text-overline font-bold uppercase tracking-wider text-slate-700">
+                                <tr>
+                                  <th className="px-3 py-2">Country</th>
+                                  <th className="px-3 py-2">Currency</th>
+                                  <th className="px-3 py-2">Denomination</th>
+                                  <th className="px-3 py-2 text-right">Expected qty</th>
+                                  <th className="px-3 py-2 text-right">Counted qty</th>
+                                  <th className="px-3 py-2 text-right">Difference</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-200">
+                                {currencyRows.map((count, index) => {
+                                  const difference = Number(count.difference || 0);
+                                  return (
+                                    <tr key={`${count.item_code}-${index}`} className={index % 2 ? "bg-white" : "bg-slate-50/70"}>
+                                      <td className="px-3 py-2.5 font-medium text-slate-700">{country}</td>
+                                      <td className="px-3 py-2.5 font-bold text-slate-950">{currency}</td>
+                                      <td className="px-3 py-2.5 font-bold tnum text-slate-950">{currency} {count.denomination}</td>
+                                      <td className="px-3 py-2.5 text-right font-bold tnum text-blue-700">{count.expected_qty}</td>
+                                      <td className="px-3 py-2.5 text-right font-bold tnum text-slate-950">{count.counted_qty}</td>
+                                      <td className={`px-3 py-2.5 text-right font-bold tnum ${difference < 0 ? "text-red-700" : difference > 0 ? "text-emerald-700" : "text-slate-600"}`}>
+                                        {difference > 0 ? `+${difference}` : difference}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                          {!currencyRows.length && <p className="py-2 text-caption text-gray-500">No denomination rows are available for this currency.</p>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          {selected.status === "Pending Approval" && (
+            <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <label className="block text-label font-semibold text-gray-800">
+                Manager remarks <span className="text-[#E00000]">*</span>
+              </label>
+              <textarea
+                value={remarks}
+                onChange={event => setRemarks(event.target.value)}
+                rows="3"
+                placeholder="Required reason and decision remarks"
+                className="mt-2 w-full rounded-xl border border-amber-200 bg-white px-3 py-2.5 text-body font-normal outline-none focus:border-[#E00000] focus:ring-2 focus:ring-red-100"
+              />
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  disabled={busy}
+                  onClick={() => decide("approve")}
+                  className="rounded-xl bg-emerald-700 px-4 py-2.5 text-btn-lg font-semibold text-white disabled:opacity-50 cursor-pointer"
+                >
+                  Approve
+                </button>
+                <button
+                  disabled={busy}
+                  onClick={() => decide("reject")}
+                  className="rounded-xl border border-red-300 bg-white px-4 py-2.5 text-btn-lg font-semibold text-red-700 disabled:opacity-50 cursor-pointer"
+                >
+                  Recount required
+                </button>
+              </div>
+            </div>
+          )}
+          {selected.manager_remarks && (
+            <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-body text-emerald-900">
+              <b>Manager decision:</b> {selected.manager_decision || "—"}<br />
+              <b>Remarks:</b> {selected.manager_remarks}
+            </div>
+          )}
+        </div>
+      </section>
+    )}
+  </div>;
+}
+
 // ── Tab Button ─────────────────────────────────────────────────────────────
 function TabButton({ label, active, onClick, count }) {
   return (
     <button
       onClick={onClick}
-      className={`relative flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold border transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E00000]
+      className={`relative flex items-center gap-2 px-5 py-2.5 rounded-xl text-btn-lg font-semibold border transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E00000] cursor-pointer
         ${active
           ? "bg-[#E00000] text-white border-[#E00000] shadow-md shadow-[#E00000]/20"
           : "bg-gray-50 text-gray-500 border-gray-200 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50"
@@ -837,7 +1427,7 @@ function TabButton({ label, active, onClick, count }) {
     >
       {label}
       {count != null && (
-        <span className={`text-[11px] px-2 py-0.5 rounded-full font-black tabular-nums
+        <span className={`text-overline px-2 py-0.5 rounded-full font-semibold tnum
           ${active ? "bg-white/20 text-white" : "bg-gray-200 text-gray-500"}`}>
           {count}
         </span>
@@ -1330,34 +1920,13 @@ function TransactionsTab({ warehouse, loginUser }) {
       } else {
         setSelectedWarehouse("All");
       }
-    } else {
-      if (
-        userAssignedWarehouseNames.length > 0 &&
-        selectedWarehouse !== "All" &&
-        !userAssignedWarehouseNames.includes(selectedWarehouse)
-      ) {
-        setSelectedWarehouse(userAssignedWarehouseNames[0]);
-      }
-      if (userAssignedWarehouseNames.length === 1 && selectedWarehouse === "All") {
-        setSelectedWarehouse(userAssignedWarehouseNames[0]);
-      }
     }
   }, [warehouse, getActiveLocationName, isVaultLocation, userAssignedWarehouseNames, selectedWarehouse]);
 
   const [warehousesList, setWarehousesList] = useState([]);
 
-  // Warehouses to display in branch location filter (only user's assigned warehouse(s))
-  const displayedWarehouses = useMemo(() => {
-    if (userAssignedWarehouseNames.length === 0) {
-      return warehousesList;
-    }
-    return userAssignedWarehouseNames.map((name) => {
-      const match = warehousesList.find(
-        (wh) => (wh.name || wh.warehouse_name || "").trim() === name
-      );
-      return match || { name, warehouse_name: name };
-    });
-  }, [warehousesList, userAssignedWarehouseNames]);
+  // Show every non-vault branch returned by the server.
+  const displayedWarehouses = warehousesList;
   const [cancellingRowId, setCancellingRowId] = useState(null);
   const [printingRowId, setPrintingRowId] = useState(null);
 
@@ -1689,16 +2258,17 @@ function TransactionsTab({ warehouse, loginUser }) {
   // Common Headers for Exports
   const exportHeaders = [
     { label: "Reference ID", key: "name" },
-    { label: "Type", key: "type" },
+    { label: "Type", accessor: transactionTypeLabel, key: "type" },
     { label: "Date & Time", accessor: (r) => formatTransactionDateTime(r), key: "posting_datetime" },
     { label: "OET / Txn ID", key: "oet_code" },
     { label: "Customer", accessor: (r) => r.custom_customer_full_name || r.party || "" },
     { label: "Customer ID", key: "party" },
     { label: "Amount", key: "grand_total", align: "right" },
     { label: "Currency", key: "currency" },
+    { label: "Currency pair", accessor: currencyPair, key: "currency_pair" },
     { label: "Status", key: "status" },
     { label: "Branch Location", key: "set_warehouse" },
-    { label: "Owner", key: "owner" },
+    { label: "Created By", key: "owner" },
     { label: "Company", key: "company" },
   ];
 
@@ -1786,18 +2356,16 @@ function TransactionsTab({ warehouse, loginUser }) {
             <button
               key={tab.id}
               onClick={() => setSelectedType(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border transition-all duration-150 cursor-pointer ${
-                active
-                  ? "bg-[#E00000] text-white border-[#E00000] shadow-sm shadow-[#E00000]/20"
-                  : "bg-white text-gray-600 border-gray-200 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50/50"
-              }`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-label font-semibold border transition-all duration-150 cursor-pointer ${active
+                ? "bg-[#E00000] text-white border-[#E00000] shadow-sm shadow-[#E00000]/20"
+                : "bg-white text-gray-600 border-gray-200 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50/50"
+                }`}
             >
               <span>{tab.label}</span>
               {selectedType === "All" && countsByType[tab.id] != null && (
                 <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded-full font-black tabular-nums ${
-                    active ? "bg-white/25 text-white" : "bg-gray-100 text-gray-500"
-                  }`}
+                  className={`text-overline px-1.5 py-0.5 rounded-full font-semibold tnum ${active ? "bg-white/25 text-white" : "bg-gray-100 text-gray-500"
+                    }`}
                 >
                   {countsByType[tab.id]}
                 </span>
@@ -1832,11 +2400,10 @@ function TransactionsTab({ warehouse, loginUser }) {
                   setCustomToDate(today);
                 }
               }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                active
-                  ? "bg-[#E00000] text-white border-[#E00000] shadow-xs"
-                  : "bg-white text-gray-600 border-gray-200 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50"
-              }`}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${active
+                ? "bg-[#E00000] text-white border-[#E00000] shadow-xs"
+                : "bg-white text-gray-600 border-gray-200 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50"
+                }`}
             >
               {preset.label}
             </button>
@@ -1938,9 +2505,7 @@ function TransactionsTab({ warehouse, loginUser }) {
           className="px-3 py-2 rounded-xl border border-gray-200 text-xs font-semibold bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#E00000]/30 cursor-pointer"
           title="Filter by Branch Location"
         >
-          {userAssignedWarehouseNames.length !== 1 && (
-            <option value="All">All Branch Locations</option>
-          )}
+          <option value="All">All Branch Locations</option>
           {displayedWarehouses.map((wh) => (
             <option key={wh.name} value={wh.name}>
               {wh.name || wh.warehouse_name}
@@ -2000,16 +2565,16 @@ function TransactionsTab({ warehouse, loginUser }) {
                   "Customer",
                   "Amount",
                   "Currency",
+                  "Currency Pair",
                   "Status",
                   "Branch Location",
-                  "Owner",
+                  "Created By",
                   "Actions",
                 ].map((h) => (
                   <th
                     key={h}
-                    className={`px-4 py-3 text-left text-[11px] font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap ${
-                      h === "Amount" ? "text-right" : ""
-                    }`}
+                    className={`px-4 py-3 text-left text-[11px] font-bold uppercase tracking-widest text-gray-400 whitespace-nowrap ${h === "Amount" ? "text-right" : ""
+                      }`}
                   >
                     {h}
                   </th>
@@ -2032,9 +2597,8 @@ function TransactionsTab({ warehouse, loginUser }) {
                   return (
                     <tr
                       key={`${row.name}_${idx}`}
-                      className={`border-b border-gray-100 transition-colors hover:bg-gray-50/80 ${
-                        idx % 2 === 1 ? "bg-gray-50/30" : "bg-white"
-                      }`}
+                      className={`border-b border-gray-100 transition-colors hover:bg-gray-50/80 ${idx % 2 === 1 ? "bg-gray-50/30" : "bg-white"
+                        }`}
                     >
                       <td className="px-4 py-3.5 text-xs text-gray-400 tabular-nums">
                         {startIndex + idx + 1}
@@ -2044,17 +2608,17 @@ function TransactionsTab({ warehouse, loginUser }) {
                       <td className="px-4 py-3.5 whitespace-nowrap">
                         {isMoneyTransfer && (
                           <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
-                            Money Transfer {row.transfer_type ? `(${row.transfer_type})` : ""}
+                            {transactionTypeLabel(row)}
                           </span>
                         )}
                         {isDealerExchange && (
                           <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
-                            Dealer Exchange
+                            {transactionTypeLabel(row)}
                           </span>
                         )}
                         {(isCurrencyExchange || (!isMoneyTransfer && !isDealerExchange)) && (
                           <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                            {row.type || "Currency Exchange"}
+                            {transactionTypeLabel(row)}
                           </span>
                         )}
                       </td>
@@ -2114,6 +2678,11 @@ function TransactionsTab({ warehouse, loginUser }) {
                         {row.currency ?? "FJD"}
                       </td>
 
+                      {/* Source and destination currency */}
+                      <td className="px-4 py-3.5 whitespace-nowrap text-xs font-bold text-gray-700">
+                        {currencyPair(row)}
+                      </td>
+
                       {/* Status */}
                       <td className="px-4 py-3.5 whitespace-nowrap">
                         <StatusBadge status={row.status} />
@@ -2124,7 +2693,7 @@ function TransactionsTab({ warehouse, loginUser }) {
                         <TextCell value={row.set_warehouse} muted />
                       </td>
 
-                      {/* Owner */}
+                      {/* Created By */}
                       <td className="px-4 py-3.5 text-xs text-gray-400 max-w-[140px] truncate">
                         <TextCell value={row.owner} muted />
                       </td>
@@ -2136,11 +2705,10 @@ function TransactionsTab({ warehouse, loginUser }) {
                           <button
                             onClick={() => handleCancelRow(row)}
                             disabled={row.status === "Cancelled" || row.status === "Draft" || cancellingRowId === row.name}
-                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1 border ${
-                              row.status === "Cancelled" || row.status === "Draft"
-                                ? "bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed"
-                                : "bg-white text-red-600 border-red-200 hover:bg-red-50 cursor-pointer"
-                            }`}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all shadow-xs flex items-center gap-1 border ${row.status === "Cancelled" || row.status === "Draft"
+                              ? "bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed"
+                              : "bg-white text-red-600 border-red-200 hover:bg-red-50 cursor-pointer"
+                              }`}
                             title="Cancel Transaction"
                           >
                             {cancellingRowId === row.name ? (
@@ -2190,20 +2758,20 @@ function TransactionsTab({ warehouse, loginUser }) {
               <tfoot>
                 {totalPages > 1 && (
                   <tr className="bg-gray-50/50 border-t border-gray-200">
-                    <td colSpan={6} className="px-4 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <td colSpan={6} className="px-4 py-2 text-overline font-semibold text-gray-500 uppercase tracking-wider">
                       Page Subtotal ({rows.length} items)
                     </td>
-                    <td className="px-4 py-2 text-right font-bold text-gray-700 tabular-nums text-xs">
+                    <td className="px-4 py-2 text-right font-semibold text-gray-700 tnum text-caption">
                       {pageGrand.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                     <td colSpan={5} />
                   </tr>
                 )}
                 <tr className="bg-gray-50 border-t-2 border-[#E00000]/15">
-                  <td colSpan={6} className="px-4 py-3 text-xs font-black uppercase tracking-widest text-[#E00000]">
+                  <td colSpan={6} className="px-4 py-3 text-overline font-semibold uppercase tracking-wider text-brand-600">
                     Total Amount ({totalRecords} {totalRecords === 1 ? "record" : "records"})
                   </td>
-                  <td className="px-4 py-3 text-right font-black text-gray-900 tabular-nums text-sm">
+                  <td className="px-4 py-3 text-right font-bold text-gray-900 tnum text-label">
                     {(totalAmount || pageGrand).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                   <td colSpan={5} />
@@ -2228,6 +2796,84 @@ function TransactionsTab({ warehouse, loginUser }) {
 }
 
 // ── Day End Closing Report Tab ─────────────────────────────────────────────
+function RegisterDayEndTab({ warehouse, warehouses = [] }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [fromDate, setFromDate] = useState(today);
+  const [toDate, setToDate] = useState(today);
+  const [reportLocation, setReportLocation] = useState(warehouse?.warehouse || "All Locations");
+  const [allLocations, setAllLocations] = useState([]);
+  const [report, setReport] = useState(null);
+  const [selectedSession, setSelectedSession] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let live = true;
+    axios.get("/api/method/moneygram.moneygram.api.get_transactions.get_warehouses_list")
+      .then(response => {
+        if (!live) return;
+        setAllLocations((response.data?.message || []).filter(row => !row?.is_group && !row?.custom_is_vault && row?.warehouse_type !== "Vault"));
+      })
+      .catch(() => { if (live) setAllLocations(warehouses || []); });
+    return () => { live = false; };
+  }, [warehouses]);
+
+  const generate = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await axios.get("/api/method/moneygram.custom_pos.api.get_register_day_end_report", { params: { from_date: fromDate, to_date: toDate, warehouse: reportLocation } });
+      const result = response.data?.message || { registers: [], consolidated_stock: [] };
+      setReport(result);
+      setSelectedSession(current => result.registers?.some(row => row.session === current) ? current : "");
+    } catch (cause) {
+      setError(cause.response?.data?.message || cause.message || "Unable to generate the register report.");
+      setReport(null);
+    } finally { setLoading(false); }
+  }, [fromDate, toDate, reportLocation]);
+
+  useEffect(() => { generate(); }, [generate]);
+  const registers = report?.registers || [];
+  const selected = registers.find(row => row.session === selectedSession);
+  const moneyValue = value => Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  return <div className="space-y-5">
+    <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      <div><p className="text-overline font-bold uppercase tracking-wider text-[#E00000]">Register day-end report</p><h2 className="mt-1 text-h2 font-bold text-gray-900">Open and Close Register activity</h2><p className="mt-1 text-sm text-gray-500">Select an opening-date range to review each register, its transactions, and consolidated currency stock.</p></div>
+      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1.4fr_auto] xl:items-end">
+        <label className="text-overline font-bold uppercase tracking-wider text-gray-500">From date<input type="date" value={fromDate} onChange={event => setFromDate(event.target.value)} className="mt-1.5 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm font-semibold normal-case text-gray-800 outline-none focus:border-[#E00000]" /></label>
+        <label className="text-overline font-bold uppercase tracking-wider text-gray-500">To date<input type="date" value={toDate} onChange={event => setToDate(event.target.value)} className="mt-1.5 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm font-semibold normal-case text-gray-800 outline-none focus:border-[#E00000]" /></label>
+        <label className="text-overline font-bold uppercase tracking-wider text-gray-500">Location<select value={reportLocation} onChange={event => setReportLocation(event.target.value)} className="mt-1.5 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold normal-case text-gray-800 outline-none focus:border-[#E00000]"><option value="All Locations">All Locations</option>{allLocations.map(row => { const name = row.warehouse || row.name || row.warehouse_name; return <option key={name} value={name}>{name}</option>; })}</select></label>
+        <button type="button" onClick={generate} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#E00000] px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"><RefreshCw size={15} className={loading ? "animate-spin" : ""} /> Generate</button>
+      </div>
+    </section>
+
+    {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</div>}
+    {loading ? <section className="rounded-2xl border border-gray-200 bg-white"><ReportLoader label="Generating register report…" /></section> : report && <>
+      <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="border-b border-gray-100 px-5 py-4"><h3 className="font-bold text-gray-900">Consolidated currency stock</h3><p className="mt-1 text-xs text-gray-500">Combined physical quantities and native-currency values for registers opened in the selected range.</p></div>
+        <div className="overflow-x-auto"><table className="w-full min-w-[700px] text-sm"><thead className="bg-slate-100 text-left text-xs font-bold uppercase tracking-wider text-slate-600"><tr><th className="px-5 py-3">Currency</th><th className="px-5 py-3 text-right">Opening qty</th><th className="px-5 py-3 text-right">Opening value</th><th className="px-5 py-3 text-right">Closing qty</th><th className="px-5 py-3 text-right">Closing value</th></tr></thead><tbody className="divide-y divide-gray-100">{(report.consolidated_stock || []).map(row => <tr key={row.currency}><td className="px-5 py-3 font-black text-gray-900">{row.currency}</td><td className="px-5 py-3 text-right tabular-nums">{moneyValue(row.opening_quantity)}</td><td className="px-5 py-3 text-right font-bold tabular-nums text-blue-700">{row.currency} {moneyValue(row.opening_value)}</td><td className="px-5 py-3 text-right tabular-nums">{moneyValue(row.closing_quantity)}</td><td className="px-5 py-3 text-right font-bold tabular-nums text-violet-700">{row.currency} {moneyValue(row.closing_value)}</td></tr>)}</tbody></table>{!report.consolidated_stock?.length && <p className="p-8 text-center text-sm text-gray-500">No register currency stock was recorded in this range.</p>}</div>
+      </section>
+
+      <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4"><div><h3 className="font-bold text-gray-900">Registers</h3><p className="mt-1 text-xs text-gray-500">Select an Open Register to view its complete session report.</p></div><span className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-600">{registers.length} records</span></div>
+        <div className="overflow-x-auto"><table className="w-full min-w-[950px] text-sm"><thead className="bg-gray-50 text-left text-xs font-bold uppercase tracking-wider text-gray-500"><tr><th className="px-5 py-3">Open Register</th><th className="px-5 py-3">Opened</th><th className="px-5 py-3">Location</th><th className="px-5 py-3">Teller</th><th className="px-5 py-3">Close Register</th><th className="px-5 py-3">Status</th><th className="px-5 py-3"></th></tr></thead><tbody className="divide-y divide-gray-100">{registers.map(row => <tr key={row.session} className={selectedSession === row.session ? "bg-red-50" : "hover:bg-gray-50"}><td className="px-5 py-3 font-black text-gray-900">{row.open_register || "—"}</td><td className="px-5 py-3 text-gray-600">{String(row.opened_at || row.business_date || "—")}</td><td className="px-5 py-3 font-medium text-gray-700">{row.location}</td><td className="px-5 py-3 text-gray-600">{row.opened_by || "—"}</td><td className="px-5 py-3">{row.close_register ? <span className="font-black text-gray-900">{row.close_register}</span> : <span className="rounded-full bg-red-50 px-2.5 py-1 text-xs font-bold text-red-700">Close Register required</span>}</td><td className="px-5 py-3 text-gray-600">{row.status}</td><td className="px-5 py-3 text-right"><button type="button" onClick={() => setSelectedSession(current => current === row.session ? "" : row.session)} className="font-bold text-[#E00000] hover:underline">{selectedSession === row.session ? "Hide report" : "View report"}</button></td></tr>)}</tbody></table>{!registers.length && <p className="p-10 text-center text-sm text-gray-500">No Open Register records were found for this date range and location.</p>}</div>
+      </section>
+
+      {selected && <section className="space-y-5 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 pb-4"><div><p className="text-overline font-bold uppercase tracking-wider text-[#E00000]">Register session report</p><h3 className="mt-1 text-xl font-black text-gray-900">{selected.open_register}</h3><p className="mt-1 text-sm text-gray-500">{selected.location} · {selected.session}</p></div>{selected.close_required ? <span className="rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700">Close Register required</span> : <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">Closed with {selected.close_register}</span>}</div>
+        <div className="grid gap-3 md:grid-cols-2"><div className="rounded-xl border border-blue-200 bg-blue-50 p-4"><p className="text-xs font-bold uppercase tracking-wider text-blue-700">Open Register</p><p className="mt-1 font-black text-blue-950">{selected.open_register}</p><p className="mt-2 text-sm text-blue-900">{selected.opened_by} · {String(selected.opened_at || "—")}</p>{selected.open_remarks && <p className="mt-2 text-sm text-blue-800">Note: {selected.open_remarks}</p>}</div><div className={`rounded-xl border p-4 ${selected.close_required ? "border-red-200 bg-red-50" : "border-violet-200 bg-violet-50"}`}><p className={`text-xs font-bold uppercase tracking-wider ${selected.close_required ? "text-red-700" : "text-violet-700"}`}>Close Register</p>{selected.close_required ? <><p className="mt-1 font-black text-red-900">Closing has not been completed</p><p className="mt-2 text-sm text-red-700">Complete the Close Register to record the final physical cash.</p></> : <><p className="mt-1 font-black text-violet-950">{selected.close_register}</p><p className="mt-2 text-sm text-violet-900">{selected.closed_by} · {String(selected.closed_at || "—")}</p>{selected.close_remarks && <p className="mt-2 text-sm text-violet-800">Note: {selected.close_remarks}</p>}</>}</div></div>
+
+        <div><h4 className="mb-3 font-bold text-gray-900">Currency stock for this register</h4><div className="overflow-x-auto rounded-xl border border-gray-200"><table className="w-full min-w-[760px] text-sm"><thead className="bg-slate-100 text-left text-xs font-bold uppercase tracking-wider text-slate-600"><tr><th className="px-4 py-3">Currency</th><th className="px-4 py-3 text-right">Opening qty</th><th className="px-4 py-3 text-right">Opening value</th><th className="px-4 py-3 text-right">Closing qty</th><th className="px-4 py-3 text-right">Closing value</th><th className="px-4 py-3 text-right">Value movement</th></tr></thead><tbody className="divide-y divide-gray-100">{selected.currency_stock.map(row => <tr key={row.currency}><td className="px-4 py-3 font-black">{row.currency}</td><td className="px-4 py-3 text-right">{moneyValue(row.opening_quantity)}</td><td className="px-4 py-3 text-right font-bold text-blue-700">{row.currency} {moneyValue(row.opening_value)}</td><td className="px-4 py-3 text-right">{row.closing_quantity == null ? "—" : moneyValue(row.closing_quantity)}</td><td className="px-4 py-3 text-right font-bold text-violet-700">{row.closing_value == null ? "—" : `${row.currency} ${moneyValue(row.closing_value)}`}</td><td className={`px-4 py-3 text-right font-black ${Number(row.value_difference || 0) < 0 ? "text-red-700" : "text-emerald-700"}`}>{row.value_difference == null ? "—" : `${row.currency} ${moneyValue(row.value_difference)}`}</td></tr>)}</tbody></table></div></div>
+
+        <div><h4 className="mb-3 font-bold text-gray-900">Transaction summary</h4><div className="overflow-x-auto rounded-xl border border-gray-200"><table className="w-full min-w-[800px] text-sm"><thead className="bg-gray-50 text-left text-xs font-bold uppercase tracking-wider text-gray-500"><tr><th className="px-4 py-3">Service</th><th className="px-4 py-3">Action</th><th className="px-4 py-3">Currency pair</th><th className="px-4 py-3 text-right">Transactions</th><th className="px-4 py-3 text-right">Foreign value</th><th className="px-4 py-3 text-right">FJD value</th></tr></thead><tbody className="divide-y divide-gray-100">{selected.activity_summary.map((row, index) => <tr key={`${row.category}-${row.action}-${index}`}><td className="px-4 py-3 font-bold">{row.category}</td><td className="px-4 py-3">{row.action}</td><td className="px-4 py-3 font-black">{row.from_currency} → {row.to_currency}</td><td className="px-4 py-3 text-right">{row.transactions}</td><td className="px-4 py-3 text-right">{moneyValue(row.foreign_value)}</td><td className="px-4 py-3 text-right font-bold">FJD {moneyValue(row.local_value)}</td></tr>)}</tbody></table>{!selected.activity_summary.length && <p className="p-6 text-center text-sm text-gray-500">No transactions are linked to this register session.</p>}</div></div>
+
+        <div><h4 className="mb-3 font-bold text-gray-900">Transactions</h4><div className="overflow-x-auto rounded-xl border border-gray-200"><table className="w-full min-w-[1050px] text-sm"><thead className="bg-gray-50 text-left text-xs font-bold uppercase tracking-wider text-gray-500"><tr><th className="px-4 py-3">Transaction</th><th className="px-4 py-3">Service</th><th className="px-4 py-3">Action</th><th className="px-4 py-3">Currency pair</th><th className="px-4 py-3 text-right">Foreign value</th><th className="px-4 py-3 text-right">FJD value</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Created By</th><th className="px-4 py-3">Created</th></tr></thead><tbody className="divide-y divide-gray-100">{selected.transactions.map(row => <tr key={`${row.category}-${row.source_document}`}><td className="px-4 py-3 font-mono font-bold">{row.id}</td><td className="px-4 py-3 font-bold">{row.category}</td><td className="px-4 py-3">{row.action}</td><td className="px-4 py-3 font-black">{row.from_currency} → {row.to_currency}</td><td className="px-4 py-3 text-right">{moneyValue(row.foreign_value)}</td><td className="px-4 py-3 text-right font-bold">FJD {moneyValue(row.local_value)}</td><td className="px-4 py-3">{row.status}</td><td className="px-4 py-3">{row.created_by}</td><td className="px-4 py-3 text-gray-500">{String(row.created_at || "—")}</td></tr>)}</tbody></table>{!selected.transactions.length && <p className="p-6 text-center text-sm text-gray-500">No transactions are linked to this register session.</p>}</div></div>
+      </section>}
+    </>}
+  </div>;
+}
+
 function DayEndClosingTab({ warehouse, loginUser }) {
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -2479,16 +3125,16 @@ function StatCard({ label, value, sub, type = "default", suffix }) {
   const s = styles[type];
   return (
     <div className={`flex-1 min-w-[140px] rounded-2xl border px-5 py-4 flex flex-col gap-1 ${s?.card}`}>
-      <p className={`text-[11px] font-bold uppercase tracking-widest ${s?.label}`}>{label}</p>
+      <p className={`text-overline font-semibold uppercase tracking-wider ${s?.label}`}>{label}</p>
       <div className="flex items-baseline gap-2 flex-wrap">
-        <p className={`text-[28px] font-black tabular-nums leading-tight ${s?.val}`}>{value}</p>
+        <p className={`text-amount font-bold tnum leading-tight ${s?.val}`}>{value}</p>
         {suffix && (
-          <span className="text-base font-bold text-gray-500 tracking-wide">
+          <span className="text-btn-lg font-bold text-gray-500 tracking-wide">
             {suffix}
           </span>
         )}
       </div>
-      {sub && <p className={`text-xs ${s.sub}`}>{sub}</p>}
+      {sub && <p className={`text-caption ${s.sub}`}>{sub}</p>}
     </div>
   );
 }
@@ -2603,15 +3249,17 @@ function StockTab({ warehouse, loginUser }) {
   const totalCurrValueAmt = totalCurrencyValue(items);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(25);
 
   const rawItems = items || [];
   const totalRecords = rawItems.length;
-  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  const isAll = pageSize === "all" || pageSize === "All";
+  const effectivePageSize = isAll ? Math.max(1, totalRecords) : (Number(pageSize) || 25);
+  const totalPages = Math.max(1, Math.ceil(totalRecords / effectivePageSize));
   const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
-  const startIndex = (safeCurrentPage - 1) * pageSize;
-  const endIndex = Math.min(startIndex + pageSize, totalRecords);
-  const paginatedItems = rawItems.slice(startIndex, endIndex);
+  const startIndex = isAll ? 0 : (safeCurrentPage - 1) * effectivePageSize;
+  const endIndex = isAll ? totalRecords : Math.min(startIndex + effectivePageSize, totalRecords);
+  const paginatedItems = isAll ? rawItems : rawItems.slice(startIndex, endIndex);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -2675,20 +3323,19 @@ function StockTab({ warehouse, loginUser }) {
       {/* ── Vault vs Cash Counter Switcher ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-white border border-gray-200 shadow-xs">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-black uppercase tracking-wider text-gray-400">Stock Location:</span>
+          <span className="text-overline font-semibold uppercase tracking-wider text-gray-400">Stock Location:</span>
           <div className="inline-flex p-1 rounded-xl bg-gray-100 border border-gray-200">
             <button
               type="button"
               onClick={() => setLocationMode("counter")}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                locationMode === "counter"
-                  ? "bg-white text-gray-900 shadow-xs font-black"
-                  : "text-gray-500 hover:text-gray-800"
-              }`}
+              className={`px-3.5 py-1.5 rounded-lg text-label font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${locationMode === "counter"
+                ? "bg-white text-gray-900 shadow-xs"
+                : "text-gray-500 hover:text-gray-800"
+                }`}
             >
               <span className="w-2 h-2 rounded-full bg-[#E00000]" />
               <span>Cash Counter</span>
-              <span className="text-[10px] text-gray-400 font-normal">
+              <span className="text-caption text-gray-400 font-normal">
                 ({vaultInfo?.branch_warehouse || activeBranch})
               </span>
             </button>
@@ -2697,24 +3344,23 @@ function StockTab({ warehouse, loginUser }) {
               type="button"
               onClick={() => setLocationMode("vault")}
               disabled={!vaultInfo?.vault_warehouse}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                locationMode === "vault"
-                  ? "bg-white text-gray-900 shadow-xs font-black"
-                  : "text-gray-500 hover:text-gray-800"
-              } disabled:opacity-40 disabled:cursor-not-allowed`}
+              className={`px-3.5 py-1.5 rounded-lg text-label font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${locationMode === "vault"
+                ? "bg-white text-gray-900 shadow-xs"
+                : "text-gray-500 hover:text-gray-800"
+                } disabled:opacity-40 disabled:cursor-not-allowed`}
             >
               <span className="w-2 h-2 rounded-full bg-amber-500" />
               <span>Vault</span>
-              <span className="text-[10px] text-gray-400 font-normal">
+              <span className="text-caption text-gray-400 font-normal">
                 ({vaultInfo?.vault_warehouse || "No Vault"})
               </span>
             </button>
           </div>
         </div>
 
-        <div className="text-xs text-gray-500 flex items-center gap-1.5">
+        <div className="text-caption text-gray-500 flex items-center gap-1.5">
           <span>Viewing Stock For:</span>
-          <strong className="text-gray-900 font-bold bg-gray-50 px-2.5 py-1 rounded-md border border-gray-200">
+          <strong className="text-gray-900 font-semibold bg-gray-50 px-2.5 py-1 rounded-md border border-gray-200">
             {queryWarehouse}
           </strong>
         </div>
@@ -2730,7 +3376,7 @@ function StockTab({ warehouse, loginUser }) {
             <button
               key={c}
               onClick={() => setActive(c)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E00000] cursor-pointer
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-label font-semibold border transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E00000] cursor-pointer
                 ${isActive
                   ? "bg-[#E00000] text-white border-[#E00000] shadow-md shadow-[#E00000]/25"
                   : "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50"
@@ -2738,13 +3384,12 @@ function StockTab({ warehouse, loginUser }) {
             >
               <span>{c}</span>
               {CURRENCY_CODE[c] && (
-                <span className={`text-[11px] font-black uppercase px-1.5 py-0.5 rounded tracking-wide ${
-                  isActive ? "bg-white/20 text-white" : "bg-gray-200/80 text-gray-600"
-                }`}>
+                <span className={`text-caption font-semibold uppercase px-1.5 py-0.5 rounded tracking-wide ${isActive ? "bg-white/20 text-white" : "bg-gray-200/80 text-gray-600"
+                  }`}>
                   {CURRENCY_CODE[c]}
                 </span>
               )}
-              <span className={`text-[11px] px-2 py-0.5 rounded-full font-black tabular-nums
+              <span className={`text-caption px-2 py-0.5 rounded-full font-semibold tnum
                 ${isActive ? "bg-white/20 text-white" : "bg-gray-200 text-gray-500"}`}>
                 {tot?.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
               </span>
@@ -2806,18 +3451,39 @@ function StockTab({ warehouse, loginUser }) {
           {/* Active currency label */}
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <p className="text-xs font-bold tracking-widest uppercase text-[#E00000]">Denominations</p>
-            <span className="inline-flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full px-3 py-1.5 text-xs text-gray-600 font-medium">
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse flex-shrink-0" />
-              <span className="font-bold text-gray-900">{active}</span>
-              {CURRENCY_CODE[active] && (
-                <>
-                  <span className="text-gray-400">·</span>
-                  <span className="font-semibold text-gray-800">{CURRENCY_CODE[active]}</span>
-                </>
-              )}
-              <span className="text-gray-400">·</span>
-              <span>{rawItems.length} items</span>
-            </span>
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="inline-flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full px-3 py-1.5 text-xs text-gray-600 font-medium">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse flex-shrink-0" />
+                <span className="font-bold text-gray-900">{active}</span>
+                {CURRENCY_CODE[active] && (
+                  <>
+                    <span className="text-gray-400">·</span>
+                    <span className="font-semibold text-gray-800">{CURRENCY_CODE[active]}</span>
+                  </>
+                )}
+                <span className="text-gray-400">·</span>
+                <span>{rawItems.length} items</span>
+              </span>
+
+              {/* Rows per page selector in header */}
+              <div className="flex items-center gap-1.5 text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-full px-3 py-1">
+                <span className="text-gray-500 font-medium">Show:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setPageSize(val === "All" ? "All" : Number(val));
+                  }}
+                  className="bg-transparent font-semibold text-gray-800 cursor-pointer focus:outline-none"
+                >
+                  {[10, 25, 50, 100, "All"].map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt === "All" ? "All items" : `${opt} items`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
 
           {/* Table */}
@@ -2871,23 +3537,23 @@ function StockTab({ warehouse, loginUser }) {
               </tbody>
               <tfoot>
                 <tr className="bg-gray-50 border-t-2 border-[#E00000]/15">
-                  <td colSpan={4} className="px-5 py-3 text-xs font-black uppercase tracking-widest text-[#E00000]">Total ({rawItems.length} items)</td>
-                  <td className="px-5 py-3 text-right text-xs text-gray-400 font-semibold">—</td>
+                  <td colSpan={4} className="px-5 py-3 text-overline font-semibold uppercase tracking-wider text-brand-600">Total ({rawItems.length} items)</td>
+                  <td className="px-5 py-3 text-right text-caption text-gray-400 font-semibold">—</td>
                   {!isFiji && (
-                    <td className="px-5 py-3 text-right text-xs text-gray-400 font-semibold">—</td>
+                    <td className="px-5 py-3 text-right text-caption text-gray-400 font-semibold">—</td>
                   )}
-                  <td className="px-5 py-3 text-right font-black text-gray-900 tabular-nums">{totalValueAmt?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                  <td className="px-5 py-3 text-right font-bold text-gray-900 tnum">{totalValueAmt?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                   {!isFiji && (
-                    <td className="px-5 py-3 text-right font-black text-[#E00000] tabular-nums">{totalCurrValueAmt?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td className="px-5 py-3 text-right font-bold text-[#E00000] tnum">{totalCurrValueAmt?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                   )}
-                  <td className="px-5 py-3 text-right font-black text-gray-900 tabular-nums">{total?.toLocaleString()}</td>
+                  <td className="px-5 py-3 text-right font-bold text-gray-900 tnum">{total?.toLocaleString()}</td>
                 </tr>
               </tfoot>
             </table>
           </div>
 
           {/* Pagination Controls */}
-          {totalPages > 1 && (
+          {totalRecords > 0 && (
             <Pagination
               currentPage={safeCurrentPage}
               totalPages={totalPages}
@@ -2895,6 +3561,7 @@ function StockTab({ warehouse, loginUser }) {
               pageSize={pageSize}
               onPageChange={setCurrentPage}
               onPageSizeChange={setPageSize}
+              pageSizeOptions={[10, 25, 50, 100, "All"]}
             />
           )}
         </>
@@ -2907,7 +3574,19 @@ function StockTab({ warehouse, loginUser }) {
 export default function Reports() {
   const [tab, setTab] = useState("transactions");
   const loginUser = useUser();
-  const { selectedWarehouse } = useSettings();
+  const { selectedWarehouse, warehouses } = useSettings();
+  const [cashCounterManager, setCashCounterManager] = useState(false);
+
+  useEffect(() => {
+    const warehouse = selectedWarehouse?.warehouse;
+    if (!warehouse) { setCashCounterManager(false); return; }
+    let live = true;
+    // This deliberately avoids getStatus(), which assembles a full inventory
+    // snapshot and denomination catalog that the report-tab permission check
+    // does not need.
+    customPos.getManagerAccess(warehouse).then(result => { if (live) setCashCounterManager(Boolean(result?.manager)); }).catch(() => { if (live) setCashCounterManager(false); });
+    return () => { live = false; };
+  }, [selectedWarehouse?.warehouse]);
 
   useEffect(() => {
     const userObj = loginUser?.user;
@@ -2952,15 +3631,15 @@ export default function Reports() {
 
   const sectionLabel = {
     transactions: "Transaction Records",
-    dayend: "Day End Closing Report",
     stock: "Currency Stock",
+    cash_counter: "Cash Counter Records",
   };
 
   return (
     <div>
       <Navbar />
       <div className="min-h-screen bg-gray-100 font-sans">
-        <div className="max-w-7xl mx-auto px-4 py-10 flex flex-col gap-6">
+        <div className="max-w-[80%] mx-auto px-4 py-10 flex flex-col gap-6">
 
           <div className="bg-white rounded-3xl border border-gray-100 shadow-xl p-6 md:p-8 flex flex-col gap-7">
 
@@ -2975,15 +3654,11 @@ export default function Reports() {
                 onClick={() => setTab("transactions")}
               />
               <TabButton
-                label="Day End Closing Report"
-                active={tab === "dayend"}
-                onClick={() => setTab("dayend")}
-              />
-              <TabButton
                 label="Stock"
                 active={tab === "stock"}
                 onClick={() => setTab("stock")}
               />
+              {cashCounterManager && <TabButton label="Cash Counter" active={tab === "cash_counter"} onClick={() => setTab("cash_counter")} />}
             </div>
 
             {/* Divider */}
@@ -2998,12 +3673,10 @@ export default function Reports() {
             {tab === "transactions" && (
               <TransactionsTab warehouse={selectedWarehouse} loginUser={loginUser} />
             )}
-            {tab === "dayend" && (
-              <DayEndClosingTab warehouse={selectedWarehouse} loginUser={loginUser} />
-            )}
             {tab === "stock" && (
               <StockTab warehouse={selectedWarehouse} loginUser={loginUser} />
             )}
+            {tab === "cash_counter" && cashCounterManager && <CashCounterReportTab warehouse={selectedWarehouse} warehouses={warehouses} />}
 
           </div>
 

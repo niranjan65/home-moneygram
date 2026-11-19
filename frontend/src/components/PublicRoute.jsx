@@ -12,7 +12,7 @@ export default function PublicRoute({ children }) {
     } catch {
       // fallback
     }
-    return <Navigate to="/money-transfer" replace />;
+    return <Navigate to="/home" replace />;
   }
 
   return children;

@@ -64,7 +64,7 @@ const INDENT_PX = [0, 16, 32, 48, 64];
 
 const FilterInput = ({ label, value, onChange, type = 'text', children }) => (
   <div className="flex flex-col gap-1.5 min-w-[120px]">
-    <label className="text-[11px] font-bold uppercase tracking-widest" style={{ color: B.accent }}>
+    <label className="text-overline font-semibold uppercase tracking-wider" style={{ color: B.accent }}>
       {label}
     </label>
     {children ?? (
@@ -72,7 +72,7 @@ const FilterInput = ({ label, value, onChange, type = 'text', children }) => (
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="text-white text-[13px] rounded-[10px] px-3 py-2 outline-none w-full"
+        className="text-white text-caption font-medium rounded-[10px] px-3 py-2 outline-none w-full"
         style={{ background: B.bgDeep, border: `1px solid ${B.border}`, colorScheme: 'dark' }}
       />
     )}
@@ -84,7 +84,7 @@ const FilterSelect = ({ label, value, onChange, options }) => (
     <select
       value={value}
       onChange={e => onChange(e.target.value)}
-      className="text-white text-[13px] rounded-[10px] px-3 py-2 outline-none cursor-pointer appearance-none"
+      className="text-white text-caption font-medium rounded-[10px] px-3 py-2 outline-none cursor-pointer appearance-none"
       style={{ background: B.bgDeep, border: `1px solid ${B.border}` }}
     >
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -97,11 +97,11 @@ const AmountCell = ({ dr, cr, align = 'right' }) => {
   const label = dr > 0 ? 'Dr' : cr > 0 ? 'Cr' : null;
   const color = dr > 0 ? '#4ade80' : cr > 0 ? '#f87171' : 'rgba(255,255,255,0.25)';
   return (
-    <td className={`px-3 py-2.5 text-[13px] text-right whitespace-nowrap`}>
+    <td className={`px-3 py-2.5 text-caption text-right whitespace-nowrap`}>
       {val > 0 ? (
-        <span style={{ color }} className="font-medium tabular-nums">
+        <span style={{ color }} className="font-medium tnum">
           {fmtCurrency(val)}{' '}
-          <span className="text-[10px] font-bold opacity-70">{label}</span>
+          <span className="text-overline font-semibold opacity-70">{label}</span>
         </span>
       ) : (
         <span className="text-white/20">—</span>
@@ -118,7 +118,7 @@ const TrialRow = ({ row, isExpanded, hasChildren, onToggle, isTotal }) => {
   if (isTotal) {
     return (
       <tr style={{ background: B.bgDeep, borderTop: `2px solid ${B.borderAccent}` }}>
-        <td className="px-3 py-3 text-[13px] font-black" style={{ color: B.accent }}>
+        <td className="px-3 py-3 text-caption font-bold tnum" style={{ color: B.accent }}>
           Total
         </td>
         <AmountCell dr={row.opening_debit}  cr={row.opening_credit}  />
@@ -153,7 +153,7 @@ const TrialRow = ({ row, isExpanded, hasChildren, onToggle, isTotal }) => {
             <span className="w-4 flex-shrink-0" />
           )}
           <span
-            className={`text-[13px] leading-snug ${isParent ? 'font-bold text-white' : 'text-white/80 font-medium'}`}
+            className={`text-caption leading-snug ${isParent ? 'font-bold text-white' : 'text-white/80 font-normal'}`}
           >
             {row.account_name}
           </span>
@@ -361,14 +361,14 @@ useEffect(() => {
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen font-sans px-4 py-6" style={{ background: B.bgPage }}>
-      <div className="max-w-7xl mx-auto flex flex-col gap-5">
+      <div className="max-w-[80%] mx-auto flex flex-col gap-5">
 
         {/* ── Header ────────────────────────────────────────────────────── */}
         <div>
-          <h1 className="text-2xl md:text-[26px] font-black text-white tracking-tight leading-tight">
+          <h1 className="text-h1 font-bold text-white tracking-tight leading-tight">
             Trial Balance
           </h1>
-          <p className="text-sm text-white/40 mt-1">
+          <p className="text-caption text-white/40 mt-1">
             {company} · {fromDate} to {toDate} · {currency}
             {lastFetched && <span className="ml-2">· Fetched at {lastFetched}</span>}
           </p>
@@ -379,7 +379,7 @@ useEffect(() => {
           className="rounded-[20px] px-6 py-5"
           style={{ background: B.card, border: `1px solid ${B.border}` }}
         >
-          <div className="flex items-center gap-2 mb-4 text-[13px] font-bold" style={{ color: B.accent }}>
+          <div className="flex items-center gap-2 mb-4 text-caption font-semibold" style={{ color: B.accent }}>
             <FilterIcon /> Filters
           </div>
 
@@ -418,12 +418,12 @@ useEffect(() => {
 
             {/* Show Net Values toggle */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-bold uppercase tracking-widest" style={{ color: B.accent }}>
+              <label className="text-overline font-semibold uppercase tracking-wider" style={{ color: B.accent }}>
                 Net Values
               </label>
               <button
                 onClick={() => setShowNetVal(v => !v)}
-                className="flex items-center gap-2 px-3 py-2 rounded-[10px] text-[13px] font-semibold text-white transition-colors"
+                className="flex items-center gap-2 px-3 py-2 rounded-[10px] text-caption font-semibold text-white transition-colors"
                 style={{
                   background: showNetVal ? 'rgba(181,240,0,0.15)' : B.bgDeep,
                   border: `1px solid ${showNetVal ? B.borderAccent : B.border}`,
@@ -446,7 +446,7 @@ useEffect(() => {
               <button
                 onClick={fetchReport}
                 disabled={loading}
-                className="flex items-center gap-2 px-6 py-2 rounded-[10px] text-[13px] font-bold text-white transition-opacity hover:opacity-80 disabled:opacity-50"
+                className="flex items-center gap-2 px-6 py-2 rounded-[10px] text-caption font-semibold text-white transition-opacity hover:opacity-80 disabled:opacity-50"
                 style={{ background: B.danger }}
               >
                 {loading ? (
@@ -463,7 +463,7 @@ useEffect(() => {
         {/* ── Error ─────────────────────────────────────────────────────── */}
         {error && (
           <div
-            className="rounded-xl px-5 py-4 text-sm font-medium text-red-300"
+            className="rounded-xl px-5 py-4 text-body font-normal text-red-300"
             style={{ background: 'rgba(220,38,38,0.15)', border: '1px solid rgba(220,38,38,0.3)' }}
           >
             ⚠ {error}
@@ -479,13 +479,13 @@ useEffect(() => {
                 className="flex-1 min-w-[130px] rounded-2xl px-5 py-4"
                 style={{ background: B.card, border: `1px solid ${B.border}` }}
               >
-                <p className="text-[11px] font-bold uppercase tracking-widest mb-1" style={{ color: B.accent }}>
+                <p className="text-overline font-semibold uppercase tracking-wider mb-1" style={{ color: B.accent }}>
                   {s.label}
                 </p>
-                <p className="text-lg font-black tabular-nums" style={{ color: s.color }}>
+                <p className="text-h3 font-bold tnum" style={{ color: s.color }}>
                   {s.value}
                 </p>
-                <p className="text-xs text-white/30 mt-0.5">{currency}</p>
+                <p className="text-overline text-white/30 mt-0.5">{currency}</p>
               </div>
             ))}
           </div>
@@ -503,15 +503,15 @@ useEffect(() => {
               style={{ borderBottom: `1px solid ${B.border}` }}
             >
               <div>
-                <p className="text-[15px] font-extrabold text-white">Account Ledger</p>
-                <p className="text-xs text-white/40 mt-0.5">
+                <p className="text-body font-bold text-white">Account Ledger</p>
+                <p className="text-caption text-white/40 mt-0.5">
                   {visibleRows.length} of {rows.length} accounts visible
                 </p>
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={expandAll}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-xs font-bold text-white/60 hover:text-white transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-caption font-semibold text-white/60 hover:text-white transition-colors"
                   style={{ border: '1px solid rgba(255,255,255,0.1)' }}
                   title="Expand all"
                 >
@@ -519,7 +519,7 @@ useEffect(() => {
                 </button>
                 <button
                   onClick={collapseAll}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-xs font-bold text-white/60 hover:text-white transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-caption font-semibold text-white/60 hover:text-white transition-colors"
                   style={{ border: '1px solid rgba(255,255,255,0.1)' }}
                   title="Collapse all"
                 >
@@ -527,7 +527,7 @@ useEffect(() => {
                 </button>
                 <button
                   onClick={() => window.print()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-xs font-bold text-white/60 hover:text-white transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] text-caption font-semibold text-white/60 hover:text-white transition-colors"
                   style={{ border: '1px solid rgba(255,255,255,0.1)' }}
                 >
                   <PrintIcon /> Print
@@ -540,7 +540,7 @@ useEffect(() => {
               <table className="w-full border-collapse" style={{ minWidth: 820 }}>
                 <thead>
                   <tr style={{ background: B.bgDeep }}>
-                    <th className="px-3 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-white/50" style={{ minWidth: 260 }}>
+                    <th className="px-3 py-3 text-left text-overline font-semibold uppercase tracking-wider text-white/50" style={{ minWidth: 260 }}>
                       Account
                     </th>
                     {[
@@ -550,7 +550,7 @@ useEffect(() => {
                     ].map(col => (
                       <th
                         key={col}
-                        className="px-3 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-white/50 whitespace-nowrap"
+                        className="px-3 py-3 text-right text-overline font-semibold uppercase tracking-wider text-white/50 whitespace-nowrap"
                       >
                         {col}
                       </th>
@@ -586,7 +586,7 @@ useEffect(() => {
             <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: 'rgba(181,240,0,0.1)' }}>
               <FilterIcon />
             </div>
-            <p className="text-white/50 text-sm font-medium">Set your filters and click <span className="font-bold" style={{ color: B.accent }}>Run Report</span> to load data</p>
+            <p className="text-white/50 text-body font-normal">Set your filters and click <span className="font-semibold" style={{ color: B.accent }}>Run Report</span> to load data</p>
           </div>
         )}
 

@@ -314,9 +314,8 @@ export const createMoneyTransfer = async (
 
       document_upload: documentUrl || form.document_upload || null,
 
-      transaction_id: form.transaction_id || form.reference_number || "",
       oet_code: form.oet_code || "18",
-      reference_number: form.reference_number || form.transaction_id || "",
+      reference_number: form.reference_number || "",
       upload_additional_info: form.upload_additional_info || null,
 
       amount: form.amount ? Number(form.amount) : 0,

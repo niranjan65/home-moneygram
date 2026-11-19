@@ -10,17 +10,17 @@ export const Header = () => {
         <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
            <Zap className="fill-current" size={24} />
         </div>
-        <h2 className="text-xl font-extrabold leading-tight tracking-tight">MoneyGram</h2>
+        <h2 className="text-h2 font-bold leading-tight tracking-tight text-ink">MoneyGram</h2>
       </div>
       
       <div className="hidden md:flex flex-1 justify-end gap-8 items-center">
         <nav className="flex items-center gap-6 lg:gap-9">
-          <a className="text-gray-700 dark:text-gray-200 text-sm font-semibold hover:text-primary transition-colors" href="#">Send Money</a>
-          <a className="text-gray-700 dark:text-gray-200 text-sm font-semibold hover:text-primary transition-colors" href="#">Track Transfer</a>
-          <a className="text-gray-700 dark:text-gray-200 text-sm font-semibold hover:text-primary transition-colors" href="#">Help</a>
-          <a className="text-gray-700 dark:text-gray-200 text-sm font-semibold hover:text-primary transition-colors" href="#">Log In</a>
+          <a className="text-ink text-label font-semibold hover:text-primary transition-colors" href="#">Send Money</a>
+          <a className="text-ink text-label font-semibold hover:text-primary transition-colors" href="#">Track Transfer</a>
+          <a className="text-ink text-label font-semibold hover:text-primary transition-colors" href="#">Help</a>
+          <a className="text-ink text-label font-semibold hover:text-primary transition-colors" href="#">Log In</a>
         </nav>
-        <button className="flex min-w-[100px] cursor-pointer items-center justify-center rounded-xl h-10 px-6 bg-primary hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 transition-all text-gray-900 text-sm font-bold">
+        <button className="flex min-w-[100px] cursor-pointer items-center justify-center rounded-xl h-10 px-6 bg-primary hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 transition-all text-gray-900 text-label font-semibold">
           Sign Up
         </button>
       </div>

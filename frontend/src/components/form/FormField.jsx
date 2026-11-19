@@ -3,9 +3,9 @@ import { useFormContext } from "react-hook-form";
 import { AlertCircle } from "lucide-react";
 
 const inputBase =
-  "w-full rounded-lg border border-gray-200 bg-white h-12 px-4 text-sm text-gray-800 " +
-  "focus:outline-none placeholder:text-gray-400 transition-colors " +
-  "focus:ring-2 focus:ring-red-100 focus:border-[#E00000]";
+  "w-full rounded-input border border-line-strong bg-surface h-12 px-3.5 text-body font-medium text-ink " +
+  "focus:outline-none placeholder:text-muted placeholder:font-normal transition-colors " +
+  "focus:ring-2 focus:ring-brand-600/20 focus:border-brand-600";
 
 export const FormField = ({ name, label, placeholder, rules }) => {
   const {
@@ -17,8 +17,8 @@ export const FormField = ({ name, label, placeholder, rules }) => {
 
   return (
     <div>
-      <label className="text-xs font-medium text-gray-500 mb-1 block">
-        {label} <span className="text-[#E00000]">*</span>
+      <label className="text-label font-semibold text-ink mb-1.5 block">
+        {label} <span className="text-danger">*</span>
       </label>
 
       <input
@@ -26,14 +26,14 @@ export const FormField = ({ name, label, placeholder, rules }) => {
         placeholder={placeholder}
         className={`${inputBase} ${
           error
-            ? "border-[#E00000]/30 bg-[#E00000]/5"
+            ? "border-danger/40 bg-brand-50/20"
             : ""
         }`}
       />
 
       {error && (
-        <p className="flex items-center gap-1 text-[#E00000] text-xs mt-1">
-          <AlertCircle size={11} /> {error.message}
+        <p className="flex items-center gap-1 text-danger text-label mt-1 font-normal">
+          <AlertCircle size={14} /> {error.message}
         </p>
       )}
     </div>

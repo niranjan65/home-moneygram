@@ -1,7 +1,8 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import DocumentUploadTable from '../../../components/DocumentUploadTable';
 import { useForm, FormProvider } from 'react-hook-form';
-import { UserPlus, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { UserPlus, ArrowRight, AlertCircle, CheckCircle2, User, ArrowLeftRight, Banknote, ShieldCheck } from 'lucide-react';
 import { useExchange } from '../../../context/ExchangeContext';
 import { useUser } from '../../../context/UserContext';
 import { useSettings } from '../../../context/SettingsContext';
@@ -15,8 +16,9 @@ import { GovernmentIdSection } from './sections/GovernmentIdSection';
 import { PersonalInfoSection } from './sections/PersonalInfoSection';
 import { ExchangeSection } from './sections/ExchangeSection';
 import { DenominationSection } from './sections/DenominationSection';
-import { SectionDivider } from './ui/FormUtilities';
+import { SectionCard, getIdExpiryStatus } from './ui/FormUtilities';
 import { RbfComplianceSection } from './sections/RbfComplianceSection';
+import { fetchCustomerLastTransaction, extractExchangePrefill } from '../api/lastTransaction';
 
 export const ReceiverForm = ({
   initialData,
@@ -56,6 +58,7 @@ export const ReceiverForm = ({
       occupation: initialData?.occupation || 'Accountant / Auditor',
       secondLastName: initialData?.secondLastName || '',
       tinNumber: initialData?.tinNumber || '',
+      oet_code: initialData?.oet_code || '18',
       risk_level: initialData?.risk_level || 'Low',
       remarks: initialData?.remarks || '',
       id_issue_date: initialData?.id_issue_date || null,
@@ -97,9 +100,9 @@ export const ReceiverForm = ({
   const selectedId = methods.watch('government_id');
   const idDocument = methods.watch('docFile');
   const ticketDocument = methods.watch('ticket');
-  const documentRows = tableDocuments ?? [
-    ...(idDocument ? [{ document_type: selectedId || 'Government ID', attachment: idDocument, notes: '' }] : []),
-    ...(ticketDocument ? [{ document_type: 'Ticket', attachment: ticketDocument, notes: '' }] : []),
+  const documentRows = (Array.isArray(tableDocuments) && tableDocuments.length > 0) ? tableDocuments : [
+    ...(idDocument ? [{ document_type: selectedId || 'Government ID', issue_date: methods.watch('id_issue_date') || '', expiry_date: methods.watch('id_expiry_date') || '', attachment: idDocument, notes: '' }] : []),
+    ...(ticketDocument ? [{ document_type: 'Ticket', issue_date: '', expiry_date: '', attachment: ticketDocument, notes: '' }] : []),
   ];
   const changeDocuments = rows => {
     methods.setValue('documents', rows, { shouldDirty: true });
@@ -108,6 +111,13 @@ export const ReceiverForm = ({
       ['ticket', 'Ticket'],
     ]) {
       methods.setValue(field, (rows.find(row => row.document_type === type)?.attachment || (field === 'docFile' ? rows.find(row => row.attachment)?.attachment : null)) || null, { shouldValidate: true, shouldDirty: true });
+    }
+    const primaryIdDoc = rows.find(r => r.document_type === selectedId) || rows[0];
+    if (primaryIdDoc) {
+      if (primaryIdDoc.issue_date) methods.setValue('id_issue_date', primaryIdDoc.issue_date, { shouldDirty: true });
+      if (primaryIdDoc.expiry_date) methods.setValue('id_expiry_date', primaryIdDoc.expiry_date, { shouldDirty: true });
+      if (primaryIdDoc.document_type) methods.setValue('government_id', primaryIdDoc.document_type, { shouldDirty: true });
+      if (primaryIdDoc.document_number) methods.setValue('idNumber', primaryIdDoc.document_number, { shouldDirty: true });
     }
     methods.clearErrors('documents');
   };
@@ -133,6 +143,8 @@ export const ReceiverForm = ({
     onSummaryChange,
     exchangeType,
     initialCurrencyCode: initialData?.foreignCurrency || initialData?.currency || '',
+    initialManualRate: initialData?.manualRate ?? '',
+    initialUseManualRate: initialData?.useManualRate ?? false,
   });
 
   const { data: baseCurrencyInfo } = useBaseCurrency();
@@ -229,6 +241,239 @@ export const ReceiverForm = ({
   const receiverDenomStatusRef = useRef({ total: 0, target: 0 });
   const [denomBalanceError, setDenomBalanceError] = useState('');
   const denomErrorRef = useRef(null);
+  const [complianceAssessment, setComplianceAssessment] = useState(null);
+  const missingComplianceDocs = complianceAssessment?.missing_documents || [];
+  const hasMissingComplianceDocs = missingComplianceDocs.length > 0;
+
+  const [currentCustomer, setCurrentCustomer] = useState(() => {
+    if (initialData?.selectedCustomer) return initialData.selectedCustomer;
+    if (initialData?.customer_id || initialData?.idName || initialData?.firstName) {
+      const fullName = initialData.idName || [initialData.firstName, initialData.lastName].filter(Boolean).join(' ');
+      return {
+        name: initialData.customer_id,
+        customer_id: initialData.customer_id,
+        custom_customer_id: initialData.customer_id,
+        customer_name: fullName,
+        custom_full_name: fullName,
+        phone_number: initialData.phone_number || initialData.phoneNumber,
+        mobile_no: initialData.phone_number || initialData.phoneNumber,
+      };
+    }
+    return null;
+  });
+
+  const focusAmountField = React.useCallback(() => {
+    setTimeout(() => {
+      const input = document.getElementById('input-sendAmount') || document.querySelector('#field-sendAmount input');
+      input?.focus();
+    }, 50);
+  }, []);
+
+  const handleResetAllFields = React.useCallback(() => {
+    setCurrentCustomer(null);
+    focusAmountField();
+    // 1. Reset calculation / amounts
+    setSendAmount('');
+    setSendAmountError('');
+    if (useManualRate) setManualRate('');
+
+    // 2. Reset denomination counts & status
+    if (senderDenomRowsRef.current) senderDenomRowsRef.current = [];
+    if (receiverDenomRowsRef.current) receiverDenomRowsRef.current = [];
+    senderDenomStatusRef.current = { total: 0, target: 0 };
+    receiverDenomStatusRef.current = { total: 0, target: 0 };
+    setDenomBalanceError('');
+
+    // 3. Reset error messages
+    setStockError('');
+    setCashAccountError('');
+    setComplianceAssessment(null);
+
+    // 4. Reset form fields (preserving exchangeType)
+    methods.reset({
+      documents: [],
+      country: '',
+      firstName: '',
+      lastName: '',
+      customer_id: '',
+      email: '',
+      city: '',
+      idType: 'PASSPORT',
+      idNumber: '',
+      docFile: null,
+      travelDate: '',
+      destination: '',
+      airwaysName: '',
+      flightNumber: '',
+      pnrNumber: '',
+      ticket: null,
+      phone_number: '',
+      pastReceiver: 'New Receiver',
+      exchangeType: methods.getValues('exchangeType') || 'BUY',
+      government_id: 'Passport',
+      idName: '',
+      dateOfBirth: '',
+      idIssueCountry: '',
+      idIssueState: '',
+      occupation: 'Accountant / Auditor',
+      secondLastName: '',
+      tinNumber: '',
+      oet_code: '18',
+      risk_level: 'Low',
+      remarks: '',
+      id_issue_date: null,
+      id_expiry_date: null,
+      rbf_purpose: '',
+      rbf_documents: [],
+      nationality: '',
+      residency_status: '',
+      source_of_funds: '',
+      passport_endorsed: false,
+      tf_form_reference: '',
+    });
+    methods.clearErrors();
+  }, [methods, setSendAmount, setSendAmountError, useManualRate, setManualRate]);
+
+  const handleCustomerStateChange = React.useCallback(async (custState) => {
+    if (custState?.customer) {
+      focusAmountField();
+      setSendAmount('');
+      setCurrentCustomer(custState.customer);
+      const cust = custState.customer;
+      const doc = cust.custom_government_document || cust.image;
+      if (doc) {
+        const docUrl = doc.startsWith('http') ? doc : `/${doc.replace(/^\/+/, '')}`;
+        methods.setValue('docFile', docUrl, { shouldValidate: true, shouldDirty: true });
+        const curDocs = methods.getValues('documents');
+        if (!curDocs || curDocs.length === 0) {
+          methods.setValue('documents', [{
+            document_type: cust.custom_government_id || cust.government_id_type || 'Passport',
+            document_number: cust.custom_passport_number || cust.custom_drivers_licence_number || cust.custom_tin_number || cust.custom_voter_id_number || cust.government_id_number || '',
+            issue_date: cust.custom_id_issue_date || cust.id_issue_date || '',
+            expiry_date: cust.custom_id_expiry_date || cust.id_expiry_date || '',
+            issue_country: cust.custom_id_issue_country || cust.id_issue_country || '',
+            attachment: docUrl,
+            notes: '',
+          }], { shouldValidate: true, shouldDirty: true });
+        }
+      }
+
+      // If last transaction data exists or can be fetched, auto fill form
+      try {
+        let lastTx = cust.lastTransaction;
+        if (!lastTx) {
+          const res = await fetchCustomerLastTransaction(cust, 'Currency Exchange');
+          if (res?.data) {
+            lastTx = res.data;
+            cust.lastTransaction = lastTx;
+          }
+        }
+        if (lastTx) {
+          const prefill = extractExchangePrefill(lastTx);
+          Object.entries(prefill).forEach(([k, v]) => {
+            if (v !== undefined && v !== null && v !== '') {
+              // Never autofill transaction or exchange type (preserve user's active session/tab)
+              if (
+                k === 'exchangeType' ||
+                k === 'exchange_type' ||
+                k === 'transfer_type' ||
+                k === 'transaction_type'
+              ) {
+                return;
+              }
+              if (k === 'documents') {
+                const curDocs = methods.getValues('documents');
+                if (!curDocs || curDocs.length === 0) {
+                  methods.setValue('documents', v, { shouldValidate: true, shouldDirty: true });
+                }
+              } else if (k === 'docFile') {
+                const curDocFile = methods.getValues('docFile');
+                if (!curDocFile) {
+                  methods.setValue('docFile', v, { shouldValidate: true, shouldDirty: true });
+                }
+              } else {
+                methods.setValue(k, v, { shouldValidate: true, shouldDirty: true });
+              }
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('Error applying last transaction prefill in ReceiverForm:', err);
+      }
+    } else if (custState?.customerFound === false) {
+      setCurrentCustomer(null);
+    }
+    onCustomerChange?.(custState);
+  }, [onCustomerChange, methods, setSendAmount, focusAmountField]);
+
+
+  const idExpiryVal = methods.watch('id_expiry_date');
+  const idExpiryStatus = getIdExpiryStatus(idExpiryVal);
+  const hasExpiredId = idExpiryStatus.isExpired;
+
+  const watchedValues = methods.watch();
+
+  const requiredFieldsInfo = React.useMemo(() => {
+    const hasIdDoc = Boolean(
+      (documentRows && documentRows.some(row => row.document_type?.trim() && (row.attachment instanceof File || (typeof row.attachment === 'string' && row.attachment.trim())))) ||
+      (watchedValues.docFile instanceof File || (typeof watchedValues.docFile === 'string' && watchedValues.docFile.trim()))
+    );
+
+    const fields = [
+      { fieldname: 'customer_id', label: 'Customer ID', isFilled: Boolean(watchedValues.customer_id?.trim?.()) },
+      { fieldname: 'firstName', label: 'First Name', isFilled: Boolean(watchedValues.firstName?.trim?.()) },
+      { fieldname: 'lastName', label: 'Last Name', isFilled: Boolean(watchedValues.lastName?.trim?.()) },
+      { fieldname: 'dateOfBirth', label: 'Date of Birth', isFilled: Boolean(watchedValues.dateOfBirth) },
+      { fieldname: 'documents', label: 'Identity Document', isFilled: hasIdDoc },
+      { fieldname: 'country', label: 'Country', isFilled: Boolean(watchedValues.country?.trim?.()) },
+      { fieldname: 'city', label: 'City', isFilled: Boolean(watchedValues.city?.trim?.()) },
+      { fieldname: 'oet_code', label: 'OET Code', isFilled: Boolean(watchedValues.oet_code?.trim?.()) },
+      { fieldname: 'risk_level', label: 'Risk Level', isFilled: Boolean(watchedValues.risk_level?.trim?.()) },
+      { fieldname: 'sendAmount', label: 'Exchange Amount', isFilled: Boolean(Number(sendAmount || 0) > 0) },
+    ];
+
+    if (exchangeType === 'SELL') {
+      fields.push(
+        { fieldname: 'travelDate', label: 'Travel Date', isFilled: Boolean(watchedValues.travelDate) },
+        { fieldname: 'destination', label: 'Destination', isFilled: Boolean(watchedValues.destination?.trim?.()) },
+        { fieldname: 'airwaysName', label: 'Airways Name', isFilled: Boolean(watchedValues.airwaysName?.trim?.()) },
+        { fieldname: 'flightNumber', label: 'Flight Number', isFilled: Boolean(watchedValues.flightNumber?.trim?.()) },
+        { fieldname: 'pnrNumber', label: 'PNR Number', isFilled: Boolean(watchedValues.pnrNumber?.trim?.()) }
+      );
+    }
+
+    const totalCount = fields.length;
+    const completedCount = fields.filter(f => f.isFilled).length;
+    const missingFields = fields.filter(f => !f.isFilled);
+    const isAllComplete = completedCount === totalCount;
+    const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+    return {
+      fields,
+      totalCount,
+      completedCount,
+      missingFields,
+      isAllComplete,
+      percent,
+    };
+  }, [watchedValues, exchangeType, sendAmount, documentRows]);
+
+  const scrollToErrorField = (fieldname) => {
+    let el = null;
+    if (fieldname === 'customer_id') el = document.getElementById('field-customerId') || document.getElementById('field-idName');
+    else if (fieldname === 'id_expiry_date') el = document.getElementById('field-idExpiryDate');
+    else if (fieldname === 'documents' || fieldname === 'docFile') el = document.getElementById('exchange-documents') || document.getElementById('field-documents') || document.getElementById('field-docFile');
+    else if (fieldname === 'compliance') el = document.getElementById('section-rbf-compliance') || document.getElementById('rbf-compliance-section');
+    else el = document.getElementById(`field-${fieldname}`) || document.querySelector(`[name="${fieldname}"]`);
+
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const input = el.querySelector('input, select, textarea') || el;
+      if (input && typeof input.focus === 'function') {
+        input.focus();
+      }
+    }
+  };
 
   const formatDate = (date) => {
     if (!date) return null;
@@ -244,6 +489,29 @@ export const ReceiverForm = ({
   };
 
   const onSubmit = async (data) => {
+    if (hasExpiredId) {
+      methods.setError('id_expiry_date', { type: 'manual', message: `Cannot proceed: Customer ID expired on ${idExpiryStatus.formattedDate} (${idExpiryStatus.daysExpired} days ago). Expired IDs cannot be accepted.` });
+      scrollToErrorField('id_expiry_date');
+      return;
+    }
+
+    if (hasMissingComplianceDocs) {
+      methods.setError('documents', { type: 'manual', message: `Cannot submit exchange: missing required compliance documents (${missingComplianceDocs.join(', ')}). Please attach them in the Compliance / Documents section.` });
+      document.getElementById('exchange-documents')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    const hasValidIdDoc = Boolean(
+      (documentRows && documentRows.some(row => row.document_type?.trim() && (row.attachment instanceof File || (typeof row.attachment === 'string' && row.attachment.trim())))) ||
+      (watchedValues.docFile instanceof File || (typeof watchedValues.docFile === 'string' && watchedValues.docFile.trim()))
+    );
+
+    if (!hasValidIdDoc) {
+      methods.setError('documents', { type: 'manual', message: 'An identity document is required to proceed with this exchange transaction.' });
+      document.getElementById('exchange-documents')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
     if (documentRows.some(row => !row.document_type?.trim() || !(row.attachment instanceof File || (typeof row.attachment === 'string' && row.attachment.trim())))) {
       methods.setError('documents', { type: 'manual', message: 'Each document row needs a document type and a valid attachment. Reselect files lost after a page refresh.' });
       document.getElementById('exchange-documents')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -320,11 +588,20 @@ export const ReceiverForm = ({
     const uploadedRbfDocuments = [];
     try {
       for (const row of documentRows) {
+        if (!row.attachment) continue;
         const attachment = row.attachment instanceof File
           ? await uploadFile(row.attachment, { isPrivate: 1 })
           : row.attachment;
         if (!attachment) throw new Error(`Unable to upload ${row.document_type}. Please try again.`);
-        uploadedDocuments.push({ document_type: row.document_type.trim(), attachment: attachment.replace(/^\/+(?=(?:private\/)?files\/)/, '/'), notes: row.notes || '' });
+        uploadedDocuments.push({
+          document_category: row.document_category || 'Proof of Identity',
+          document_type: (row.document_type || 'Government ID').trim(),
+          document_number: row.document_number || '',
+          issue_date: row.issue_date || null,
+          expiry_date: row.expiry_date || null,
+          attachment: attachment.replace(/^\/+(?=(?:private\/)?files\/)/, '/'),
+          notes: row.notes || '',
+        });
       }
       for (const row of data.rbf_documents || []) {
         if (!row.document_type || !row.attachment) continue;
@@ -343,6 +620,8 @@ export const ReceiverForm = ({
       documents: uploadedDocuments,
       idType: data.government_id === 'Passport' ? 'PASSPORT' : 'GOVERNMENT_ID',
       docFile: uploadedDocuments.find(row => row.document_type === data.government_id)?.attachment || uploadedDocuments[0]?.attachment || null,
+      id_issue_date: uploadedDocuments[0]?.issue_date || data.id_issue_date || null,
+      id_expiry_date: uploadedDocuments[0]?.expiry_date || data.id_expiry_date || null,
       customer_id: data.customer_id || initialData?.customer_id || '',
       dateOfBirth: data.dateOfBirth ? formatDate(data.dateOfBirth) : null,
       sender_notes: senderInfo?.notes ?? [],
@@ -381,6 +660,11 @@ export const ReceiverForm = ({
       remarks: data.remarks || '',
       id_issue_date: data.id_issue_date ? formatDate(data.id_issue_date) : null,
       id_expiry_date: data.id_expiry_date ? formatDate(data.id_expiry_date) : null,
+      selectedCustomer: currentCustomer,
+      manualRate: useManualRate ? manualRate : '',
+      useManualRate,
+      rawSenderDenomRows: senderDenomRowsRef.current,
+      rawReceiverDenomRows: receiverDenomRowsRef.current,
       senderDenominationRows: senderDenomRowsRef.current.filter(r => r.count > 0).map(r => ({
         denomination_value: r.denom,
         denomination_type: getDenomType(r.denom, senderInfo?.notes, senderInfo?.coins),
@@ -398,10 +682,11 @@ export const ReceiverForm = ({
 
   // Ordered list of fields: text-focusable ones use setFocus, file ones use element id scroll
   const FIELD_ORDER = [
+    'exchangeType', 'oet_code', 'risk_level', 'remarks',
     'idName', 'phone_number', 'dateOfBirth', 'government_id', 'idNumber', 'id_issue_date', 'id_expiry_date',
-    'idIssueCountry', 'idIssueState', 'oet_code', 'risk_level', 'remarks', 'docFile', 'travelDate', 'destination', 'airwaysName', 'flightNumber', 'pnrNumber', 'ticket',
+    'idIssueCountry', 'idIssueState', 'docFile', 'travelDate', 'destination', 'airwaysName', 'flightNumber', 'pnrNumber', 'ticket',
     'tinNumber',
-    'firstName', 'lastName', 'city', 'country', 'exchangeType',
+    'firstName', 'lastName', 'city', 'country',
   ];
   const FILE_FIELDS = new Set(['docFile', 'ticket']);
 
@@ -420,73 +705,146 @@ export const ReceiverForm = ({
     }
   };
 
+  const [sidebarSlot, setSidebarSlot] = useState(() =>
+    typeof document !== 'undefined' ? document.getElementById('exchange-sidebar-progress-slot') : null
+  );
+
+  useEffect(() => {
+    if (!sidebarSlot && typeof document !== 'undefined') {
+      const el = document.getElementById('exchange-sidebar-progress-slot');
+      if (el) setSidebarSlot(el);
+    }
+  }, [sidebarSlot]);
+
+  const progressCard = (
+    <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-[0_4px_25px_rgba(0,0,0,0.04)] w-full min-w-0 box-border">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <div className="flex items-center gap-3">
+          <div
+            className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-caption transition-colors shrink-0 ${
+              hasExpiredId
+                ? 'bg-red-100 text-red-700'
+                : hasMissingComplianceDocs
+                ? 'bg-amber-100 text-amber-700'
+                : requiredFieldsInfo.isAllComplete
+                ? 'bg-green-100 text-green-700'
+                : 'bg-blue-50 text-blue-700'
+            }`}
+          >
+            {hasExpiredId ? (
+              <span className="text-base font-bold text-red-600">⚠</span>
+            ) : hasMissingComplianceDocs ? (
+              <span className="text-base font-bold text-amber-600">!</span>
+            ) : requiredFieldsInfo.isAllComplete ? (
+              <CheckCircle2 size={20} strokeWidth={2.5} />
+            ) : (
+              `${requiredFieldsInfo.percent}%`
+            )}
+          </div>
+          <div>
+            <h3 className="text-label font-bold uppercase tracking-wider text-gray-900">Exchange Progress</h3>
+            <p className="text-caption text-gray-700 mt-0.5">
+              {hasExpiredId ? (
+                <span className="font-bold text-red-600">
+                  ⚠️ ID expired ({idExpiryStatus.daysExpired === 1 ? '1 day ago' : `${idExpiryStatus.daysExpired}d ago`})
+                </span>
+              ) : (
+                <>
+                  <strong className="text-gray-900 font-bold">
+                    {requiredFieldsInfo.completedCount} of {requiredFieldsInfo.totalCount} fields
+                  </strong>
+                  {hasMissingComplianceDocs ? (
+                    <span className="font-bold text-amber-700 ml-1">
+                      · ⚠️ {missingComplianceDocs.length} compliance {missingComplianceDocs.length === 1 ? 'issue' : 'issues'}
+                    </span>
+                  ) : requiredFieldsInfo.isAllComplete ? (
+                    <span className="font-bold text-green-700 ml-1">· ✓ Ready!</span>
+                  ) : (
+                    <span className="text-gray-500 ml-1">
+                      ({requiredFieldsInfo.totalCount - requiredFieldsInfo.completedCount} remaining)
+                    </span>
+                  )}
+                </>
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Progress Bar Track */}
+      <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden my-3">
+        <div
+          className={`h-full rounded-full transition-all duration-300 ease-out ${
+            hasExpiredId
+              ? 'bg-red-600'
+              : hasMissingComplianceDocs
+              ? 'bg-amber-500'
+              : requiredFieldsInfo.isAllComplete
+              ? 'bg-green-600'
+              : 'bg-blue-600'
+          }`}
+          style={{ width: `${requiredFieldsInfo.percent}%` }}
+        />
+      </div>
+
+      {/* Missing Required Fields Pills */}
+      {!requiredFieldsInfo.isAllComplete && requiredFieldsInfo.missingFields.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-1.5 text-xs">
+          <span className="text-gray-700 font-bold shrink-0">Required:</span>
+          {requiredFieldsInfo.missingFields.map((field) => (
+            <button
+              key={field.fieldname}
+              type="button"
+              onClick={() => scrollToErrorField(field.fieldname)}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-50 hover:bg-red-50 hover:text-red-700 hover:border-red-200 border border-gray-200 text-gray-700 font-medium text-[11px] transition-colors cursor-pointer"
+              title={`Click to jump to ${field.label}`}
+            >
+              • {field.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Missing Compliance Docs */}
+      {hasMissingComplianceDocs && (
+        <div className="mt-2 pt-2 border-t border-gray-100 flex flex-wrap items-center gap-1.5 text-xs">
+          <span className="text-amber-800 font-bold shrink-0">Compliance:</span>
+          <button
+            type="button"
+            onClick={() => scrollToErrorField('compliance')}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-300 font-semibold text-[11px] hover:bg-amber-100 transition-colors cursor-pointer"
+            title="Click to jump to Compliance section"
+          >
+            📄 {missingComplianceDocs.join(', ')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
   const FJD = { code: 'FJD', symbol: 'FJ$', name: 'Fijian Dollar' };
 
   return (
     <FormProvider {...methods}>
-      <div className="min-h-screen bg-gray-50">
-        {showUploadModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-2xl shadow-xl p-7 max-w-sm w-full mx-4 text-center">
-              <div className="text-4xl mb-4">📂</div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-2">No Exchange Rates Found</h2>
-              <p className="text-gray-500 text-sm mb-6 leading-relaxed">
-                Please contact admin to update the rates.
-              </p>
-              <button type="button" onClick={() => setShowUploadModal(false)}
-                className="w-full bg-[#E00000] hover:bg-[#B70000] text-white font-semibold text-sm py-2.5 rounded-xl transition-colors">
-                OK, Got it
-              </button>
-            </div>
-          </div>
-        )}
-
-
-
-        <div className="bg-[#B70000] px-6 sm:px-10 py-7">
-          <div className="max-w-5xl mx-auto flex items-start justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center">
-                <UserPlus size={18} className="text-white" strokeWidth={1.75} />
-              </div>
-              <div>
-                <h1 className="text-white font-semibold text-xl">Customer Details</h1>
-                <p className="text-[#b5f000] text-sm mt-0.5">Currency Exchange Transaction</p>
-              </div>
-            </div>
-
-            {toCurrency && effectiveRate && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex items-center gap-2 bg-white/10 border border-white/20 px-3 py-2 rounded-lg">
-                  <span className="text-[#b5f000] text-xs">Live Rate</span>
-                  <span className="text-white text-sm font-semibold">
-                    1 {toCurrency.code} = {FJD.symbol}{effectiveRate} {FJD.code}
-                  </span>
-                </div>
-
-                {/* ── Rate date badge ─────────────────────────────── */}
-                {rateDate && !useManualRate && (
-                  <div className="flex items-center gap-1.5 bg-white/10 border border-white/20 px-3 py-2 rounded-lg">
-                    <span className="text-[#b5f000] text-xs">Rate Date</span>
-                    <span className="text-white text-sm font-semibold">{rateDate}</span>
-                  </div>
-                )}
-                {useManualRate && (
-                  <div className="flex items-center gap-1.5 bg-white/10 border border-yellow-400/30 px-3 py-2 rounded-lg">
-                    <span className="text-yellow-300 text-xs">⚙ Manual Rate</span>
-                  </div>
-                )}
-                {/* ──────────────────────────────────────────────────── */}
-
-                <span className="text-xs font-medium bg-white/10 border border-white/20 text-yellow-200 px-2.5 py-1.5 rounded-lg uppercase tracking-wide">
-                  {exchangeType === 'BUY' ? '🟢 Buying' : '🔴 Selling'}
-                </span>
-              </div>
-            )}
+      {sidebarSlot && createPortal(progressCard, sidebarSlot)}
+      {showUploadModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl p-7 max-w-sm w-full mx-4 text-center">
+            <div className="text-4xl mb-4">📂</div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">No Exchange Rates Found</h2>
+            <p className="text-gray-500 text-sm mb-6 leading-relaxed">
+              Please contact admin to update the rates.
+            </p>
+            <button type="button" onClick={() => setShowUploadModal(false)}
+              className="w-full bg-[#E00000] hover:bg-[#B70000] text-white font-semibold text-sm py-2.5 rounded-xl transition-colors">
+              OK, Got it
+            </button>
           </div>
         </div>
+      )}
 
-        <form onSubmit={handleSubmit(onSubmit, onError)} autoComplete="off" className="px-4 sm:px-8 lg:px-12 py-8 flex flex-col gap-5 max-w-5xl mx-auto" noValidate>
+      <form onSubmit={handleSubmit(onSubmit, onError)} autoComplete="off" className="flex flex-col gap-6 w-full min-w-0" noValidate>
+
           {!ratesLoading && availableCurrencies?.length === 0 && (
             <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-[#E00000]/20 bg-[#E00000]/5">
               <AlertCircle size={15} className="text-[#E00000] flex-shrink-0 mt-0.5" />
@@ -498,119 +856,286 @@ export const ReceiverForm = ({
               </div>
             </div>
           )}
-          {/* 
-          {effectiveRate > 0 && !ratesLoading && !noDataForToday && rateDate && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3.5 rounded-xl flex items-center gap-3 text-sm font-semibold shadow-sm">
-              <CheckCircle2 size={20} className="text-green-600 flex-shrink-0" />
-              Today's exchange rate is available (Date: {rateDate}).
-            </div>
-          )} */}
 
-          <GovernmentIdSection
-            useDocumentTable
-            prefillCustomerId={initialData?.request_customer_id || ''}
-            exchangeType={exchangeType}
-            onCustomerChange={onCustomerChange}
-          />
+          {/* SECTION 1: EXCHANGE DETAILS */}
+          <SectionCard
+            id="section-exchange-details"
+            icon={ArrowLeftRight}
+            title="Exchange Details"
+            subtitle="Transaction type, currencies and exchange rate"
+            badge={
+              <span className={`text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wider ${
+                exchangeType === 'BUY'
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  : 'bg-blue-50 text-blue-700 border border-blue-200'
+              }`}>
+                {exchangeType === 'BUY' ? '🟢 Buying Forex' : '🔵 Selling Forex'}
+              </span>
+            }
+          >
+            <ExchangeSection
+              exchangeType={exchangeType}
+              availableCurrencies={availableCurrencies}
+              ratesLoading={ratesLoading}
+              rateError={rateError}
+              toCurrency={toCurrency}
+              setToCurrency={setToCurrency}
+              useManualRate={useManualRate}
+              setManualRate={setManualRate}
+              sendAmount={sendAmount}
+              setSendAmount={setSendAmount}
+              sendAmountError={sendAmountError}
+              setSendAmountError={setSendAmountError}
+              effectiveRate={effectiveRate}
+              exchangePreview={exchangePreview}
+              onAmountBlur={runStockCheck}
+            />
+          </SectionCard>
 
-          <SectionDivider label="Personal Information" />
-          <PersonalInfoSection />
+          {/* SECTION 2: CUSTOMER INFORMATION & IDENTIFICATION (Merged ID Verification + Personal Info) */}
+          <SectionCard
+            id="section-customer-info"
+            icon={User}
+            title="Customer Information"
+            subtitle="Customer legal name, ID verification, contact details and documents"
+          >
+            {/* Merged Sub-Section: ID Verification */}
+            <GovernmentIdSection
+              hideCardWrapper={true}
+              useDocumentTable
+              prefillCustomerId={initialData?.request_customer_id || ''}
+              exchangeType={exchangeType}
+              onCustomerChange={handleCustomerStateChange}
+              onResetAllFields={handleResetAllFields}
+              selectedCustomer={currentCustomer}
+            />
 
-          <div id="exchange-documents">
-            {selectedId && <p className="mt-4 text-sm font-semibold text-gray-600">Upload an attachment to continue. You can enter any document type.</p>}
-            <DocumentUploadTable rows={documentRows} onChange={changeDocuments} disabled={uploadLoading || stockLoading} />
-            {['documents', 'docFile', 'ticket'].map(field => methods.formState.errors[field] && (
-              <p key={field} role="alert" className="mt-2 text-sm text-[#E00000]">{methods.formState.errors[field].message}</p>
-            ))}
-          </div>
+            {/* Divider */}
+            <div className="my-6 border-t border-gray-100" />
 
-          <SectionDivider label="Exchange Details" />
-          <ExchangeSection
-            exchangeType={exchangeType}
-            availableCurrencies={availableCurrencies}
-            ratesLoading={ratesLoading}
-            rateError={rateError}
-            toCurrency={toCurrency}
-            setToCurrency={setToCurrency}
-            useManualRate={useManualRate}
-            setManualRate={setManualRate}
-            sendAmount={sendAmount}
-            setSendAmount={setSendAmount}
-            sendAmountError={sendAmountError}
-            setSendAmountError={setSendAmountError}
-            effectiveRate={effectiveRate}
-            exchangePreview={exchangePreview}
-            onAmountBlur={runStockCheck}
-          />
-
-          <RbfComplianceSection
-            fjdAmount={rbfFjdAmount}
-            exchangeType={exchangeType}
-            currency="FJD"
-            rate={exchangePreview?.rate}
-            customerId={methods.watch('customer_id')}
-          />
-
-          <SectionDivider label="Cash Denomination Counts" />
-          {denomBalanceError && (
-            <div ref={denomErrorRef} className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-[#E00000]/30 bg-[#E00000]/5">
-              <AlertCircle size={15} className="text-[#E00000] flex-shrink-0 mt-0.5" />
+            {/* Merged Sub-Section: Address & Personal Details */}
+            <div className="flex items-center gap-2.5 pb-3 mb-4 border-b border-gray-100">
+              <div className="w-7 h-7 rounded-lg bg-gray-50 border border-gray-200/60 flex items-center justify-center text-gray-700 shrink-0">
+                <User size={15} strokeWidth={2} />
+              </div>
               <div>
-                <p className="font-semibold text-sm text-red-800">Denomination Imbalance</p>
-                <p className="text-xs text-[#E00000] mt-0.5">{denomBalanceError}</p>
+                <h4 className="text-xs uppercase font-bold text-gray-700 tracking-wider">
+                  Personal Details &amp; Address
+                </h4>
+                <p className="text-[11px] text-gray-400">Occupation, country and contact address</p>
+              </div>
+            </div>
+            <div className="ml-3 sm:ml-3.5 border-l-2 border-gray-200/80 pl-4 sm:pl-6">
+              <PersonalInfoSection />
+            </div>
+
+            {/* Divider */}
+            <div className="my-6 border-t border-gray-100" />
+
+            {/* Merged Sub-Section: Identification Documents Table */}
+            <div id="exchange-documents" className="ml-3 sm:ml-3.5 border-l-2 border-gray-200/80 pl-4 sm:pl-6">
+              <DocumentUploadTable
+                rows={documentRows}
+                onChange={changeDocuments}
+                disabled={uploadLoading || stockLoading}
+                title="Identification Documents"
+                subtitle="Government ID, passport & supporting identity documents"
+              />
+              {['documents', 'docFile', 'ticket'].map(field => methods.formState.errors[field] && (
+                <p key={field} role="alert" className="mt-2 text-sm text-[#E00000]">{methods.formState.errors[field].message}</p>
+              ))}
+            </div>
+          </SectionCard>
+
+          {/* SECTION 3: RBF COMPLIANCE */}
+          <SectionCard
+            id="section-rbf-compliance"
+            icon={ShieldCheck}
+            title="RBF Compliance"
+            subtitle="Reserve Bank of Fiji compliance assessment & supporting documents"
+            badge={
+              complianceAssessment?.status === 'EXEMPT' ? (
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                  Exempt
+                </span>
+              ) : complianceAssessment?.status === 'COMPLIANT' ? (
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  Compliant
+                </span>
+              ) : complianceAssessment?.status === 'NON_COMPLIANT' ? (
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-200">
+                  Action Required
+                </span>
+              ) : (
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+                  RBF Regulations
+                </span>
+              )
+            }
+          >
+            <div id="rbf-compliance-section">
+              <RbfComplianceSection
+                fjdAmount={rbfFjdAmount}
+                exchangeType={exchangeType}
+                currency="FJD"
+                rate={exchangePreview?.rate}
+                customerId={methods.watch('customer_id')}
+                onAssessmentChange={setComplianceAssessment}
+                hideCardHeader={true}
+                hideIdentityScreening={true}
+              />
+            </div>
+          </SectionCard>
+
+          {/* SECTION 4: CASH DENOMINATION COUNTS */}
+          <SectionCard
+            id="section-cash-denominations"
+            icon={Banknote}
+            title="Cash Denomination Counts"
+            subtitle="Counter staff: count and confirm notes for currency in and currency out"
+            badge={
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+                Cash Verification
+              </span>
+            }
+          >
+            {denomBalanceError && (
+              <div ref={denomErrorRef} className="mb-4 flex items-start gap-3 px-4 py-3.5 rounded-xl border border-[#E00000]/30 bg-[#E00000]/5">
+                <AlertCircle size={15} className="text-[#E00000] flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-sm text-red-800">Denomination Imbalance</p>
+                  <p className="text-xs text-[#E00000] mt-0.5">{denomBalanceError}</p>
+                </div>
+              </div>
+            )}
+            {stockError && (
+              <div ref={stockErrorRef} className="mb-4 flex items-start gap-3 px-4 py-3.5 rounded-xl border border-[#E00000]/30 bg-[#E00000]/5">
+                <AlertCircle size={15} className="text-[#E00000] flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-sm text-red-800">Out of Stock</p>
+                  <p className="text-xs text-[#E00000] mt-0.5">{stockError}</p>
+                </div>
+              </div>
+            )}
+            {cashAccountError && (
+              <div ref={stockErrorRef} className="mb-4 flex items-start gap-3 px-4 py-3.5 rounded-xl border border-[#E00000]/30 bg-[#E00000]/5">
+                <AlertCircle size={15} className="text-[#E00000] flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-sm text-red-800">Warehouse Cash Account Not Mapped</p>
+                  <p className="text-xs text-[#E00000] mt-0.5">{cashAccountError}</p>
+                </div>
+              </div>
+            )}
+            <DenominationSection
+              senderInfo={senderInfo}
+              receiverInfo={receiverInfo}
+              exchangeType={exchangeType}
+              sendAmount={fjdSendAmount}
+              receiverGets={exchangePreview?.rawAmount ?? 0}
+              denomLoading={denomLoading}
+              denomError={denomLoadError}
+              selectedDenomCountry={selectedDenomCountry}
+              senderDenomRowsRef={senderDenomRowsRef}
+              receiverDenomRowsRef={receiverDenomRowsRef}
+              initialSenderRows={initialData?.rawSenderDenomRows || initialData?.senderDenominationRows}
+              initialReceiverRows={initialData?.rawReceiverDenomRows || initialData?.receiverDenominationRows}
+              onSenderStatusChange={s => { senderDenomStatusRef.current = s; }}
+              onReceiverStatusChange={s => { receiverDenomStatusRef.current = s; }}
+            />
+          </SectionCard>
+
+          {hasExpiredId && (
+            <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-red-300 bg-red-50 text-red-950">
+              <span className="text-base">🚫</span>
+              <div>
+                <p className="font-bold text-sm text-red-900">Submission Blocked — Customer ID Expired</p>
+                <p className="text-xs text-red-800 mt-0.5">Customer ID expired on <strong>{idExpiryStatus.formattedDate}</strong> ({idExpiryStatus.daysExpired} days ago). An unexpired ID must be provided to proceed.</p>
               </div>
             </div>
           )}
-          {stockError && (
-            <div ref={stockErrorRef} className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-[#E00000]/30 bg-[#E00000]/5">
-              <AlertCircle size={15} className="text-[#E00000] flex-shrink-0 mt-0.5" />
+
+          {hasMissingComplianceDocs && (
+            <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-950">
+              <span className="text-base">🚫</span>
               <div>
-                <p className="font-semibold text-sm text-red-800">Out of Stock</p>
-                <p className="text-xs text-[#E00000] mt-0.5">{stockError}</p>
+                <p className="font-bold text-sm text-amber-900">Missing Required Compliance Documents</p>
+                <p className="text-xs text-amber-800 mt-0.5">Submission is blocked until required RBF compliance documents are attached: <strong>{missingComplianceDocs.join(', ')}</strong></p>
               </div>
             </div>
           )}
-          {cashAccountError && (
-            <div ref={stockErrorRef} className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-[#E00000]/30 bg-[#E00000]/5">
-              <AlertCircle size={15} className="text-[#E00000] flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-semibold text-sm text-red-800">Warehouse Cash Account Not Mapped</p>
-                <p className="text-xs text-[#E00000] mt-0.5">{cashAccountError}</p>
+
+          {/* FIXED BOTTOM SUBMIT BAR */}
+          <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-200 py-3 sm:py-3.5 px-4 sm:px-8 shadow-[0_-4px_25px_rgba(0,0,0,0.08)]">
+            <div className="max-w-[80%] mx-auto flex items-center justify-between gap-4">
+              {/* Left progress info */}
+              <div className="flex items-center gap-2.5">
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-caption ${
+                  requiredFieldsInfo.isAllComplete && !hasExpiredId && !hasMissingComplianceDocs
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-blue-50 text-blue-700'
+                }`}>
+                  {requiredFieldsInfo.percent}%
+                </div>
+                <div className="hidden sm:block">
+                  <p className="text-label font-semibold text-gray-900 leading-none">
+                    {requiredFieldsInfo.completedCount} of {requiredFieldsInfo.totalCount} required fields
+                  </p>
+                  <p className="text-caption text-gray-400 mt-0.5">
+                    {requiredFieldsInfo.isAllComplete ? 'Ready to continue' : `${requiredFieldsInfo.totalCount - requiredFieldsInfo.completedCount} remaining`}
+                  </p>
+                </div>
+
+                {hasExpiredId ? (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-caption font-semibold bg-red-600 text-white animate-pulse shrink-0">
+                    ⚠️ Expired ID
+                  </span>
+                ) : hasMissingComplianceDocs ? (
+                  <button
+                    type="button"
+                    onClick={() => scrollToErrorField('compliance')}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-caption font-semibold bg-amber-500 hover:bg-amber-600 text-white shrink-0 cursor-pointer transition-colors shadow-xs"
+                    title="Click to jump to Compliance section"
+                  >
+                    ⚠️ {missingComplianceDocs.length} compliance {missingComplianceDocs.length === 1 ? 'issue' : 'issues'}
+                  </button>
+                ) : requiredFieldsInfo.isAllComplete ? (
+                  <span className="hidden md:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-caption font-semibold bg-green-100 text-green-800 border border-green-200 shrink-0">
+                    <CheckCircle2 size={13} strokeWidth={2.5} /> Ready
+                  </span>
+                ) : null}
+              </div>
+
+              {/* Action buttons on right */}
+              <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={onClear}
+                  className="inline-flex items-center gap-1.5 px-3.5 sm:px-5 py-2.5 rounded-xl border border-gray-200 hover:border-red-200 bg-white hover:bg-red-50 text-gray-700 hover:text-[#E00000] font-semibold text-btn-lg transition-all shadow-2xs cursor-pointer"
+                  title="Clear all fields in this form"
+                >
+                  Clear
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={!requiredFieldsInfo.isAllComplete || ratesLoading || uploadLoading || stockLoading || hasMissingComplianceDocs || hasExpiredId || (!ratesLoading && availableCurrencies?.length === 0)}
+                  className={`inline-flex items-center justify-center gap-1.5 sm:gap-2 px-5 sm:px-7 py-2.5 rounded-xl text-btn-lg font-semibold transition-all shadow-md ${
+                    !requiredFieldsInfo.isAllComplete || hasExpiredId || hasMissingComplianceDocs
+                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
+                      : stockLoading || uploadLoading
+                      ? 'bg-[#E00000] opacity-60 text-white cursor-not-allowed'
+                      : 'bg-[#E00000] hover:bg-[#c70000] text-white hover:shadow-lg cursor-pointer'
+                  }`}
+                >
+                  {stockLoading ? 'Checking stock…' : uploadLoading ? 'Uploading...' : hasExpiredId ? 'Expired ID' : hasMissingComplianceDocs ? `Missing Docs (${missingComplianceDocs.length})` : !requiredFieldsInfo.isAllComplete ? `Continue (${requiredFieldsInfo.completedCount}/${requiredFieldsInfo.totalCount})` : 'Continue'}
+                  {!uploadLoading && !stockLoading && !hasMissingComplianceDocs && !hasExpiredId && requiredFieldsInfo.isAllComplete && (
+                    <ArrowRight size={15} strokeWidth={2} />
+                  )}
+                </button>
               </div>
             </div>
-          )}
-          <DenominationSection
-            senderInfo={senderInfo}
-            receiverInfo={receiverInfo}
-            exchangeType={exchangeType}
-            sendAmount={fjdSendAmount}
-            receiverGets={exchangePreview?.rawAmount ?? 0}
-            denomLoading={denomLoading}
-            denomError={denomLoadError}
-            selectedDenomCountry={selectedDenomCountry}
-            senderDenomRowsRef={senderDenomRowsRef}
-            receiverDenomRowsRef={receiverDenomRowsRef}
-            onSenderStatusChange={s => { senderDenomStatusRef.current = s; }}
-            onReceiverStatusChange={s => { receiverDenomStatusRef.current = s; }}
-          />
-
-
-
-          <div className="flex items-center justify-between pt-2 pb-8">
-            <button type="button" onClick={onClear}
-              className="flex items-center gap-1.5 text-sm font-medium text-gray-400 hover:text-red-500 transition-colors px-4 py-2.5 rounded-lg hover:bg-red-50">
-              Clear
-            </button>
-
-            <button type="submit"
-              disabled={ratesLoading || uploadLoading || stockLoading || (!ratesLoading && availableCurrencies?.length === 0)}
-              className="flex items-center gap-2 bg-[#E00000] hover:bg-[#B70000] disabled:bg-gray-300 disabled:cursor-not-allowed text-white text-sm font-semibold h-11 px-8 rounded-xl transition-colors group">
-              {stockLoading ? 'Checking stock…' : uploadLoading ? 'Uploading...' : 'Continue'}
-              {!uploadLoading && !stockLoading && <ArrowRight size={16} strokeWidth={2} className="group-hover:translate-x-0.5 transition-transform" />}
-            </button>
           </div>
         </form>
-      </div>
-    </FormProvider>
+      </FormProvider>
   );
 };

@@ -59,11 +59,11 @@ export default function WorkingProcess() {
     <div className="bg-white min-h-screen font-sans px-8 md:px-16 py-16">
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center gap-8 mb-14">
-        <button className="border border-gray-300 rounded-full px-5 py-2 text-xs font-semibold tracking-widest uppercase text-gray-600 whitespace-nowrap hover:border-gray-500 transition-colors flex-shrink-0">
+        <button className="border border-gray-300 rounded-full px-5 py-2 text-overline font-semibold tracking-wider uppercase text-gray-600 whitespace-nowrap hover:border-gray-500 transition-colors flex-shrink-0">
           Working Process
         </button>
 
-        <h2 className="text-3xl md:text-4xl font-black text-gray-900 leading-snug tracking-tight">
+        <h2 className="text-h1 font-bold text-gray-900 leading-snug tracking-tight">
           How It Works Easy{" "}
           <span className="relative inline-block">
             Steps
@@ -88,19 +88,19 @@ export default function WorkingProcess() {
               <div className="opacity-90 group-hover:scale-105 transition-transform duration-200">
                 {s.icon}
               </div>
-              <span className="bg-[#F00000] text-white text-xs font-black px-3 py-1.5 rounded-lg tracking-wider">
+              <span className="bg-[#F00000] text-white text-caption font-semibold px-3 py-1.5 rounded-lg tracking-wider">
                 {s.step}
               </span>
             </div>
 
             {/* Title */}
-            <h3 className="text-xl font-black text-gray-900 leading-snug">{s.title}</h3>
+            <h3 className="text-h2 font-bold text-gray-900 leading-snug">{s.title}</h3>
 
             {/* Description */}
-            <p className="text-gray-500 text-sm leading-relaxed flex-1">{s.desc}</p>
+            <p className="text-gray-500 text-body font-normal leading-relaxed flex-1">{s.desc}</p>
 
             {/* CTA */}
-            <button className="flex items-center gap-1.5 text-sm font-bold text-gray-800 hover:text-gray-600 transition-colors w-fit group/btn">
+            <button className="flex items-center gap-1.5 text-label font-semibold text-gray-800 hover:text-gray-600 transition-colors w-fit group/btn">
               <span className="border-b border-gray-800 group-hover/btn:border-gray-500 transition-colors pb-0.5">
                 Get Started
               </span>

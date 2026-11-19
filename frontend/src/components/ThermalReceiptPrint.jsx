@@ -21,7 +21,17 @@ export const ThermalReceipt = ({ invoiceData = {}, exchange = {} }) => {
   const rawTime      = (invoiceData?.posting_time ?? '').split('.')[0];
   const txnDate      = invoiceData?.posting_date ?? '—';
   const txnTime      = rawTime || '—';
-  const customer     = invoiceData?.custom_customer_full_name ?? invoiceData?.custom_customer_full_name ?? '—';
+  const customer     =
+    invoiceData?.custom_customer_full_name ||
+    invoiceData?.customer_full_name ||
+    invoiceData?.customer_name ||
+    invoiceData?.supplier_name ||
+    invoiceData?.fullName ||
+    invoiceData?.full_name ||
+    invoiceData?.idName ||
+    [invoiceData?.firstName, invoiceData?.lastName].filter(Boolean).join(' ') ||
+    invoiceData?.customer_id ||
+    '—';
   const status       = invoiceData?.docstatus === 2 ? 'Cancelled' : 'Paid';
 
   const rows = (invoiceData?.items ?? []).map(item => ({
@@ -287,7 +297,35 @@ export const ThermalReceipt = ({ invoiceData = {}, exchange = {} }) => {
 // Replace your existing printInvoice with this one:
 
 export const printThermalReceipt = (invoiceData, exchange) => {
+  const customerId = (
+    invoiceData?.customer_id ||
+    invoiceData?.custom_customer_id ||
+    invoiceData?.customer ||
+    ''
+  ).trim();
+
+  const nameCandidates = [
+    invoiceData?.custom_full_name,
+    invoiceData?.full_name,
+    invoiceData?.fullName,
+    invoiceData?.idName,
+    [invoiceData?.firstName, invoiceData?.lastName].filter(Boolean).join(' '),
+    invoiceData?.custom_customer_full_name,
+    invoiceData?.customer_full_name,
+    invoiceData?.customer_name,
+    invoiceData?.supplier_name,
+  ];
+
+  const customer = nameCandidates
+    .map(name => (typeof name === 'string' ? name.trim() : ''))
+    .find(name => name && (!customerId || name.toLowerCase() !== customerId.toLowerCase()))
+    || invoiceData?.customer_name || 'Customer';
+
   const printWindow = window.open('', '_blank', 'width=400,height=700');
+  if (!printWindow) {
+    alert('Please allow popups to print the thermal receipt.');
+    return;
+  }
 
   printWindow.document.write(`
     <!DOCTYPE html>
@@ -347,13 +385,13 @@ export const printThermalReceipt = (invoiceData, exchange) => {
           <div class="r-row"><span class="label">STATUS:</span><span class="value"><span class="r-status">${invoiceData?.docstatus === 2 ? 'Cancelled' : 'Paid'}</span></span></div>
 
           <hr class="r-divider" />
-          <div class="r-row"><span class="label">CUSTOMER:</span><span class="value r-bold">${invoiceData?.custom_customer_full_name ?? invoiceData?.custom_customer_full_name ?? '—'}</span></div>
+          <div class="r-row"><span class="label">CUSTOMER:</span><span class="value r-bold">${customer}</span></div>
           <hr class="r-divider" />
 
           ${invoiceData?.you_send ? `
           <div class="r-heading r-bold" style="margin-bottom:6px">EXCHANGE DETAILS</div>
-          <div class="r-row"><span class="label">YOU SEND:</span><span class="value r-bold">${invoiceData?.you_send_currency_type ?? ''} ${Number(invoiceData?.you_send ?? 0).toFixed(4)}</span></div>
-          <div class="r-row"><span class="label">THEY RECEIVE:</span><span class="value r-bold">${invoiceData?.they_receive_currency_type ?? ''} ${Number(invoiceData?.they_receive ?? 0).toFixed(4)}</span></div>
+          <div class="r-row"><span class="label">YOU SEND:</span><span class="value r-bold">${invoiceData?.you_send_currency_type ?? ''} ${Number(invoiceData?.you_send ?? 0).toFixed(2)}</span></div>
+          <div class="r-row"><span class="label">THEY RECEIVE:</span><span class="value r-bold">${invoiceData?.they_receive_currency_type ?? ''} ${Number(invoiceData?.they_receive ?? 0).toFixed(2)}</span></div>
           <hr class="r-divider" />
           ` : ''}
 
@@ -362,15 +400,15 @@ export const printThermalReceipt = (invoiceData, exchange) => {
               <div style="text-transform:uppercase;font-weight:700">${item.item_name ?? item.item_code ?? '—'} ${invoiceData?.you_send_currency_type ?? invoiceData?.senderCurrency ?? invoiceData?.foreignCurrency ?? invoiceData?.foreign_currency_type ?? exchange?.senderCurrency ?? exchange?.foreignCurrency ?? '—'}</div>
               <div class="r-row r-small">
                 <span>  ${item.qty ?? 1} x ${Number(item.rate ?? 0).toFixed(4)}</span>
-                <span class="r-bold">${Number(item.amount ?? 0).toFixed(4)} ${invoiceData?.currency ?? 'FJD'}</span>
+                <span class="r-bold">${Number(item.amount ?? 0).toFixed(2)} ${invoiceData?.currency ?? 'FJD'}</span>
               </div>
             </div>
           `).join('')}
 
           ${(invoiceData?.items ?? []).length ? '<hr class="r-divider" />' : ''}
 
-          <div class="r-row"><span class="label">NET AMOUNT:</span><span class="value">${invoiceData?.currency ?? 'FJD'} ${Number(invoiceData?.net_total ?? invoiceData?.total ?? 0).toFixed(4)}</span></div>
-          <div class="r-row"><span class="label">VAT/TAX:</span><span class="value">${invoiceData?.currency ?? 'FJD'} ${Number(invoiceData?.total_taxes_and_charges ?? 0).toFixed(4)}</span></div>
+          <div class="r-row"><span class="label">NET AMOUNT:</span><span class="value">${invoiceData?.currency ?? 'FJD'} ${Number(invoiceData?.net_total ?? invoiceData?.total ?? 0).toFixed(2)}</span></div>
+          <div class="r-row"><span class="label">VAT/TAX:</span><span class="value">${invoiceData?.currency ?? 'FJD'} ${Number(invoiceData?.total_taxes_and_charges ?? 0).toFixed(2)}</span></div>
 
           <hr class="r-divider-solid" />
 
@@ -412,6 +450,14 @@ export const printThermalReceipt = (invoiceData, exchange) => {
     </html>
   `);
   printWindow.document.close();
+  printWindow.focus();
+  setTimeout(() => {
+    try {
+      printWindow.print();
+    } catch (e) {
+      console.error(e);
+    }
+  }, 250);
 };
 
 export default ThermalReceipt;

@@ -48,12 +48,12 @@ export default function Hero() {
     <section className="bg-gray-50 pt-5 pb-20 px-6">
       
       {/* Hero Content */}
-      <div className="max-w-5xl mx-auto text-center mb-14">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-gray-900 leading-tight mb-6">
+      <div className="max-w-[80%] mx-auto text-center mb-14">
+        <h1 className="text-display font-bold text-gray-900 leading-tight mb-6">
           Global Currency Exchange Made Simple
         </h1>
 
-        <p className="text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
+        <p className="text-body font-normal text-gray-600 max-w-2xl mx-auto leading-relaxed">
           Convert currencies at real-time market rates with complete transparency and secure data.
         </p>
       </div>
@@ -65,7 +65,7 @@ export default function Hero() {
 
           {/* From Section */}
           <div className="space-y-3">
-            <label className="block text-sm font-semibold text-gray-700">
+            <label className="block text-label font-semibold text-gray-700">
               From
             </label>
 
@@ -74,7 +74,7 @@ export default function Hero() {
               min="0"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-amount-pair font-bold tnum focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"
             />
 
             <CurrencyDropdown
@@ -95,7 +95,7 @@ export default function Hero() {
 
           {/* To Section */}
           <div className="space-y-3">
-            <label className="block text-sm font-semibold text-gray-700">
+            <label className="block text-label font-semibold text-gray-700">
               To
             </label>
 
@@ -103,7 +103,7 @@ export default function Hero() {
               type="text"
               value={loading ? "Loading..." : convertedAmount}
               readOnly
-              className="w-full border border-gray-200 rounded-lg px-4 py-3 text-lg bg-gray-100 text-gray-700"
+              className="w-full border border-gray-200 rounded-lg px-4 py-3 text-amount-pair font-bold tnum bg-gray-100 text-gray-700"
             />
 
             <CurrencyDropdown
@@ -116,10 +116,10 @@ export default function Hero() {
         {/* Exchange Rate Info */}
         {rate && !loading && (
           <div className="mt-10 text-center border-t pt-6">
-            <h3 className="text-lg font-semibold text-gray-900">
+            <h3 className="text-h3 font-bold text-gray-900 tnum">
               1.00 {fromCurrency.code} = {rate.toFixed(6)} {toCurrency.code}
             </h3>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-caption text-gray-500 mt-1 font-normal">
               Mid-market rate • Updated in real-time
             </p>
           </div>

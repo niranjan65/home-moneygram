@@ -57,6 +57,7 @@ export const UserProvider = ({ children }) => {
           "api_key" in currentLocal ||
           "api_secret" in currentLocal ||
           currentLocal.email !== session.email ||
+          currentLocal.mobile_no !== session.mobile_no ||
           JSON.stringify(currentLocal.warehouses || []) !== JSON.stringify(session.warehouses || [])
         ) {
           setUser(syncedData);
@@ -92,6 +93,7 @@ export const UserProvider = ({ children }) => {
             path.includes("/vault-transfer") ||
             path.includes("/settings") ||
             path.includes("/stocks")
+            || path.includes("/pos")
           ) {
             window.location.href = "/home/login";
           }

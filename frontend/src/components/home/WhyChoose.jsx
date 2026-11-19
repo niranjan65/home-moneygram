@@ -31,7 +31,7 @@ export default function WhyChoose() {
 
   return (
     <section className="bg-white dark:bg-background-dark py-16 px-6 transition-colors">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-[80%] mx-auto">
 
         {/* Section Title */}
         <div className="text-center mb-12">

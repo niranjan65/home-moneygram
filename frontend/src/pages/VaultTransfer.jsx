@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/layout/Navbar";
+import TransactionTabBar from "../components/common/TransactionTabBar";
 import { useSettings } from "../context/SettingsContext";
 import { useUser } from "../context/UserContext";
 import { sessionAxios as axios } from "../api/sessionClient.js";
@@ -169,11 +170,10 @@ function CredSlider({ onConfirm, disabled, amount, currency = "FJD", loading, cu
         ref={trackRef}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        className={`relative h-13 rounded-2xl overflow-hidden p-1 flex items-center transition-all duration-300 border ${
-          disabled
+        className={`relative h-13 rounded-2xl overflow-hidden p-1 flex items-center transition-all duration-300 border ${disabled
             ? "bg-gray-100 border-gray-200 opacity-60 cursor-not-allowed"
             : "bg-gray-900 border-gray-800 shadow-md"
-        }`}
+          }`}
       >
         {/* Glow fill */}
         <div
@@ -193,9 +193,8 @@ function CredSlider({ onConfirm, disabled, amount, currency = "FJD", loading, cu
             </div>
           ) : (
             <span
-              className={`text-xs font-bold tracking-wider uppercase transition-opacity duration-200 truncate ${
-                disabled ? "text-gray-400" : "text-white"
-              }`}
+              className={`text-xs font-bold tracking-wider uppercase transition-opacity duration-200 truncate ${disabled ? "text-gray-400" : "text-white"
+                }`}
               style={{ opacity: isDragging ? Math.max(1 - dragProgress / 50, 0.15) : 1 }}
             >
               {customLabel || `Slide to Transfer $${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency} \u2192`}
@@ -212,7 +211,7 @@ function CredSlider({ onConfirm, disabled, amount, currency = "FJD", loading, cu
               transform: `translateX(${(dragProgress / 100) * ((trackRef.current?.offsetWidth || 280) - 52)}px)`,
             }}
           >
-            <ArrowRight size={18} className="text-[#E00000] font-black stroke-[3]" />
+            <ArrowRight size={18} className="text-[#E00000] stroke-[3]" />
           </div>
         )}
       </div>
@@ -584,8 +583,7 @@ export default function VaultTransfer() {
           country: countryLabel,
           remarks:
             remarks ||
-            `${isBulk && curCount > 1 ? "Bulk Multi-Currency " : ""}Vault Transfer (${
-              direction === "VAULT_TO_COUNTER" ? "Vault -> Counter" : "Counter -> Vault"
+            `${isBulk && curCount > 1 ? "Bulk Multi-Currency " : ""}Vault Transfer (${direction === "VAULT_TO_COUNTER" ? "Vault -> Counter" : "Counter -> Vault"
             })`,
         },
         {
@@ -623,19 +621,22 @@ export default function VaultTransfer() {
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
       <Navbar />
 
-      <main className="flex-grow py-8 px-4 sm:px-6 lg:px-8 xl:px-12 max-w-7xl mx-auto w-full">
+      <main className="flex-grow py-8 px-4 sm:px-6 lg:px-8 xl:px-12 max-w-[80%] mx-auto w-full">
+        {/* Service Mode Navigation Tabs */}
+        <TransactionTabBar activeTab="OPERATIONAL" className="mb-6" />
+
         {/* ── Transfer Sub-Navigation Tabs ── */}
         <div className="flex items-center gap-1.5 mb-6 p-1 bg-gray-200/70 rounded-2xl w-fit">
           <Link
             to="/vault-transfer"
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all bg-white text-gray-900 shadow-xs"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-label font-semibold transition-all bg-white text-gray-900 shadow-xs"
           >
             <Landmark size={15} className="text-[#E00000]" />
             <span>Vault Transfer</span>
           </Link>
           <Link
             to="/branch-transfer"
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all text-gray-600 hover:text-gray-900"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-label font-semibold transition-all text-gray-600 hover:text-gray-900"
           >
             <Truck size={15} className="text-gray-400" />
             <span>Branch Transfer</span>
@@ -645,12 +646,12 @@ export default function VaultTransfer() {
         {/* ── Page Header ─────────────────────────────────────────────────── */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-gray-900 text-3xl sm:text-4xl font-black tracking-tight leading-tight">
+            <h1 className="text-gray-900 text-h1 font-bold tracking-tight leading-tight">
               Vault <span className="text-[#E00000] italic">Transfer</span>
             </h1>
-            <p className="text-gray-500 text-sm mt-1">
+            {/* <p className="text-gray-500 text-body mt-1">
               Transfer physical cash notes and coins between Cash Counter and Vault in both directions.
-            </p>
+            </p> */}
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -659,11 +660,10 @@ export default function VaultTransfer() {
               <button
                 type="button"
                 onClick={() => handleToggleMode("SINGLE")}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  transferMode === "SINGLE"
-                    ? "bg-gray-900 text-white shadow-xs font-black"
+                className={`px-3.5 py-2 rounded-xl text-label font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${transferMode === "SINGLE"
+                    ? "bg-gray-900 text-white shadow-xs font-bold"
                     : "text-gray-600 hover:text-gray-900"
-                }`}
+                  }`}
               >
                 <DollarSign size={13} className={transferMode === "SINGLE" ? "text-white" : "text-gray-400"} />
                 <span>Single</span>
@@ -672,19 +672,17 @@ export default function VaultTransfer() {
               <button
                 type="button"
                 onClick={() => handleToggleMode("BULK")}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  transferMode === "BULK"
-                    ? "bg-[#E00000] text-white shadow-xs font-black"
+                className={`px-3.5 py-2 rounded-xl text-label font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${transferMode === "BULK"
+                    ? "bg-[#E00000] text-white shadow-xs font-bold"
                     : "text-gray-600 hover:text-gray-900"
-                }`}
+                  }`}
               >
                 <Layers size={13} className={transferMode === "BULK" ? "text-white" : "text-gray-400"} />
                 <span>Bulk Multi-Currency</span>
                 {bulkActiveCurrenciesList.length > 0 && (
                   <span
-                    className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
-                      transferMode === "BULK" ? "bg-white text-[#E00000]" : "bg-red-100 text-[#E00000]"
-                    }`}
+                    className={`px-1.5 py-0.2 rounded-full text-caption font-semibold ${transferMode === "BULK" ? "bg-white text-[#E00000]" : "bg-red-100 text-[#E00000]"
+                      }`}
                   >
                     {bulkActiveCurrenciesList.length}
                   </span>
@@ -697,27 +695,25 @@ export default function VaultTransfer() {
               <button
                 type="button"
                 onClick={() => setDirection("VAULT_TO_COUNTER")}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  direction === "VAULT_TO_COUNTER"
-                    ? "bg-[#E00000] text-white shadow-sm font-black"
+                className={`px-3.5 py-2 rounded-xl text-label font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${direction === "VAULT_TO_COUNTER"
+                    ? "bg-[#E00000] text-white shadow-sm font-bold"
                     : "text-gray-600 hover:text-gray-900"
-                }`}
+                  }`}
               >
                 <span>🏦 Vault &rarr; 🏪 Counter</span>
-                <span className="text-[10px] opacity-80">(Cash In)</span>
+                <span className="text-caption opacity-80">(Cash In)</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setDirection("COUNTER_TO_VAULT")}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  direction === "COUNTER_TO_VAULT"
-                    ? "bg-[#E00000] text-white shadow-sm font-black"
+                className={`px-3.5 py-2 rounded-xl text-label font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${direction === "COUNTER_TO_VAULT"
+                    ? "bg-[#E00000] text-white shadow-sm font-bold"
                     : "text-gray-600 hover:text-gray-900"
-                }`}
+                  }`}
               >
                 <span>🏪 Counter &rarr; 🏦 Vault</span>
-                <span className="text-[10px] opacity-80">(Cash Out)</span>
+                <span className="text-caption opacity-80">(Cash Out)</span>
               </button>
             </div>
           </div>
@@ -731,17 +727,17 @@ export default function VaultTransfer() {
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <p className="text-xs font-bold tracking-widest uppercase text-[#E00000]">
+                  <p className="text-overline font-semibold tracking-wider uppercase text-[#E00000]">
                     Select Currency
                   </p>
                   {transferMode === "BULK" && (
-                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-red-50 text-[#E00000] border border-red-100">
+                    <span className="text-caption font-semibold px-2 py-0.5 rounded-full bg-red-50 text-[#E00000] border border-red-100">
                       Multi-Currency Mode Active
                     </span>
                   )}
                 </div>
                 {transferMode === "BULK" && (
-                  <span className="text-xs text-gray-400 hidden sm:inline">
+                  <span className="text-caption text-gray-400 hidden sm:inline">
                     Switch between tabs to count multiple currencies
                   </span>
                 )}
@@ -756,21 +752,19 @@ export default function VaultTransfer() {
                       key={c.code}
                       type="button"
                       onClick={() => handleSelectCurrency(c.code)}
-                      className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer border flex items-center gap-1.5 ${
-                        isActive
+                      className={`px-4 py-2.5 rounded-xl text-label font-semibold transition-all shrink-0 cursor-pointer border flex items-center gap-1.5 ${isActive
                           ? "bg-[#E00000] text-white border-[#E00000] shadow-sm"
                           : countedUnits > 0
-                          ? "bg-red-50 text-gray-900 border-red-300 font-extrabold"
-                          : "bg-gray-50 text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-100"
-                      }`}
+                            ? "bg-red-50 text-gray-900 border-red-300 font-bold"
+                            : "bg-gray-50 text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-100"
+                        }`}
                     >
                       <span>{c.code}</span>
                       <span className="opacity-75">({c.symbol})</span>
                       {countedUnits > 0 && (
                         <span
-                          className={`px-1.5 py-0.5 rounded-full text-[10px] font-black ${
-                            isActive ? "bg-white text-[#E00000]" : "bg-[#E00000] text-white"
-                          }`}
+                          className={`px-1.5 py-0.5 rounded-full text-caption font-semibold ${isActive ? "bg-white text-[#E00000]" : "bg-[#E00000] text-white"
+                            }`}
                         >
                           {countedUnits}
                         </span>
@@ -785,15 +779,15 @@ export default function VaultTransfer() {
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 md:p-8">
               <div className="flex items-center justify-between pb-4 mb-6 border-b border-gray-100">
                 <div>
-                  <h2 className="text-base font-black text-gray-900 flex items-center gap-2">
+                  <h2 className="text-h3 font-bold text-gray-900 flex items-center gap-2">
                     <span>Enter {selectedCurrency} Denominations</span>
                     {transferMode === "BULK" && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 uppercase">
+                      <span className="text-overline font-semibold px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 uppercase">
                         Bulk Mode
                       </span>
                     )}
                   </h2>
-                  <p className="text-xs text-gray-400 mt-0.5">
+                  <p className="text-caption text-gray-400 mt-0.5">
                     Count notes and coins to transfer {direction === "VAULT_TO_COUNTER" ? "from Vault into Counter (Cash In)" : "from Counter into Vault (Cash Out)"}.
                   </p>
                 </div>
@@ -802,7 +796,7 @@ export default function VaultTransfer() {
                     <button
                       type="button"
                       onClick={() => handleClearCurrency(selectedCurrency)}
-                      className="text-xs font-bold text-gray-500 hover:text-red-600 px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-1 cursor-pointer"
+                      className="text-caption font-semibold text-gray-500 hover:text-red-600 px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-1 cursor-pointer"
                     >
                       <Trash2 size={12} />
                       <span>Clear {selectedCurrency}</span>
@@ -812,7 +806,7 @@ export default function VaultTransfer() {
                     <button
                       type="button"
                       onClick={handleClearAll}
-                      className="text-xs font-bold text-red-500 hover:text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-1 cursor-pointer"
+                      className="text-caption font-semibold text-red-500 hover:text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-1 cursor-pointer"
                     >
                       <RotateCcw size={12} />
                       <span>{transferMode === "BULK" ? "Reset All" : "Reset"}</span>
@@ -824,19 +818,19 @@ export default function VaultTransfer() {
               {denomLoading ? (
                 <div className="py-16 text-center flex flex-col items-center justify-center gap-2">
                   <RefreshCw size={22} className="animate-spin text-[#E00000]" />
-                  <span className="text-xs font-semibold text-gray-400">Loading available stock...</span>
+                  <span className="text-caption font-semibold text-gray-400">Loading available stock...</span>
                 </div>
               ) : allItemsList.length === 0 ? (
                 <div className="py-12 text-center text-gray-400">
                   <Banknote size={32} className="mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm font-semibold">No denomination items found for {selectedCountryObj.country}.</p>
+                  <p className="text-body font-semibold">No denomination items found for {selectedCountryObj.country}.</p>
                 </div>
               ) : (
                 <div className="flex flex-col gap-6">
                   {/* Notes List */}
                   {notesList.length > 0 && (
                     <div>
-                      <p className="text-xs font-bold tracking-widest uppercase text-gray-400 mb-3 flex items-center gap-1.5">
+                      <p className="text-overline font-semibold tracking-wider uppercase text-gray-400 mb-3 flex items-center gap-1.5">
                         <Banknote size={14} className="text-[#E00000]" />
                         Banknotes
                       </p>
@@ -851,23 +845,22 @@ export default function VaultTransfer() {
                           return (
                             <div
                               key={item.item_code}
-                              className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
-                                count > 0
+                              className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${count > 0
                                   ? "bg-red-50/40 border-red-200 shadow-2xs"
                                   : outOfStock
-                                  ? "bg-gray-50 border-gray-100 opacity-60"
-                                  : "bg-white border-gray-200 hover:border-gray-300"
-                              }`}
+                                    ? "bg-gray-50 border-gray-100 opacity-60"
+                                    : "bg-white border-gray-200 hover:border-gray-300"
+                                }`}
                             >
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2.5">
-                                  <div className="w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center font-black text-xs shadow-xs">
+                                  <div className="w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center font-bold text-caption shadow-xs">
                                     {selectedCountryObj.symbol}
                                     {item.value >= 1 ? item.value : item.value * 100 + "c"}
                                   </div>
                                   <div>
-                                    <div className="text-xs font-bold text-gray-900">{item.item_name}</div>
-                                    <div className="text-[11px] text-gray-400">
+                                    <div className="text-caption font-semibold text-gray-900">{item.item_name}</div>
+                                    <div className="text-caption text-gray-400 tnum">
                                       Rate: {selectedCountryObj.symbol}{item.value.toFixed(2)}
                                     </div>
                                   </div>
@@ -875,16 +868,15 @@ export default function VaultTransfer() {
 
                                 <div className="text-right">
                                   <span
-                                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block ${
-                                      maxAvail > 0
+                                    className={`text-caption font-semibold px-2 py-0.5 rounded-full inline-block ${maxAvail > 0
                                         ? "bg-green-50 text-green-700 border border-green-200"
                                         : "bg-gray-100 text-gray-400"
-                                    }`}
+                                      }`}
                                   >
                                     Available: {maxAvail}
                                   </span>
                                   {count > 0 && (
-                                    <div className="text-xs font-black text-[#E00000] mt-0.5">
+                                    <div className="text-caption font-bold tnum text-[#E00000] mt-0.5">
                                       {selectedCountryObj.symbol}
                                       {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </div>
@@ -898,7 +890,7 @@ export default function VaultTransfer() {
                                   type="button"
                                   disabled={outOfStock || count >= maxAvail}
                                   onClick={() => handleSetMax(item.item_code, maxAvail)}
-                                  className="text-[10px] font-bold px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-600 disabled:opacity-40 cursor-pointer"
+                                  className="text-caption font-semibold px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-600 disabled:opacity-40 cursor-pointer"
                                 >
                                   Max
                                 </button>
@@ -921,7 +913,7 @@ export default function VaultTransfer() {
                                     placeholder="0"
                                     onChange={(e) => handleCountChange(item.item_code, parseInt(e.target.value) || 0, maxAvail)}
                                     disabled={outOfStock}
-                                    className="w-14 h-8 text-center text-sm font-bold rounded-lg border border-gray-200 focus:outline-none focus:ring-1 focus:ring-[#E00000]"
+                                    className="w-14 h-8 text-center text-body font-medium tnum rounded-lg border border-gray-200 focus:outline-none focus:ring-1 focus:ring-[#E00000]"
                                   />
 
                                   <button
@@ -944,7 +936,7 @@ export default function VaultTransfer() {
                   {/* Coins List */}
                   {coinsList.length > 0 && (
                     <div>
-                      <p className="text-xs font-bold tracking-widest uppercase text-gray-400 mb-3 flex items-center gap-1.5">
+                      <p className="text-overline font-semibold tracking-wider uppercase text-gray-400 mb-3 flex items-center gap-1.5">
                         <Coins size={14} className="text-amber-500" />
                         Coins &amp; Small Denominations
                       </p>
@@ -959,22 +951,21 @@ export default function VaultTransfer() {
                           return (
                             <div
                               key={item.item_code}
-                              className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
-                                count > 0
+                              className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${count > 0
                                   ? "bg-amber-50/40 border-amber-200 shadow-2xs"
                                   : outOfStock
-                                  ? "bg-gray-50 border-gray-100 opacity-60"
-                                  : "bg-white border-gray-200 hover:border-gray-300"
-                              }`}
+                                    ? "bg-gray-50 border-gray-100 opacity-60"
+                                    : "bg-white border-gray-200 hover:border-gray-300"
+                                }`}
                             >
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2.5">
-                                  <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black text-xs shadow-xs">
+                                  <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-caption shadow-xs">
                                     {item.value >= 1 ? item.value : item.value * 100 + "c"}
                                   </div>
                                   <div>
-                                    <div className="text-xs font-bold text-gray-900">{item.item_name}</div>
-                                    <div className="text-[11px] text-gray-400">
+                                    <div className="text-caption font-semibold text-gray-900">{item.item_name}</div>
+                                    <div className="text-caption text-gray-400 tnum">
                                       Rate: {selectedCountryObj.symbol}{item.value.toFixed(2)}
                                     </div>
                                   </div>
@@ -982,16 +973,15 @@ export default function VaultTransfer() {
 
                                 <div className="text-right">
                                   <span
-                                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block ${
-                                      maxAvail > 0
+                                    className={`text-caption font-semibold px-2 py-0.5 rounded-full inline-block ${maxAvail > 0
                                         ? "bg-green-50 text-green-700 border border-green-200"
                                         : "bg-gray-100 text-gray-400"
-                                    }`}
+                                      }`}
                                   >
                                     Available: {maxAvail}
                                   </span>
                                   {count > 0 && (
-                                    <div className="text-xs font-black text-amber-600 mt-0.5">
+                                    <div className="text-caption font-bold tnum text-amber-600 mt-0.5">
                                       {selectedCountryObj.symbol}
                                       {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                     </div>
@@ -1005,7 +995,7 @@ export default function VaultTransfer() {
                                   type="button"
                                   disabled={outOfStock || count >= maxAvail}
                                   onClick={() => handleSetMax(item.item_code, maxAvail)}
-                                  className="text-[10px] font-bold px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-600 disabled:opacity-40 cursor-pointer"
+                                  className="text-caption font-semibold px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 text-gray-600 disabled:opacity-40 cursor-pointer"
                                 >
                                   Max
                                 </button>
@@ -1028,7 +1018,7 @@ export default function VaultTransfer() {
                                     placeholder="0"
                                     onChange={(e) => handleCountChange(item.item_code, parseInt(e.target.value) || 0, maxAvail)}
                                     disabled={outOfStock}
-                                    className="w-14 h-8 text-center text-sm font-bold rounded-lg border border-gray-200 focus:outline-none focus:ring-1 focus:ring-[#E00000]"
+                                    className="w-14 h-8 text-center text-body font-medium tnum rounded-lg border border-gray-200 focus:outline-none focus:ring-1 focus:ring-[#E00000]"
                                   />
 
                                   <button
@@ -1056,15 +1046,15 @@ export default function VaultTransfer() {
           <div className="lg:col-span-4 sticky top-24">
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 md:p-7 flex flex-col gap-6">
               <div className="flex items-center justify-between pb-4 border-b border-gray-100">
-                <span className="text-xs font-bold tracking-widest uppercase text-gray-500">
+                <span className="text-overline font-semibold tracking-wider uppercase text-gray-500">
                   {transferMode === "BULK" ? "Bulk Summary" : "Transfer Summary"}
                 </span>
                 {transferMode === "BULK" ? (
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-50 text-[#E00000] border border-red-100">
+                  <span className="text-caption font-semibold px-2 py-0.5 rounded-full bg-red-50 text-[#E00000] border border-red-100">
                     {bulkActiveCurrenciesList.length} {bulkActiveCurrenciesList.length === 1 ? "Currency" : "Currencies"}
                   </span>
                 ) : (
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-50 text-[#E00000]">
+                  <span className="text-caption font-semibold px-2 py-0.5 rounded-full bg-red-50 text-[#E00000]">
                     {selectedCurrency}
                   </span>
                 )}
@@ -1075,27 +1065,27 @@ export default function VaultTransfer() {
                 <div className="flex flex-col gap-4">
                   {/* Total Units Callout */}
                   <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200 text-center">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block mb-1">
+                    <span className="text-overline font-semibold uppercase tracking-wider text-gray-500 block mb-1">
                       Total Pieces to Transfer
                     </span>
-                    <div className="text-3xl font-black text-gray-900 tracking-tight">
+                    <div className="text-amount font-bold tnum text-gray-900 tracking-tight">
                       <span>{totalBulkPieces}</span>
-                      <span className="text-sm font-bold text-gray-500 ml-1.5">units</span>
+                      <span className="text-body font-semibold text-gray-500 ml-1.5">units</span>
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      Across <strong className="text-gray-900">{bulkActiveCurrenciesList.length}</strong> active {bulkActiveCurrenciesList.length === 1 ? "currency" : "currencies"}
+                    <div className="text-caption text-gray-500 mt-1">
+                      Across <strong className="text-gray-900 font-semibold">{bulkActiveCurrenciesList.length}</strong> active {bulkActiveCurrenciesList.length === 1 ? "currency" : "currencies"}
                     </div>
                   </div>
 
                   {/* Per-Currency Breakdown List */}
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    <div className="flex items-center justify-between text-overline font-semibold text-gray-500 uppercase tracking-wider">
                       <span>Selected Currencies</span>
                       {totalBulkPieces > 0 && (
                         <button
                           type="button"
                           onClick={handleClearAll}
-                          className="text-[11px] text-red-500 hover:text-red-700 cursor-pointer font-bold lowercase"
+                          className="text-caption text-red-500 hover:text-red-700 cursor-pointer font-semibold lowercase"
                         >
                           clear all
                         </button>
@@ -1103,7 +1093,7 @@ export default function VaultTransfer() {
                     </div>
 
                     {bulkActiveCurrenciesList.length === 0 ? (
-                      <div className="p-4 rounded-2xl border border-dashed border-gray-200 text-center text-xs text-gray-400">
+                      <div className="p-4 rounded-2xl border border-dashed border-gray-200 text-center text-caption text-gray-400">
                         No denomination counts added yet. Select currency tabs on the left and enter quantities.
                       </div>
                     ) : (
@@ -1111,17 +1101,17 @@ export default function VaultTransfer() {
                         {bulkActiveCurrenciesList.map((item) => (
                           <div
                             key={item.currency}
-                            className="p-3 rounded-2xl bg-gray-50 border border-gray-200 flex items-center justify-between text-xs transition-all hover:border-gray-300"
+                            className="p-3 rounded-2xl bg-gray-50 border border-gray-200 flex items-center justify-between text-body transition-all hover:border-gray-300"
                           >
                             <div className="flex items-center gap-2">
-                              <span className="w-8 h-8 rounded-lg bg-red-600 text-white font-black text-xs flex items-center justify-center shadow-2xs">
+                              <span className="w-8 h-8 rounded-lg bg-red-600 text-white font-bold text-caption flex items-center justify-center shadow-2xs">
                                 {item.currency}
                               </span>
                               <div>
-                                <div className="font-bold text-gray-900">
+                                <div className="font-semibold text-gray-900 tnum">
                                   {item.symbol} {item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </div>
-                                <div className="text-[10px] text-gray-400">
+                                <div className="text-caption text-gray-400">
                                   {item.count} {item.count === 1 ? "unit" : "units"} ({item.country})
                                 </div>
                               </div>
@@ -1144,30 +1134,30 @@ export default function VaultTransfer() {
               ) : (
                 /* ── Single Currency Summary Card ── */
                 <div className="p-5 rounded-2xl bg-gray-50 border border-gray-200 text-center">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 block mb-1">
+                  <span className="text-overline font-semibold uppercase tracking-wider text-gray-500 block mb-1">
                     Total Transfer Amount
                   </span>
-                  <div className="text-3xl font-black text-gray-900 tracking-tight">
+                  <div className="text-amount font-bold tnum text-gray-900 tracking-tight">
                     <span>{selectedCountryObj.symbol}</span>
                     <span>{totalTransferAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
-                  <div className="text-xs text-gray-500 mt-2">
-                    Total Items: <strong className="text-gray-900">{totalPieces} units</strong>
+                  <div className="text-caption text-gray-500 mt-2">
+                    Total Items: <strong className="text-gray-900 font-semibold">{totalPieces} units</strong>
                   </div>
                 </div>
               )}
 
               {/* Direction Breakdown */}
-              <div className="space-y-2 text-xs">
+              <div className="space-y-2 text-caption">
                 <div className="flex items-center justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500">Transfer Type:</span>
-                  <span className="font-bold text-gray-900">
+                  <span className="font-semibold text-gray-900">
                     {direction === "VAULT_TO_COUNTER" ? "Vault Replenish (Cash In)" : "Vault Deposit (Cash Out)"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between py-2 border-b border-gray-100">
                   <span className="text-gray-500">Mode:</span>
-                  <span className="font-bold text-gray-900">
+                  <span className="font-semibold text-gray-900">
                     {transferMode === "BULK" ? "Bulk Multi-Currency" : selectedCountryObj.label}
                   </span>
                 </div>
@@ -1175,7 +1165,7 @@ export default function VaultTransfer() {
 
               {/* Remarks */}
               <div>
-                <label className="text-xs font-bold text-gray-600 block mb-1.5">
+                <label className="text-label font-semibold text-gray-600 block mb-1.5">
                   Remarks / Notes (Optional)
                 </label>
                 <input
@@ -1183,7 +1173,7 @@ export default function VaultTransfer() {
                   placeholder={direction === "VAULT_TO_COUNTER" ? "Morning Cash Replenishment" : "Excess Cash Sweep to Vault"}
                   value={remarks}
                   onChange={(e) => setRemarks(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#E00000]"
+                  className="w-full px-3.5 py-2.5 rounded-xl text-body font-medium bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#E00000]"
                 />
               </div>
 
@@ -1214,9 +1204,8 @@ export default function VaultTransfer() {
                     transferMode === "BULK"
                       ? totalBulkPieces <= 0
                         ? "Select Denominations to Transfer"
-                        : `Slide to Transfer ${totalBulkPieces} units (${bulkActiveCurrenciesList.length} ${
-                            bulkActiveCurrenciesList.length === 1 ? "currency" : "currencies"
-                          }) \u2192`
+                        : `Slide to Transfer ${totalBulkPieces} units (${bulkActiveCurrenciesList.length} ${bulkActiveCurrenciesList.length === 1 ? "currency" : "currencies"
+                        }) \u2192`
                       : null
                   }
                   loading={isSubmitting}
@@ -1260,19 +1249,19 @@ export default function VaultTransfer() {
               </div>
             </div>
 
-            <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-green-50 text-green-700 text-xs font-bold mb-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-green-50 text-green-700 text-caption font-semibold mb-2">
               <Sparkles size={12} />
               Transfer Successful
             </div>
 
             {transferSuccessData.currency_totals && Object.keys(transferSuccessData.currency_totals).length > 1 ? (
               <div className="mb-4">
-                <h2 className="text-2xl font-black text-gray-900 mb-1">
+                <h2 className="text-h2 font-bold text-gray-900 mb-1">
                   Bulk Multi-Currency Transfer
                 </h2>
-                <p className="text-xs text-gray-500 mb-3">
-                  Transferred <strong className="text-gray-900">{transferSuccessData.total_qty} units</strong> across{" "}
-                  <strong className="text-gray-900">{Object.keys(transferSuccessData.currency_totals).length} currencies</strong>.
+                <p className="text-caption text-gray-500 mb-3">
+                  Transferred <strong className="text-gray-900 font-semibold">{transferSuccessData.total_qty} units</strong> across{" "}
+                  <strong className="text-gray-900 font-semibold">{Object.keys(transferSuccessData.currency_totals).length} currencies</strong>.
                 </p>
 
                 {/* Multi-currency breakdown pills */}
@@ -1280,7 +1269,7 @@ export default function VaultTransfer() {
                   {Object.entries(transferSuccessData.currency_totals).map(([curr, amt]) => (
                     <span
                       key={curr}
-                      className="px-2.5 py-1 rounded-xl bg-gray-100 border border-gray-200 text-xs font-bold text-gray-800"
+                      className="px-2.5 py-1 rounded-xl bg-gray-100 border border-gray-200 text-caption font-semibold text-gray-800 tnum"
                     >
                       <span className="text-[#E00000] mr-1">{curr}</span>
                       <span>{Number(amt).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -1290,22 +1279,22 @@ export default function VaultTransfer() {
               </div>
             ) : (
               <div className="mb-4">
-                <h2 className="text-2xl font-black text-gray-900 mb-1">
+                <h2 className="text-h2 font-bold tnum text-gray-900 mb-1">
                   ${Number(transferSuccessData.total_amount).toFixed(2)} {selectedCurrency}
                 </h2>
-                <p className="text-xs text-gray-500">
+                <p className="text-caption text-gray-500">
                   Transferred {transferSuccessData.total_qty} units successfully.
                 </p>
               </div>
             )}
 
             {/* Details Box */}
-            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200 text-left text-xs space-y-2 mb-6">
+            <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200 text-left text-caption space-y-2 mb-6">
               <div className="flex items-center justify-between pb-2 border-b border-gray-200">
                 <span className="text-gray-500">Entry Reference:</span>
                 <button
                   onClick={() => copyToClipboard(transferSuccessData.stock_entry)}
-                  className="font-bold text-[#E00000] hover:underline flex items-center gap-1 cursor-pointer"
+                  className="font-semibold text-[#E00000] hover:underline flex items-center gap-1 cursor-pointer"
                 >
                   <span>{transferSuccessData.stock_entry}</span>
                   {copiedId ? <Check size={12} className="text-green-600" /> : <Copy size={12} />}
@@ -1333,7 +1322,7 @@ export default function VaultTransfer() {
                     company: vaultInfo?.company || "MH MONEY EXPRESS",
                   })
                 }
-                className="py-2.5 px-4 rounded-xl border border-gray-200 hover:bg-gray-50 text-xs font-bold text-gray-700 flex items-center justify-center gap-1.5 cursor-pointer"
+                className="py-2.5 px-4 rounded-xl border border-gray-200 hover:bg-gray-50 text-btn-lg font-semibold text-gray-700 flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Printer size={15} />
                 Print Slip
@@ -1342,7 +1331,7 @@ export default function VaultTransfer() {
               <button
                 type="button"
                 onClick={() => setShowCredSuccess(false)}
-                className="py-2.5 px-4 rounded-xl bg-[#E00000] hover:bg-[#c20000] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                className="py-2.5 px-4 rounded-xl bg-[#E00000] hover:bg-[#c20000] text-white text-btn-lg font-semibold flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
               >
                 <Check size={15} />
                 Done

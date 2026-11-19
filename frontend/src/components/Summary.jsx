@@ -279,7 +279,7 @@ import React from 'react';
 import { ShieldCheck, TrendingUp, Wallet, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { useExchange } from '../context/ExchangeContext';
 
-export const Summary = ({transferPayload, isDealer = false}) => {
+export const Summary = ({ transferPayload, isDealer = false, hideSecurityBadge = false }) => {
   const {
     receiverGets,
     serviceFee,
@@ -316,11 +316,11 @@ export const Summary = ({transferPayload, isDealer = false}) => {
               <Wallet size={15} className="text-white" strokeWidth={1.75} />
             </div>
             <div>
-              <p className="text-white font-semibold text-sm">Transaction Summary</p>
-              <p className="text-[#b5f000] text-xs mt-0.5">Live calculation</p>
+              <p className="text-white font-semibold text-label">Transaction Summary</p>
+              <p className="text-red-100 text-caption mt-0.5 font-normal">Live calculation</p>
             </div>
           </div>
-          <span className="flex items-center gap-1.5 text-[10px] font-medium text-yellow-200 bg-white/10 border border-white/20 px-2.5 py-1 rounded-lg uppercase tracking-wide">
+          <span className="flex items-center gap-1.5 text-overline font-semibold text-white bg-white/15 border border-white/25 px-2.5 py-1 rounded-lg uppercase tracking-wide">
             <TrendingUp size={11} strokeWidth={2} />
             {exchangeType === 'BUY' ? 'Buying' : 'Selling'}
           </span>
@@ -334,9 +334,9 @@ export const Summary = ({transferPayload, isDealer = false}) => {
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <ArrowRight size={13} className="text-[#E00000]" strokeWidth={2} />
-                <span className="text-gray-500 text-sm">Amount</span>
+                <span className="text-muted text-body">Amount</span>
               </div>
-              <span className="font-semibold text-sm text-gray-800">
+              <span className="font-medium text-body text-ink tnum">
                 {fmt(receiverGets)}
               </span>
             </div>
@@ -346,13 +346,11 @@ export const Summary = ({transferPayload, isDealer = false}) => {
           <div className="flex justify-between items-center px-3 py-2.5 rounded-lg bg-[#E00000]/10 border border-[#E00000]/20">
             <div className="flex items-center gap-2">
               <Wallet size={13} className="text-[#E00000]" strokeWidth={2} />
-              <span className="text-sm font-medium text-[#B70000]">
+              <span className="text-body font-medium text-[#B70000]">
                 {exchangeType === 'BUY' ? (isDealer ? 'Dealer Pays' : 'Customer Pays') : (isDealer ? 'Dealer Pays' : 'Customer Pays')}
               </span>
             </div>
-            <span className="font-semibold text-sm text-[#B70000]">
-              {/* {fmt(receiverGets)} */}
-              {/* {exchangeType === 'BUY' ? `${transferPayload?.sendAmount} ${transferPayload?.receiverCurrency}` : fmt(receiverGets)} */}
+            <span className="font-semibold text-body text-[#B70000] tnum">
               {exchangeType === 'BUY'
   ? `${transferPayload?.sendAmount ?? 0} ${transferPayload?.receiverCurrency ?? ''}`
   : fmt(receiverGets ?? 0)
@@ -363,28 +361,28 @@ export const Summary = ({transferPayload, isDealer = false}) => {
           {/* Final amount */}
           <div className="rounded-lg bg-[#E00000] px-4 py-4">
             <div className="flex items-center gap-1.5 mb-1.5">
-              <CheckCircle2 size={12} className="text-[#b5f000]" strokeWidth={2.5} />
-              <span className="text-[#b5f000] text-[10px] font-semibold uppercase tracking-widest">
-                {/* MH {exchangeType === 'SELL' ? 'Gets' : 'Pays'} */}
+              <CheckCircle2 size={12} className="text-red-100" strokeWidth={2.5} />
+              <span className="text-red-100 text-overline font-semibold uppercase tracking-widest">
                 MH Pays
               </span>
             </div>
-            <div className="text-white font-bold text-2xl tracking-tight">
+            <div className="text-white font-bold text-display tracking-tight tnum">
               {exchangeType === 'BUY' ? fmt(receiverGets ?? 0) : `${transferPayload?.receiverCurrency ?? ''} ${transferPayload?.sendAmount ?? 0}`}
             </div>
-            {/* <p className="text-white/80 text-xs mt-1">Fijian Dollar · FJD</p> */}
           </div>
 
         </div>
       </div>
 
       {/* Security badge */}
-      <div className="flex items-center justify-center gap-2 py-2.5 rounded-lg bg-gray-50 border border-gray-100">
-        <ShieldCheck size={13} className="text-[#E00000]" strokeWidth={2} />
-        <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-          Encrypted &amp; Secure Transaction
-        </span>
-      </div>
+      {!hideSecurityBadge && (
+        <div className="flex items-center justify-center gap-2 py-2.5 rounded-lg bg-gray-50 border border-gray-100">
+          <ShieldCheck size={13} className="text-[#E00000]" strokeWidth={2} />
+          <span className="text-caption font-semibold text-muted uppercase tracking-wider">
+            Encrypted &amp; Secure Transaction
+          </span>
+        </div>
+      )}
 
     </div>
   );

@@ -290,7 +290,7 @@ export const CustomerPhotoCard = ({
 
         {hasPhoto ? (
           <span
-            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+            className={`px-2.5 py-0.5 rounded-full text-overline font-semibold uppercase tracking-wider border ${
               isPendingUpload
                 ? "bg-amber-50 text-amber-700 border-amber-200"
                 : "bg-green-50 text-green-700 border-green-200"
@@ -299,7 +299,7 @@ export const CustomerPhotoCard = ({
             {isPendingUpload ? "New Photo" : "Existing Photo"}
           </span>
         ) : (
-          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-500 border border-gray-200">
+          <span className="px-2.5 py-0.5 rounded-full text-overline font-semibold uppercase tracking-wider bg-gray-100 text-gray-500 border border-gray-200">
             No Photo
           </span>
         )}
@@ -307,11 +307,11 @@ export const CustomerPhotoCard = ({
 
       {/* Camera Error Message */}
       {cameraError && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2">
+        <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-label font-semibold text-danger flex items-start gap-2">
           <AlertCircle size={15} className="text-red-500 shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="font-semibold">Camera Notice</p>
-            <p className="text-[11px] mt-0.5">{cameraError}</p>
+            <p className="font-bold">Camera Notice</p>
+            <p className="text-caption mt-0.5">{cameraError}</p>
           </div>
           <button
             type="button"
@@ -359,7 +359,7 @@ export const CustomerPhotoCard = ({
             </div>
 
             {/* Live Indicator */}
-            <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-xs text-[10px] font-bold text-white tracking-wider uppercase border border-white/20">
+            <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-xs text-overline font-semibold text-white tracking-wider uppercase border border-white/20">
               <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
               Live Camera
             </div>

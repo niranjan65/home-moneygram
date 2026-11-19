@@ -117,10 +117,10 @@ export default function PopularCountries() {
     <div className="bg-white min-h-screen font-sans px-8 md:px-16 py-16">
       {/* Header */}
       <div className="flex flex-col items-center text-center mb-14 gap-4">
-        <button className="border border-gray-300 rounded-full px-5 py-2 text-xs font-semibold tracking-widest uppercase text-gray-600">
+        <button className="border border-gray-300 rounded-full px-5 py-2 text-overline font-semibold tracking-wider uppercase text-gray-600">
           We Are Covering
         </button>
-        <h2 className="text-3xl md:text-4xl font-black text-gray-900 leading-snug tracking-tight">
+        <h2 className="text-h1 font-bold text-gray-900 leading-snug tracking-tight">
           Popular Countries Our{" "}
           <span className="relative inline-block">
             Customers
@@ -145,14 +145,14 @@ export default function PopularCountries() {
               <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0 shadow-sm">
                 {c.flag}
               </div>
-              <h3 className="text-base font-black text-gray-900 leading-snug">{c.name}</h3>
+              <h3 className="text-h3 font-bold text-gray-900 leading-snug">{c.name}</h3>
             </div>
 
             {/* Description */}
-            <p className="text-gray-500 text-sm leading-relaxed flex-1">{c.desc}</p>
+            <p className="text-gray-500 text-body font-normal leading-relaxed flex-1">{c.desc}</p>
 
             {/* Send Money link */}
-            <button className="text-sm font-bold text-gray-900 underline underline-offset-2 w-fit hover:text-gray-600 transition-colors">
+            <button className="text-label font-semibold text-gray-900 underline underline-offset-2 w-fit hover:text-gray-600 transition-colors">
               Send Money
             </button>
           </div>

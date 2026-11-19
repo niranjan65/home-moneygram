@@ -13,21 +13,13 @@ export const DenominationSection = ({
   selectedDenomCountry,
   senderDenomRowsRef,
   receiverDenomRowsRef,
+  initialSenderRows,
+  initialReceiverRows,
   onSenderStatusChange,
   onReceiverStatusChange,
 }) => {
-    console.log("senderInfo", senderInfo)
   return (
-    <div className="flex flex-col gap-3 mt-5">
-      <div className="flex items-center gap-2.5 px-1">
-        <Banknote size={16} className="text-[#E00000] flex-shrink-0" />
-        <div>
-          <p className="text-sm font-semibold text-gray-800">Cash Denomination Counts</p>
-          <p className="text-xs text-gray-400">Counter staff: count and confirm notes for both sides.</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         {senderInfo ? (
           <DenominationPanel
             title="Currency Out" 
@@ -38,6 +30,7 @@ export const DenominationSection = ({
             notes={senderInfo.notes} 
             coins={senderInfo.coins}
             targetAmount={exchangeType === 'BUY' ? receiverGets : sendAmount}
+            initialRows={initialSenderRows}
             onRowsChange={rows => {
               senderDenomRowsRef.current = rows;
               const total = rows.reduce((s, r) => s + r.denom * r.count, 0);
@@ -73,6 +66,7 @@ export const DenominationSection = ({
             notes={receiverInfo.notes} 
             coins={receiverInfo.coins}
             targetAmount={exchangeType === 'BUY' ? sendAmount : receiverGets}
+            initialRows={initialReceiverRows}
             onRowsChange={rows => {
               receiverDenomRowsRef.current = rows;
               const total = rows.reduce((s, r) => s + r.denom * r.count, 0);
@@ -89,6 +83,5 @@ export const DenominationSection = ({
           </div>
         )}
       </div>
-    </div>
   );
 };

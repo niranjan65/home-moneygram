@@ -9,6 +9,7 @@ import {
   Banknote,
   ShieldCheck,
 } from "lucide-react";
+import { CurrencyInput } from "../../components/common/CurrencyInput";
 
 const CHANNELS = [
   { id: "Cash", label: "Cash Over Counter", icon: Banknote, color: "text-emerald-700 bg-emerald-50 border-emerald-200" },
@@ -80,7 +81,7 @@ export default function SplitRemittanceSection({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-base font-bold text-gray-900">Multi-Channel Distribution</h3>
-              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-red-50 text-[#E00000] border border-red-100">
+              <span className="text-overline font-semibold uppercase px-2 py-0.5 rounded-full bg-red-50 text-[#E00000] border border-red-100">
                 Cash + Mobile Wallets
               </span>
             </div>
@@ -155,10 +156,7 @@ export default function SplitRemittanceSection({
                       <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">
                         {currency} $
                       </span>
-                      <input
-                        type="number"
-                        min="0.01"
-                        step="0.01"
+                      <CurrencyInput
                         value={leg.amount === 0 && legs.length === 1 ? "" : leg.amount}
                         disabled={disabled}
                         placeholder="0.00"
@@ -259,15 +257,15 @@ export default function SplitRemittanceSection({
                       ? `Unallocated remainder: $${difference.toFixed(2)} ${currency}`
                       : `Over-allocated by: $${Math.abs(difference).toFixed(2)} ${currency}`}
                   </p>
-                  <p className="text-[11px] opacity-80">
+                  <p className="text-caption opacity-80 tnum">
                     Net Remittance: ${numericTotal.toFixed(2)} · Allocated: ${allocatedTotal.toFixed(2)}
                   </p>
                 </div>
               </div>
 
               <div className="text-right">
-                <span className="text-[11px] uppercase font-bold tracking-wider opacity-60">Status</span>
-                <p className="text-sm font-black">
+                <span className="text-overline uppercase font-semibold tracking-wider opacity-60">Status</span>
+                <p className="text-label font-bold tnum">
                   {isBalanced ? "MATCHED (100%)" : `${Math.round((allocatedTotal / (numericTotal || 1)) * 100)}% ALLOCATED`}
                 </p>
               </div>
@@ -284,7 +282,7 @@ export default function SplitRemittanceSection({
                 onChange={(e) => onChangeConsent(e.target.checked)}
                 className="mt-0.5 rounded text-[#E00000] focus:ring-[#E00000]"
               />
-              <div className="text-xs text-gray-700">
+              <div className="text-caption text-gray-700">
                 <span className="font-bold flex items-center gap-1.5 text-gray-900">
                   <ShieldCheck size={14} className="text-[#E00000]" />
                   Customer Payout Allocation Consent

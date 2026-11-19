@@ -72,24 +72,24 @@ const CreditLimit = ({ sendAmount, onLimitCheck }) => {
                         <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
                     </div>
                     <div>
-                        <h3 className="font-bold text-gray-900">Available Transfer Currency Credit Limit</h3>
-                        <p className="text-sm text-red-700">Your current limit for this transaction period</p>
+                        <h3 className="text-h3 font-bold text-gray-900">Available Transfer Currency Credit Limit</h3>
+                        <p className="text-caption text-red-700">Your current limit for this transaction period</p>
                     </div>
                 </div>
                 <div className="text-right">
-                    <span className="block text-[10px] uppercase font-bold text-red-400 tracking-widest">RBF Transaction Limit</span>
+                    <span className="block text-overline uppercase font-semibold text-red-500 tracking-wider">RBF Transaction Limit</span>
                     {isLimitFound ? (
-                        <span className="text-2xl font-black text-red-900">
+                        <span className="text-h2 font-bold tnum text-red-900">
                             FJ$ {Number(availableCurrency).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
                         </span>
                     ) : (
-                        <span className="text-lg font-bold text-red-600">No limit found</span>
+                        <span className="text-label font-bold text-red-600">No limit found</span>
                     )}
                 </div>
             </div>
 
             {!isLimitFound && (
-                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm font-semibold">
+                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-label font-semibold text-danger">
                     <AlertCircle size={18} className="text-red-600 shrink-0" />
                     <span>No limit found in App Configuration</span>
                 </div>

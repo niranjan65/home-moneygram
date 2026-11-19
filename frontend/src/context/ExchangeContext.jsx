@@ -2,16 +2,16 @@ import React, { createContext, useContext, useMemo } from "react";
 
 const ExchangeContext = createContext(null);
 
+const DEFAULT_CONFIG = {
+  serviceRate: 0.02,
+  gstRate: 0.15,
+};
+
 export const ExchangeProvider = ({
   children,
   summary,
-  config = {
-    serviceRate: 0.02,
-    gstRate: 0.15,
-  },
+  config = DEFAULT_CONFIG,
 }) => {
-
-  console.log('ExchangeProvider render', { summary, config });
   const calculations = useMemo(() => {
     const receiverGets = Number(summary?.receiverGets || 0);
     const sendAmount   = Number(summary?.sendAmount || 0);

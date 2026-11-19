@@ -46,7 +46,7 @@ const TransactionHistory = () => {
       <Navbar />
 
       <section className="min-h-screen bg-[var(--color-background-light)] py-16 px-6">
-        <div className="max-w-6xl mx-auto bg-white rounded-3xl shadow-lg p-10">
+        <div className="max-w-[80%] mx-auto bg-white rounded-3xl shadow-lg p-10">
 
           <h1 className="text-3xl font-bold mb-8">
             Transaction History

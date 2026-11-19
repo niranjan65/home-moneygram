@@ -23,20 +23,26 @@ import {
   MessageSquare,
   Camera,
 } from 'lucide-react';
-import { FieldLabel, fieldCls, ErrorMsg } from '../ui/FormUtilities';
+import { FieldLabel, fieldCls, selectCls, ErrorMsg, getIdExpiryStatus } from '../ui/FormUtilities';
 import { useCustomer } from '../../hooks/useCustomer';
 import { fetchNewCustomerId } from '../../api/customer';
 import { useCountries } from '../../../../hooks/useCountry';
-import { useAppConfiguration } from '../../../../hooks/useAppConfiguration';
 import { useUser } from '../../../../context/UserContext';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import CustomerSelfieModal from '../../../../components/CustomerSelfieModal';
 
-export const GovernmentIdSection = ({ exchangeType, onCustomerChange, useDocumentTable = false, prefillCustomerId = '' }) => {
+export const GovernmentIdSection = ({
+  exchangeType,
+  onCustomerChange,
+  onResetAllFields,
+  useDocumentTable = false,
+  prefillCustomerId = '',
+  hideCardWrapper = false,
+  selectedCustomer: controlledCustomer,
+}) => {
   const loginUser = useUser();
   const { countries, loading: countryLoading, error: countryError } = useCountries();
-  const { potOptions, loading: potLoading, error: potError } = useAppConfiguration();
   const { register, watch, setValue, getValues, clearErrors, control, formState: { errors } } = useFormContext();
   const [dragOver, setDragOver] = useState(false);
   const [ticketPreview, setTicketPreview] = useState(null);
@@ -51,14 +57,42 @@ export const GovernmentIdSection = ({ exchangeType, onCustomerChange, useDocumen
     clearCustomerData,
     removeFile,
     handleFile
-  } = useCustomer({ autoFillDocument: !useDocumentTable });
+  } = useCustomer({ autoFillDocument: true });
 
   const governmentId = watch('government_id');
   const idName = watch('idName');
   const dateOfBirth = watch('dateOfBirth');
+  const idExpiryDateVal = watch('id_expiry_date');
+
+  const idExpiryStatus = useMemo(() => getIdExpiryStatus(idExpiryDateVal), [idExpiryDateVal]);
+
+  const expiryBadge = idExpiryStatus.isExpired ? (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-caption font-semibold bg-red-600 text-white shadow-xs animate-pulse">
+      <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
+      Expired ID ({idExpiryStatus.daysExpired === 1 ? '1 day ago' : `${idExpiryStatus.daysExpired}d ago`})
+    </span>
+  ) : idExpiryStatus.isExpiringSoon ? (
+    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-caption font-semibold bg-amber-100 text-amber-800 border border-amber-300">
+      ⚠️ Expires in {idExpiryStatus.daysDiff}d
+    </span>
+  ) : null;
 
   const customerId = watch('customer_id');
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [selectedCustomer, setSelectedCustomer] = useState(controlledCustomer || null);
+
+  useEffect(() => {
+    if (controlledCustomer === null && selectedCustomer !== null) {
+      setSelectedCustomer(null);
+    } else if (controlledCustomer && (!selectedCustomer || selectedCustomer.name !== controlledCustomer.name)) {
+      setSelectedCustomer(controlledCustomer);
+      const cName = controlledCustomer.custom_full_name || controlledCustomer.customer_name || controlledCustomer.name || '';
+      if (cName) setNameQuery(cName);
+      const cPhone = controlledCustomer.phone_number || controlledCustomer.mobile_no || '';
+      if (cPhone) setPhoneQuery(cPhone);
+      const cId = controlledCustomer.custom_customer_id || controlledCustomer.customer_id || controlledCustomer.name || '';
+      if (cId) setIdQuery(cId);
+    }
+  }, [controlledCustomer]);
 
   // Clear all fields that were auto-fetched from previous customer
   const clearFetchedFields = useCallback(async (keepName = true) => {
@@ -111,9 +145,19 @@ export const GovernmentIdSection = ({ exchangeType, onCustomerChange, useDocumen
     });
   }, [setValue, removeFile, exchangeType, loginUser, onCustomerChange, useDocumentTable]);
 
+  // Handle user detail edit when an existing customer was loaded -> reset the form!
+  const handleUserDetailEdit = useCallback(() => {
+    if (selectedCustomer) {
+      onResetAllFields?.();
+      clearFetchedFields(true);
+    }
+  }, [selectedCustomer, onResetAllFields, clearFetchedFields]);
+
   // ── Fuzzy Customer Search State ──
   const [isNameDropdownOpen, setIsNameDropdownOpen] = useState(false);
-  const [nameQuery, setNameQuery] = useState('');
+  const [nameQuery, setNameQuery] = useState(() => {
+    return controlledCustomer?.custom_full_name || controlledCustomer?.customer_name || getValues('idName') || '';
+  });
   const [customers, setCustomers] = useState([]);
   const [customersLoading, setCustomersLoading] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -123,7 +167,9 @@ export const GovernmentIdSection = ({ exchangeType, onCustomerChange, useDocumen
 
   // ── Phone Number Search State ──
   const [isPhoneDropdownOpen, setIsPhoneDropdownOpen] = useState(false);
-  const [phoneQuery, setPhoneQuery] = useState('');
+  const [phoneQuery, setPhoneQuery] = useState(() => {
+    return controlledCustomer?.phone_number || controlledCustomer?.mobile_no || getValues('phone_number') || getValues('phoneNumber') || '';
+  });
   const [phoneHighlightedIndex, setPhoneHighlightedIndex] = useState(-1);
   const phoneContainerRef = useRef(null);
   const phoneDebounceRef = useRef(null);
@@ -131,7 +177,9 @@ export const GovernmentIdSection = ({ exchangeType, onCustomerChange, useDocumen
   // ── Customer ID Search State ──
   const [isIdSearchMode, setIsIdSearchMode] = useState(false);
   const [isIdDropdownOpen, setIsIdDropdownOpen] = useState(false);
-  const [idQuery, setIdQuery] = useState('');
+  const [idQuery, setIdQuery] = useState(() => {
+    return controlledCustomer?.custom_customer_id || controlledCustomer?.customer_id || getValues('customer_id') || '';
+  });
   const [idHighlightedIndex, setIdHighlightedIndex] = useState(-1);
   const idContainerRef = useRef(null);
   const idDebounceRef = useRef(null);
@@ -202,6 +250,11 @@ export const GovernmentIdSection = ({ exchangeType, onCustomerChange, useDocumen
         );
         let list = res.data?.message ?? [];
         if (!Array.isArray(list)) list = [];
+        // Filter out Dealer and Warehouse customer groups in Currency Exchange
+        list = list.filter((c) => {
+          const grp = (c?.customer_group || '').trim().toLowerCase();
+          return grp !== 'dealer' && grp !== 'warehouse branch' && grp !== 'warehouse vault';
+        });
 
         // Direct search on Customer DocType by mobile_no, custom_customer_id, or name if searchTerm is provided
         if (searchTerm.trim()) {
@@ -210,16 +263,19 @@ export const GovernmentIdSection = ({ exchangeType, onCustomerChange, useDocumen
             const directCustRes = await axios.get('/api/resource/Customer', {
               params: {
                 filters: JSON.stringify([
-                  ['customer_group', 'not in', ['Warehouse Branch', 'Warehouse Vault']],
+                  ['customer_group', 'not in', ['Warehouse Branch', 'Warehouse Vault', 'Dealer']],
                 ]),
                 or_filters: JSON.stringify([
                   ['mobile_no', 'like', `%${sTerm}%`],
                   ['custom_customer_id', 'like', `%${sTerm}%`],
                   ['name', 'like', `%${sTerm}%`],
+                  ['custom_full_name', 'like', `%${sTerm}%`],
+                  ['customer_name', 'like', `%${sTerm}%`],
                 ]),
                 fields: JSON.stringify([
                   'name',
                   'customer_name',
+                  'customer_group',
                   'custom_customer_id',
                   'custom_full_name',
                   'custom_date_of_birth',
@@ -238,6 +294,7 @@ export const GovernmentIdSection = ({ exchangeType, onCustomerChange, useDocumen
             });
             const directCusts = directCustRes.data?.data ?? [];
             directCusts.forEach((dc) => {
+              if ((dc.customer_group || '').trim().toLowerCase() === 'dealer') return;
               dc.customer_id = dc.custom_customer_id || dc.name;
               dc.phone_number = dc.mobile_no || '';
               if (!list.some((existing) => existing.name === dc.name)) {
@@ -297,7 +354,8 @@ export const GovernmentIdSection = ({ exchangeType, onCustomerChange, useDocumen
   // Visible customers sorted by search match score
   const visibleCustomers = useMemo(() => {
     const q = (nameQuery || '').trim().toLowerCase();
-    const source = masterListRef.current.length > 0 ? masterListRef.current : customers;
+    const source = (masterListRef.current.length > 0 ? masterListRef.current : customers)
+      .filter((c) => c && (c.customer_group || '').trim().toLowerCase() !== 'dealer');
 
     if (!q) {
       return source.slice(0, 20);
@@ -340,6 +398,7 @@ export const GovernmentIdSection = ({ exchangeType, onCustomerChange, useDocumen
     const seen = new Set();
 
     customers.forEach((c) => {
+      if ((c?.customer_group || '').trim().toLowerCase() === 'dealer') return;
       const cId = c?.customer_id || c?.name;
       if (!cId || seen.has(cId)) return;
       seen.add(cId);
@@ -348,6 +407,7 @@ export const GovernmentIdSection = ({ exchangeType, onCustomerChange, useDocumen
     });
 
     masterListRef.current.forEach((c) => {
+      if ((c?.customer_group || '').trim().toLowerCase() === 'dealer') return;
       const cId = c?.customer_id || c?.name;
       if (!cId || seen.has(cId)) return;
       seen.add(cId);
@@ -362,7 +422,8 @@ export const GovernmentIdSection = ({ exchangeType, onCustomerChange, useDocumen
   // Visible customers for Phone Number field, filtered by phoneQuery
   const visiblePhoneCustomers = useMemo(() => {
     const q = (phoneQuery || '').trim().toLowerCase();
-    const source = masterListRef.current.length > 0 ? masterListRef.current : customers;
+    const source = (masterListRef.current.length > 0 ? masterListRef.current : customers)
+      .filter((c) => c && (c.customer_group || '').trim().toLowerCase() !== 'dealer');
 
     if (!q) {
       return source.slice(0, 20);
@@ -413,6 +474,7 @@ export const GovernmentIdSection = ({ exchangeType, onCustomerChange, useDocumen
     const seen = new Set();
 
     customers.forEach((c) => {
+      if ((c?.customer_group || '').trim().toLowerCase() === 'dealer') return;
       const cId = c?.custom_customer_id || c?.customer_id || c?.name;
       if (!cId || seen.has(cId)) return;
       seen.add(cId);
@@ -424,6 +486,7 @@ export const GovernmentIdSection = ({ exchangeType, onCustomerChange, useDocumen
     });
 
     masterListRef.current.forEach((c) => {
+      if ((c?.customer_group || '').trim().toLowerCase() === 'dealer') return;
       const cId = c?.custom_customer_id || c?.customer_id || c?.name;
       if (!cId || seen.has(cId)) return;
       seen.add(cId);
@@ -445,19 +508,36 @@ export const GovernmentIdSection = ({ exchangeType, onCustomerChange, useDocumen
 
   // Handle typing in customer full name input
   const handleNameQueryChange = (val) => {
+    const isCleared = !val || !val.trim();
+    const hadSelectedUser = Boolean(
+      selectedCustomer &&
+        (selectedCustomer.name ||
+          selectedCustomer.customer_id ||
+          selectedCustomer.custom_customer_id)
+    );
+
     setNameQuery(val);
     setValue('idName', val, { shouldValidate: true, shouldDirty: true });
 
-    if (!val || !val.trim()) {
-      clearFetchedFields(false);
+    if (isCleared) {
+      if (hadSelectedUser) {
+        onResetAllFields?.();
+        clearFetchedFields(false);
+      } else {
+        setValue('idName', '');
+        setNameQuery('');
+      }
       return;
     }
 
     // If an existing customer was loaded and user modifies the Full Name:
-    const prevName = selectedCustomer?.custom_full_name || selectedCustomer?.customer_name || selectedCustomer?.name;
-    if (selectedCustomer && val !== prevName) {
-      // Clear ONLY the auto-fetched fields, preserving user's typed name
+    const prevName = selectedCustomer?.custom_full_name || selectedCustomer?.customer_name || selectedCustomer?.name || '';
+    if (hadSelectedUser && val !== prevName) {
+      // User was selected and is being changed -> reset the fields!
+      onResetAllFields?.();
       clearFetchedFields(true);
+      setValue('idName', val, { shouldValidate: true, shouldDirty: true });
+      setNameQuery(val);
     }
 
     setIsNameDropdownOpen(true);
@@ -471,30 +551,46 @@ export const GovernmentIdSection = ({ exchangeType, onCustomerChange, useDocumen
 
   // Handle typing in phone number input
   const handlePhoneQueryChange = (val) => {
+    const isCleared = !val || !val.trim();
+    const hadSelectedUser = Boolean(
+      selectedCustomer &&
+        (selectedCustomer.name ||
+          selectedCustomer.customer_id ||
+          selectedCustomer.custom_customer_id)
+    );
+    const prevPhone = selectedCustomer?.phone_number || selectedCustomer?.mobile_no || selectedCustomer?.phone || '';
+
     setPhoneQuery(val);
     setValue('phone_number', val, { shouldValidate: true, shouldDirty: true });
     setValue('phoneNumber', val, { shouldValidate: true, shouldDirty: true });
     console.log(`⌨️ [MoneyExchange Phone Input] Typed Phone Number: "${val}"`);
-    if (!val || !val.trim()) {
-      clearCustomerData();
-      setNameQuery('');
-      setPhoneQuery('');
-      setSelectedCustomer(null);
-      onCustomerChange?.({
-        customerFound: false,
-        customer: null,
-        imageUrl: '',
-      });
+
+    if (isCleared) {
+      if (hadSelectedUser) {
+        onResetAllFields?.();
+        clearFetchedFields(false);
+      } else {
+        clearCustomerData();
+        setNameQuery('');
+        setPhoneQuery('');
+        setSelectedCustomer(null);
+        onCustomerChange?.({
+          customerFound: false,
+          customer: null,
+          imageUrl: '',
+        });
+      }
       return;
     }
-    if (selectedCustomer && val !== (selectedCustomer.phone_number || selectedCustomer.mobile_no || selectedCustomer.phone)) {
-      setSelectedCustomer(null);
-      onCustomerChange?.({
-        customerFound: false,
-        customer: null,
-        imageUrl: '',
-      });
+
+    if (hadSelectedUser && val !== prevPhone) {
+      onResetAllFields?.();
+      clearFetchedFields(true);
+      setValue('phone_number', val, { shouldValidate: true, shouldDirty: true });
+      setValue('phoneNumber', val, { shouldValidate: true, shouldDirty: true });
+      setPhoneQuery(val);
     }
+
     setIsPhoneDropdownOpen(true);
     setPhoneHighlightedIndex(-1);
 
@@ -507,7 +603,8 @@ export const GovernmentIdSection = ({ exchangeType, onCustomerChange, useDocumen
   // Visible customers sorted by Customer ID match score
   const visibleIdCustomers = useMemo(() => {
     const q = (idQuery || '').trim().toLowerCase();
-    const source = masterListRef.current.length > 0 ? masterListRef.current : customers;
+    const source = (masterListRef.current.length > 0 ? masterListRef.current : customers)
+      .filter((c) => c && (c.customer_group || '').trim().toLowerCase() !== 'dealer');
 
     if (!q) {
       return source.slice(0, 20);
@@ -533,6 +630,7 @@ export const GovernmentIdSection = ({ exchangeType, onCustomerChange, useDocumen
     const seen = new Set();
 
     customers.forEach((c) => {
+      if ((c?.customer_group || '').trim().toLowerCase() === 'dealer') return;
       const cId = c?.custom_customer_id || c?.customer_id || c?.name;
       if (!cId || seen.has(cId)) return;
       seen.add(cId);
@@ -544,6 +642,7 @@ export const GovernmentIdSection = ({ exchangeType, onCustomerChange, useDocumen
     });
 
     masterListRef.current.forEach((c) => {
+      if ((c?.customer_group || '').trim().toLowerCase() === 'dealer') return;
       const cId = c?.custom_customer_id || c?.customer_id || c?.name;
       if (!cId || seen.has(cId)) return;
       seen.add(cId);
@@ -557,32 +656,44 @@ export const GovernmentIdSection = ({ exchangeType, onCustomerChange, useDocumen
 
   // Handle typing in customer ID search input
   const handleIdQueryChange = (val) => {
+    const isCleared = !val || !val.trim();
+    const hadSelectedUser = Boolean(
+      selectedCustomer &&
+        (selectedCustomer.name ||
+          selectedCustomer.customer_id ||
+          selectedCustomer.custom_customer_id)
+    );
+    const prevId = selectedCustomer?.custom_customer_id || selectedCustomer?.customer_id || selectedCustomer?.name || '';
+
     setIdQuery(val);
     setValue('customer_id', val, { shouldValidate: true, shouldDirty: true });
-    if (!val || !val.trim()) {
-      clearCustomerData();
-      setNameQuery('');
-      setPhoneQuery('');
-      setIdQuery('');
-      setSelectedCustomer(null);
-      onCustomerChange?.({
-        customerFound: false,
-        customer: null,
-        imageUrl: '',
-      });
+
+    if (isCleared) {
+      if (hadSelectedUser) {
+        onResetAllFields?.();
+        clearFetchedFields(false);
+      } else {
+        clearCustomerData();
+        setNameQuery('');
+        setPhoneQuery('');
+        setIdQuery('');
+        setSelectedCustomer(null);
+        onCustomerChange?.({
+          customerFound: false,
+          customer: null,
+          imageUrl: '',
+        });
+      }
       return;
     }
-    if (
-      selectedCustomer &&
-      val !== (selectedCustomer.custom_customer_id || selectedCustomer.customer_id || selectedCustomer.name)
-    ) {
-      setSelectedCustomer(null);
-      onCustomerChange?.({
-        customerFound: false,
-        customer: null,
-        imageUrl: '',
-      });
+
+    if (hadSelectedUser && val !== prevId) {
+      onResetAllFields?.();
+      clearFetchedFields(true);
+      setValue('customer_id', val, { shouldValidate: true, shouldDirty: true });
+      setIdQuery(val);
     }
+
     setIsIdDropdownOpen(true);
     setIdHighlightedIndex(-1);
 
@@ -622,15 +733,48 @@ export const GovernmentIdSection = ({ exchangeType, onCustomerChange, useDocumen
 
   // When existing customer is selected from dropdown
   const handleSelectCustomer = async (c) => {
-    if (!c) return;
-    if (useDocumentTable) {
-      setValue('documents', [], { shouldDirty: true });
-      for (const field of ['docFile', 'ticket']) {
-        setValue(field, null);
-        clearErrors(field);
+    if (!c || (c?.customer_group || '').trim().toLowerCase() === 'dealer') return;
+
+    const hadSelectedUser = Boolean(
+      selectedCustomer &&
+        (selectedCustomer.name ||
+          selectedCustomer.customer_id ||
+          selectedCustomer.custom_customer_id)
+    );
+
+    const currentCustomerIdentifier =
+      selectedCustomer?.name ||
+      selectedCustomer?.customer_id ||
+      selectedCustomer?.custom_customer_id ||
+      '';
+
+    const newCustomerIdentifier =
+      c?.name ||
+      c?.customer_id ||
+      c?.custom_customer_id ||
+      '';
+
+    const isDifferentUser =
+      hadSelectedUser &&
+      Boolean(currentCustomerIdentifier) &&
+      Boolean(newCustomerIdentifier) &&
+      currentCustomerIdentifier !== newCustomerIdentifier;
+
+    if (hadSelectedUser && isDifferentUser) {
+      // We already had a selected user and are changing it to a different user -> completely reset the fields!
+      onResetAllFields?.();
+    } else {
+      // Selected user goes from empty to any user (or re-selecting same user)
+      // -> DO NOT reset the transaction section!
+      if (useDocumentTable) {
+        setValue('documents', [], { shouldDirty: true });
+        for (const field of ['docFile', 'ticket']) {
+          setValue(field, null);
+          clearErrors(field);
+        }
+        clearErrors('documents');
+        removeFile();
       }
-      clearErrors('documents');
-      removeFile();
     }
     setSelectedCustomer(c);
     const chosenName = c.custom_full_name || c.customer_name || c.name || '';
@@ -831,645 +975,651 @@ export const GovernmentIdSection = ({ exchangeType, onCustomerChange, useDocumen
   };
 
   return (
-    <div className="rounded-xl border border-gray-200 overflow-hidden bg-white">
-      <div className="px-5 py-3.5 border-b border-gray-100 flex items-center gap-3">
-        <ShieldCheck size={16} className="text-[#E00000] flex-shrink-0" />
-        <div>
-          <p className="text-sm font-semibold text-gray-800">ID Verification</p>
-          <p className="text-xs text-gray-400">Required for compliance — data is encrypted and secure</p>
+    <div id="section-id-verification" className={hideCardWrapper ? "flex flex-col gap-5 w-full min-w-0" : "rounded-2xl border border-gray-200/90 overflow-hidden bg-white shadow-xs"}>
+      {!hideCardWrapper ? (
+        <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-3 bg-white">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-gray-50 border border-gray-200/60 flex items-center justify-center text-gray-700 shrink-0">
+              <ShieldCheck size={16} strokeWidth={2} />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-bold text-gray-900 leading-tight">ID Verification</h3>
+              <p className="text-xs text-gray-500 mt-0.5 truncate">Required for compliance — data is encrypted and secure</p>
+            </div>
+          </div>
         </div>
-        <span className="ml-auto text-[10px] font-semibold text-[#E00000] bg-[#E00000]/5 border border-[#E00000]/10 px-2 py-0.5 rounded">
-          ID Check
-        </span>
-      </div>
+      ) : (
+        <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-gray-50 border border-gray-200/60 flex items-center justify-center text-gray-700 shrink-0">
+              <ShieldCheck size={15} strokeWidth={2} />
+            </div>
+            <div>
+              <h4 className="text-xs uppercase font-bold text-gray-700 tracking-wider">
+                ID Verification &amp; Customer Lookup
+              </h4>
+              <p className="text-[11px] text-gray-400">Search customer by ID, name, or phone number to auto-populate</p>
+            </div>
+          </div>
+        </div>
+      )}
 
-      <div className="px-5 py-5 flex flex-col gap-5">
-        {/* Customer ID Field */}
-        <div id="field-customerId" className="relative" ref={idContainerRef}>
-          <div className="flex items-center justify-between">
-            <FieldLabel required icon={isIdSearchMode ? Hash : User}>
-              {isIdSearchMode ? 'Search Customer ID' : 'Customer ID'}
-            </FieldLabel>
-            <div className="flex items-center gap-2">
-              {isIdSearchMode ? (
+      <div className={hideCardWrapper ? "flex flex-col gap-5 ml-3 sm:ml-3.5 border-l-2 border-gray-200/80 pl-4 sm:pl-6" : "p-5 sm:p-6 flex flex-col gap-5"}>
+        {/* Row 1: Customer ID & Full Name (2 columns) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          {/* Customer ID Field */}
+          <div id="field-customerId" className="relative" ref={idContainerRef}>
+            <div className="flex items-center justify-between">
+              <FieldLabel required icon={isIdSearchMode ? Hash : User}>
+                {isIdSearchMode ? 'Search Customer ID' : 'Customer ID'}
+              </FieldLabel>
+              <div className="flex items-center gap-2">
+                {isIdSearchMode ? (
+                  <button
+                    type="button"
+                    onClick={handleCancelIdSearch}
+                    className="text-[11px] text-gray-500 hover:text-red-600 flex items-center gap-1 font-medium transition-colors cursor-pointer"
+                    title="Cancel search and return to auto-generated ID"
+                  >
+                    <X size={11} /> Cancel Search
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsIdSearchMode(true);
+                        setIsIdDropdownOpen(true);
+                        if (!selectedCustomer) {
+                          setValue('customer_id', '');
+                          setIdQuery('');
+                        } else {
+                          setIdQuery(customerId || '');
+                        }
+                        if (customers.length === 0) searchCustomers('');
+                      }}
+                      className="text-[11px] text-gray-500 hover:text-[#E00000] flex items-center gap-1 font-medium transition-colors cursor-pointer"
+                      title="Search customer by entering Customer ID"
+                    >
+                      <Search size={11} /> Search by ID
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {isIdSearchMode ? (
+              <div className="relative mt-1">
+                <input
+                  type="text"
+                  name="search_customer_id_field"
+                  placeholder="Type Customer ID to search (e.g. CUST-... or 6-char ID)..."
+                  autoComplete="one-time-code"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  data-form-type="other"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  value={idQuery !== '' ? idQuery : (customerId || '')}
+                  onFocus={() => {
+                    setIsIdDropdownOpen(true);
+                    if (customers.length === 0) {
+                      searchCustomers('');
+                    }
+                  }}
+                  onChange={(e) => handleIdQueryChange(e.target.value)}
+                  onKeyDown={handleIdKeyDown}
+                  className="w-full px-3.5 py-2.5 rounded-lg border font-mono font-bold tracking-wider text-sm transition-all outline-none border-[#E00000] ring-1 ring-[#E00000]/20 bg-white text-gray-900 pr-10"
+                />
                 <button
                   type="button"
                   onClick={handleCancelIdSearch}
-                  className="text-[11px] text-gray-500 hover:text-red-600 flex items-center gap-1 font-medium transition-colors cursor-pointer"
-                  title="Cancel search and return to auto-generated ID"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
+                  title="Cancel search"
                 >
-                  <X size={11} /> Cancel Search
+                  <X size={14} />
                 </button>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsIdSearchMode(true);
-                      setIsIdDropdownOpen(true);
-                      if (!selectedCustomer) {
-                        setValue('customer_id', '');
-                        setIdQuery('');
-                      } else {
-                        setIdQuery(customerId || '');
-                      }
-                      if (customers.length === 0) searchCustomers('');
-                    }}
-                    className="text-[11px] text-gray-500 hover:text-[#E00000] flex items-center gap-1 font-medium transition-colors cursor-pointer"
-                    title="Search customer by entering Customer ID"
-                  >
-                    <Search size={11} /> Search by ID
-                  </button>
-                </>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="relative mt-1">
+                <input
+                  type="text"
+                  readOnly
+                  placeholder="Auto-generating 6-character ID..."
+                  value={customerId || ''}
+                  {...register('customer_id', { required: 'Customer ID is required' })}
+                  className={`w-full px-3.5 py-2.5 rounded-lg border font-mono font-bold tracking-widest text-sm bg-gray-50 ${
+                    customerId ? 'text-[#E00000] border-gray-300' : 'text-gray-400 border-gray-200'
+                  }`}
+                />
+              </div>
+            )}
+            <ErrorMsg message={errors.customer_id?.message} />
+
+            {/* Autocomplete Dropdown for Customer ID */}
+            {isIdSearchMode && isIdDropdownOpen && (
+              <div className="absolute left-0 top-full mt-1.5 w-full min-w-[320px] bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in duration-100">
+                <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between text-caption text-gray-500 font-medium">
+                  <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-gray-500">
+                    <Hash size={12} className="text-[#E00000]" />
+                    Matching Customers by Customer ID ({visibleIdCustomers.length})
+                  </span>
+                  {customersLoading ? (
+                    <span className="flex items-center gap-1 text-gray-400 text-overline">
+                      <RefreshCw size={10} className="animate-spin" /> Searching…
+                    </span>
+                  ) : (
+                    <span className="text-overline text-gray-400">Select to auto-populate</span>
+                  )}
+                </div>
+
+                <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                  {customersLoading && visibleIdCustomers.length === 0 ? (
+                    <div className="px-4 py-5 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
+                      <RefreshCw size={13} className="animate-spin text-gray-400" />
+                      <span>Searching customer records…</span>
+                    </div>
+                  ) : visibleIdCustomers.length === 0 ? (
+                    <div className="px-4 py-4 text-center text-xs text-gray-500">
+                      <p className="font-semibold text-gray-700">No matching customer found</p>
+                      <p className="text-caption text-gray-400 mt-0.5">
+                        Try typing the ID code or Customer number
+                      </p>
+                    </div>
+                  ) : (
+                    visibleIdCustomers.map((c, idx) => {
+                      const name = c.custom_full_name || c.customer_name || c.name;
+                      const cId = c.custom_customer_id || c.customer_id || c.name;
+                      const phoneNum = c.mobile_no || c.phone_number || c.phone || '';
+                      const idNum = c.custom_passport_number || c.custom_drivers_licence_number || c.custom_voter_id_number || c.custom_tin_number || c.id_number || '';
+                      const isHighlighted = idHighlightedIndex === idx;
+
+                      return (
+                        <div
+                          key={c.name}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleSelectCustomer(c);
+                          }}
+                          onMouseEnter={() => setIdHighlightedIndex(idx)}
+                          className={`px-3.5 py-2.5 cursor-pointer transition-colors flex items-center justify-between ${
+                            isHighlighted
+                              ? 'bg-red-50 text-[#E00000]'
+                              : 'hover:bg-gray-50 text-gray-700'
+                          }`}
+                        >
+                          <div className="truncate pr-2">
+                            <div
+                              className={`text-xs ${
+                                isHighlighted ? 'font-bold text-[#E00000]' : 'font-medium text-gray-800'
+                              } truncate flex items-center gap-2`}
+                            >
+                              <span className="font-mono text-overline font-semibold px-1.5 py-0.5 bg-red-100 text-[#E00000] rounded">
+                                {cId}
+                              </span>
+                              <span className="font-semibold">{name}</span>
+                            </div>
+                            <div className="text-caption text-gray-400 font-mono truncate mt-0.5 flex items-center gap-2">
+                              {phoneNum && (
+                                <span className="text-gray-600 font-medium">📞 {phoneNum}</span>
+                              )}
+                              {idNum && (
+                                <span>ID: {idNum}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-overline font-mono font-semibold px-2 py-0.5 rounded bg-gray-100 text-gray-600 whitespace-nowrap ml-2">
+                            {c.custom_government_id || 'Existing'}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
-          {isIdSearchMode ? (
+          {/* Full Name Field (Search & Auto-fill) */}
+          <div id="field-idName" className="relative" ref={nameContainerRef}>
+            <FieldLabel required icon={FileText}>Full Name (Exact name on the ID)</FieldLabel>
             <div className="relative mt-1">
               <input
                 type="text"
-                name="search_customer_id_field"
-                placeholder="Type Customer ID to search (e.g. CUST-... or 6-char ID)..."
+                name="search_customer_name_field"
+                placeholder="Type customer name, or search by ID, phone, govt ID..."
                 autoComplete="one-time-code"
                 data-lpignore="true"
                 data-1p-ignore="true"
                 data-form-type="other"
                 role="combobox"
                 aria-autocomplete="list"
-                value={idQuery !== '' ? idQuery : (customerId || '')}
+                value={nameQuery !== '' ? nameQuery : (idName || '')}
                 onFocus={() => {
-                  setIsIdDropdownOpen(true);
+                  setIsNameDropdownOpen(true);
                   if (customers.length === 0) {
                     searchCustomers('');
                   }
                 }}
-                onChange={(e) => handleIdQueryChange(e.target.value)}
-                onKeyDown={handleIdKeyDown}
-                className="w-full px-3.5 py-2.5 rounded-lg border font-mono font-bold tracking-wider text-sm transition-all outline-none border-[#E00000] ring-1 ring-[#E00000]/20 bg-white text-gray-900 pr-10"
+                onChange={(e) => {
+                  handleNameQueryChange(e.target.value);
+                }}
+                onKeyDown={handleNameKeyDown}
+                className={`${fieldCls(errors.idName)} pr-10 bg-white`}
               />
-              <button
-                type="button"
-                onClick={handleCancelIdSearch}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors cursor-pointer"
-                title="Cancel search"
-              >
-                <X size={14} />
-              </button>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                {customersLoading ? <RefreshCw size={14} className="animate-spin text-[#E00000]" /> : <Search size={14} />}
+              </div>
             </div>
-          ) : (
-            <div className="relative mt-1">
-              <input
-                type="text"
-                readOnly
-                placeholder="Auto-generating 6-character ID..."
-                value={customerId || ''}
-                {...register('customer_id', { required: 'Customer ID is required' })}
-                className={`w-full px-3.5 py-2.5 rounded-lg border font-mono font-bold tracking-widest text-sm bg-gray-50 ${
-                  customerId ? 'text-[#E00000] border-gray-300' : 'text-gray-400 border-gray-200'
-                }`}
-              />
-            </div>
-          )}
-          <ErrorMsg message={errors.customer_id?.message} />
 
-          {/* Autocomplete Dropdown for Customer ID */}
-          {isIdSearchMode && isIdDropdownOpen && (
-            <div className="absolute left-0 top-full mt-1.5 w-full min-w-[320px] bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in duration-100">
-              <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between text-[11px] text-gray-500 font-medium">
-                <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-gray-500">
-                  <Hash size={12} className="text-[#E00000]" />
-                  Matching Customers by Customer ID ({visibleIdCustomers.length})
-                </span>
-                {customersLoading ? (
-                  <span className="flex items-center gap-1 text-gray-400 text-[10px]">
-                    <RefreshCw size={10} className="animate-spin" /> Searching…
+            {isNameDropdownOpen && (
+              <div className="absolute left-0 top-full mt-1.5 w-full min-w-[320px] bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in duration-100">
+                <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between text-caption text-gray-500 font-medium">
+                  <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-gray-500">
+                    <User size={12} className="text-[#E00000]" />
+                    Matching Customers ({visibleCustomers.length})
                   </span>
-                ) : (
-                  <span className="text-[10px] text-gray-400">Select to auto-populate</span>
-                )}
-              </div>
+                  {customersLoading ? (
+                    <span className="flex items-center gap-1 text-gray-400 text-overline">
+                      <RefreshCw size={10} className="animate-spin" /> Searching…
+                    </span>
+                  ) : (
+                    <span className="text-overline text-gray-400">Select to auto-fill details</span>
+                  )}
+                </div>
 
-              <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
-                {customersLoading && visibleIdCustomers.length === 0 ? (
-                  <div className="px-4 py-5 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
-                    <RefreshCw size={13} className="animate-spin text-gray-400" />
-                    <span>Searching customer records…</span>
-                  </div>
-                ) : visibleIdCustomers.length === 0 ? (
-                  <div className="px-4 py-4 text-center text-xs text-gray-500">
-                    <p className="font-semibold text-gray-700">No matching customer found</p>
-                    <p className="text-[11px] text-gray-400 mt-0.5">
-                      Try typing the ID code or Customer number
-                    </p>
-                  </div>
-                ) : (
-                  visibleIdCustomers.map((c, idx) => {
-                    const name = c.custom_full_name || c.customer_name || c.name;
-                    const cId = c.custom_customer_id || c.customer_id || c.name;
-                    const phoneNum = c.mobile_no || c.phone_number || c.phone || '';
-                    const idNum = c.custom_passport_number || c.custom_drivers_licence_number || c.custom_voter_id_number || c.custom_tin_number || c.id_number || '';
-                    const isHighlighted = idHighlightedIndex === idx;
-
-                    return (
-                      <div
-                        key={c.name}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          handleSelectCustomer(c);
-                        }}
-                        onMouseEnter={() => setIdHighlightedIndex(idx)}
-                        className={`px-3.5 py-2.5 cursor-pointer transition-colors flex items-center justify-between ${
-                          isHighlighted
-                            ? 'bg-red-50 text-[#E00000]'
-                            : 'hover:bg-gray-50 text-gray-700'
-                        }`}
-                      >
-                        <div className="truncate pr-2">
-                          <div
-                            className={`text-xs ${
-                              isHighlighted ? 'font-bold text-[#E00000]' : 'font-medium text-gray-800'
-                            } truncate flex items-center gap-2`}
-                          >
-                            <span className="font-mono text-[11px] font-bold px-1.5 py-0.5 bg-red-100 text-[#E00000] rounded">
-                              {cId}
+                <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                  {customersLoading && visibleCustomers.length === 0 ? (
+                    <div className="px-4 py-5 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
+                      <RefreshCw size={13} className="animate-spin text-gray-400" />
+                      <span>Searching customer records…</span>
+                    </div>
+                  ) : visibleCustomers.length === 0 ? (
+                    <div className="px-4 py-4 text-center text-xs text-gray-500">
+                      <p className="font-semibold text-gray-700">No matching customer</p>
+                      <p className="text-caption text-gray-400 mt-0.5">
+                        Enter details to register as new customer
+                      </p>
+                    </div>
+                  ) : (
+                    visibleCustomers.map((c, idx) => {
+                      const name = c.custom_full_name || c.customer_name || c.name;
+                      const cId = c.custom_customer_id || c.customer_id || c.name;
+                      const idNum = c.id_number || c.custom_passport_number || c.custom_drivers_licence_number || c.custom_voter_id_number || c.custom_tin_number || '';
+                      const phoneNum = c.phone_number || c.mobile_no || c.phone || '';
+                      const isHighlighted = highlightedIndex === idx;
+                      return (
+                        <div
+                          key={c.name}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleSelectCustomer(c);
+                          }}
+                          onMouseEnter={() => setHighlightedIndex(idx)}
+                          className={`px-3.5 py-2.5 cursor-pointer transition-colors flex items-center justify-between ${
+                            isHighlighted
+                              ? 'bg-red-50 text-[#E00000]'
+                              : 'hover:bg-gray-50 text-gray-700'
+                          }`}
+                        >
+                          <div className="truncate pr-2">
+                            <div
+                              className={`text-xs ${
+                                isHighlighted ? 'font-bold text-[#E00000]' : 'font-medium text-gray-800'
+                              } truncate flex items-center gap-2`}
+                            >
+                              <span>{name}</span>
+                              <span className="font-mono text-overline font-semibold px-1.5 py-0.2 bg-gray-100 rounded text-gray-700">
+                                {cId}
+                              </span>
+                            </div>
+                            <div className="text-caption text-gray-400 font-mono truncate mt-0.5">
+                              {c.custom_date_of_birth ? `DOB: ${c.custom_date_of_birth}` : ''}
+                              {idNum ? ` • ID: ${idNum}` : ''}
+                              {phoneNum ? ` • 📞 ${phoneNum}` : ''}
+                            </div>
+                          </div>
+                          <div className="shrink-0 flex items-center gap-1 text-caption font-semibold text-gray-400">
+                            <span className={isHighlighted ? 'text-[#E00000]' : 'text-gray-400'}>
+                              Select &rarr;
                             </span>
-                            <span className="font-semibold">{name}</span>
-                          </div>
-                          <div className="text-[10px] text-gray-400 font-mono truncate mt-0.5 flex items-center gap-2">
-                            {phoneNum && (
-                              <span className="text-gray-600 font-medium">📞 {phoneNum}</span>
-                            )}
-                            {idNum && (
-                              <span>ID: {idNum}</span>
-                            )}
                           </div>
                         </div>
-                        <div className="text-[10px] font-mono font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-600 whitespace-nowrap ml-2">
-                          {c.custom_government_id || 'Existing'}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
+                      );
+                    })
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+            <ErrorMsg message={errors.idName?.message} />
+          </div>
         </div>
 
-        {/* Full Name Field (Search & Auto-fill) */}
-        <div id="field-idName" className="relative" ref={nameContainerRef}>
-          <FieldLabel required icon={FileText}>Full Name (Exact name on the ID)</FieldLabel>
-          <div className="relative mt-1">
-            <input
-              type="text"
-              name="search_customer_name_field"
-              placeholder="Type customer name, or search by ID, phone, govt ID..."
-              autoComplete="one-time-code"
-              data-lpignore="true"
-              data-1p-ignore="true"
-              data-form-type="other"
-              role="combobox"
-              aria-autocomplete="list"
-              value={nameQuery !== '' ? nameQuery : (idName || '')}
-              onFocus={() => {
-                setIsNameDropdownOpen(true);
-                if (customers.length === 0) {
-                  searchCustomers('');
-                }
-              }}
-              onChange={(e) => {
-                handleNameQueryChange(e.target.value);
-              }}
-              onKeyDown={handleNameKeyDown}
-              className={`${fieldCls(errors.idName)} pr-10 bg-white`}
-            />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
-              {customersLoading ? <RefreshCw size={14} className="animate-spin text-[#E00000]" /> : <Search size={14} />}
-            </div>
-          </div>
-
-          {selectedCustomer && (
-            <div className="mt-1.5 flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-lg font-medium">
-              <CheckCircle2 size={13} className="text-green-600 flex-shrink-0" />
+        {/* Existing Customer Status Alert */}
+        {selectedCustomer && (
+          <div className={`flex flex-wrap items-center justify-between gap-2 text-xs px-3.5 py-2 rounded-lg font-medium ${
+            getIdExpiryStatus(selectedCustomer.custom_id_expiry_date || selectedCustomer.id_expiry_date).isExpired
+              ? 'text-red-900 bg-red-50 border border-red-300'
+              : 'text-green-700 bg-green-50 border border-green-200'
+          }`}>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={14} className={getIdExpiryStatus(selectedCustomer.custom_id_expiry_date || selectedCustomer.id_expiry_date).isExpired ? 'text-red-600 flex-shrink-0' : 'text-green-600 flex-shrink-0'} />
               <span>
                 Existing customer loaded: <strong>{selectedCustomer.custom_full_name || selectedCustomer.customer_name}</strong> (ID: {selectedCustomer.custom_customer_id || selectedCustomer.name})
               </span>
             </div>
-          )}
-
-          {isNameDropdownOpen && (
-            <div className="absolute left-0 top-full mt-1.5 w-full min-w-[320px] bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in duration-100">
-              <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between text-[11px] text-gray-500 font-medium">
-                <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-gray-500">
-                  <User size={12} className="text-[#E00000]" />
-                  Matching Customers ({visibleCustomers.length})
-                </span>
-                {customersLoading ? (
-                  <span className="flex items-center gap-1 text-gray-400 text-[10px]">
-                    <RefreshCw size={10} className="animate-spin" /> Searching…
-                  </span>
-                ) : (
-                  <span className="text-[10px] text-gray-400">Select to auto-fill details</span>
-                )}
-              </div>
-
-              <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
-                {customersLoading && visibleCustomers.length === 0 ? (
-                  <div className="px-4 py-5 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
-                    <RefreshCw size={13} className="animate-spin text-gray-400" />
-                    <span>Searching customer records…</span>
-                  </div>
-                ) : visibleCustomers.length === 0 ? (
-                  <div className="px-4 py-4 text-center text-xs text-gray-500">
-                    <p className="font-semibold text-gray-700">No matching customer</p>
-                    <p className="text-[11px] text-gray-400 mt-0.5">
-                      Enter details to register as new customer
-                    </p>
-                  </div>
-                ) : (
-                  visibleCustomers.map((c, idx) => {
-                    const name = c.custom_full_name || c.customer_name || c.name;
-                    const cId = c.custom_customer_id || c.customer_id || c.name;
-                    const idNum = c.id_number || c.custom_passport_number || c.custom_drivers_licence_number || c.custom_voter_id_number || c.custom_tin_number || '';
-                    const phoneNum = c.phone_number || c.mobile_no || c.phone || '';
-                    const isHighlighted = highlightedIndex === idx;
-                    return (
-                      <div
-                        key={c.name}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          handleSelectCustomer(c);
-                        }}
-                        onMouseEnter={() => setHighlightedIndex(idx)}
-                        className={`px-3.5 py-2.5 cursor-pointer transition-colors flex items-center justify-between ${
-                          isHighlighted
-                            ? 'bg-red-50 text-[#E00000]'
-                            : 'hover:bg-gray-50 text-gray-700'
-                        }`}
-                      >
-                        <div className="truncate pr-2">
-                          <div
-                            className={`text-xs ${
-                              isHighlighted ? 'font-bold text-[#E00000]' : 'font-medium text-gray-800'
-                            } truncate flex items-center gap-2`}
-                          >
-                            <span>{name}</span>
-                            <span className="font-mono text-[11px] font-bold px-1.5 py-0.2 bg-gray-100 rounded text-gray-700">
-                              {cId}
-                            </span>
-                          </div>
-                          <div className="text-[10px] text-gray-400 font-mono truncate mt-0.5">
-                            {c.custom_date_of_birth ? `DOB: ${c.custom_date_of_birth}` : ''}
-                            {idNum ? ` • ID: ${idNum}` : ''}
-                            {phoneNum ? ` • 📞 ${phoneNum}` : ''}
-                          </div>
-                        </div>
-                        <div className="shrink-0 flex items-center gap-1 text-[11px] font-semibold text-gray-400">
-                          <span className={isHighlighted ? 'text-[#E00000]' : 'text-gray-400'}>
-                            Select &rarr;
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          )}
-          <ErrorMsg message={errors.idName?.message} />
-        </div>
-
-        {/* Phone Number Field (Optional, with search & auto-fill) */}
-        <div id="field-phone_number" className="relative" ref={phoneContainerRef}>
-          <FieldLabel icon={Phone}>Phone Number (Optional)</FieldLabel>
-          <div className="relative mt-1">
-            <input
-              type="text"
-              placeholder="Enter customer phone number, or search..."
-              autoComplete="off"
-              value={phoneQuery !== '' ? phoneQuery : (watch('phone_number') || '')}
-              onFocus={() => {
-                setIsPhoneDropdownOpen(true);
-                if (customers.length === 0) {
-                  searchCustomers('');
-                }
-              }}
-              onChange={(e) => {
-                handlePhoneQueryChange(e.target.value);
-              }}
-              onKeyDown={handlePhoneKeyDown}
-              className={`${fieldCls(false)} pr-10 bg-white`}
-            />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
-              {customersLoading ? <RefreshCw size={14} className="animate-spin text-[#E00000]" /> : <Phone size={14} />}
-            </div>
+            {getIdExpiryStatus(selectedCustomer.custom_id_expiry_date || selectedCustomer.id_expiry_date).isExpired && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-caption font-semibold bg-red-600 text-white animate-pulse">
+                ⚠️ Expired ID
+              </span>
+            )}
           </div>
+        )}
 
-          {isPhoneDropdownOpen && (
-            <div className="absolute left-0 top-full mt-1.5 w-full min-w-[320px] bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in duration-100">
-              <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between text-[11px] text-gray-500 font-medium">
-                <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-gray-500">
-                  <Phone size={12} className="text-[#E00000]" />
-                  Matching Customers by Phone ({visiblePhoneCustomers.length})
-                </span>
-                {customersLoading ? (
-                  <span className="flex items-center gap-1 text-gray-400 text-[10px]">
-                    <RefreshCw size={10} className="animate-spin" /> Searching…
-                  </span>
-                ) : (
-                  <span className="text-[10px] text-gray-400">Select to auto-fill details</span>
-                )}
-              </div>
-
-              <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
-                {customersLoading && visiblePhoneCustomers.length === 0 ? (
-                  <div className="px-4 py-5 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
-                    <RefreshCw size={13} className="animate-spin text-gray-400" />
-                    <span>Searching customer records…</span>
-                  </div>
-                ) : visiblePhoneCustomers.length === 0 ? (
-                  <div className="px-4 py-4 text-center text-xs text-gray-500">
-                    <p className="font-semibold text-gray-700">No matching customer</p>
-                    <p className="text-[11px] text-gray-400 mt-0.5">
-                      Phone number will be saved for this customer
-                    </p>
-                  </div>
-                ) : (
-                  visiblePhoneCustomers.map((c, idx) => {
-                    const name = c.custom_full_name || c.customer_name || c.name;
-                    const cId = c.custom_customer_id || c.customer_id || c.name;
-                    const idNum = c.id_number || c.custom_passport_number || c.custom_drivers_licence_number || c.custom_voter_id_number || c.custom_tin_number || '';
-                    const phoneNum = c.phone_number || c.mobile_no || c.phone || c.custom_contact_number || c.contact_number || '';
-                    const isHighlighted = phoneHighlightedIndex === idx;
-                    return (
-                      <div
-                        key={c.name}
-                        onMouseDown={(e) => {
-                          e.preventDefault();
-                          handleSelectCustomer(c);
-                        }}
-                        onMouseEnter={() => setPhoneHighlightedIndex(idx)}
-                        className={`px-3.5 py-2.5 cursor-pointer transition-colors flex items-center justify-between ${
-                          isHighlighted
-                            ? 'bg-red-50 text-[#E00000]'
-                            : 'hover:bg-gray-50 text-gray-700'
-                        }`}
-                      >
-                        <div className="truncate pr-2">
-                          <div
-                            className={`text-xs ${
-                              isHighlighted ? 'font-bold text-[#E00000]' : 'font-medium text-gray-800'
-                            } truncate flex items-center gap-2`}
-                          >
-                            <span>{name}</span>
-                            <span className="font-mono text-[11px] font-bold px-1.5 py-0.2 bg-gray-100 rounded text-gray-700">
-                              {cId}
-                            </span>
-                          </div>
-                          <div className="text-[10px] text-gray-400 font-mono truncate mt-0.5">
-                            {phoneNum ? <strong className="text-gray-700">📞 {phoneNum}</strong> : <span className="italic text-gray-400">No phone attached</span>}
-                            {c.custom_date_of_birth ? ` • DOB: ${c.custom_date_of_birth}` : ''}
-                            {idNum ? ` • ID: ${idNum}` : ''}
-                          </div>
-                        </div>
-                        <div className="shrink-0 flex items-center gap-1 text-[11px] font-semibold text-gray-400">
-                          <span className={isHighlighted ? 'text-[#E00000]' : 'text-gray-400'}>
-                            Select &rarr;
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
+        {/* Row 2: Phone Number & Date of Birth (2 columns) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          {/* Phone Number Field (Optional, with search & auto-fill) */}
+          <div id="field-phone_number" className="relative" ref={phoneContainerRef}>
+            <FieldLabel icon={Phone}>Phone Number (Optional)</FieldLabel>
+            <div className="relative mt-1">
+              <input
+                type="text"
+                placeholder="Enter customer phone number, or search..."
+                autoComplete="off"
+                value={phoneQuery !== '' ? phoneQuery : (watch('phone_number') || '')}
+                onFocus={() => {
+                  setIsPhoneDropdownOpen(true);
+                  if (customers.length === 0) {
+                    searchCustomers('');
+                  }
+                }}
+                onChange={(e) => {
+                  handlePhoneQueryChange(e.target.value);
+                }}
+                onKeyDown={handlePhoneKeyDown}
+                className={`${fieldCls(false)} pr-10 bg-white`}
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+                {customersLoading ? <RefreshCw size={14} className="animate-spin text-[#E00000]" /> : <Phone size={14} />}
               </div>
             </div>
-          )}
-          <ErrorMsg message={errors.phone_number?.message} />
-        </div>
 
-        {/* Date of Birth Field */}
-        <div id="field-dateOfBirth">
-          <FieldLabel required icon={Calendar}>Date of Birth</FieldLabel>
-          <Controller
-            name="dateOfBirth"
-            rules={{
-              required: 'Date of birth is required',
-              validate: (v) => {
-                if (!v) return 'Date of birth is required';
-                const today = new Date();
-                const dob = new Date(v);
-                if (dob >= today) return 'Date of birth must be in the past';
-                const minAge = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
-                if (dob > minAge) return 'You must be at least 18 years old';
-                return true;
-              },
-            }}
-            render={({ field }) => (
-              <div className="dob-picker-wrapper mt-1">
-                <DatePicker
-                  selected={field.value ? (field.value instanceof Date ? field.value : new Date(field.value)) : null}
-                  onChange={(date) => {
-                    field.onChange(date);
-                  }}
-                  onBlur={field.onBlur}
-                  dateFormat="yyyy-MM-dd"
-                  placeholderText="YYYY-MM-DD"
-                  maxDate={new Date(new Date().getFullYear() - 18, new Date().getMonth(), new Date().getDate())}
-                  showMonthDropdown
-                  showYearDropdown
-                  dropdownMode="select"
-                  yearDropdownItemNumber={100}
-                  scrollableYearDropdown
-                  className={fieldCls(errors.dateOfBirth)}
-                  wrapperClassName="block w-full"
-                  autoComplete="off"
-                />
+            {isPhoneDropdownOpen && (
+              <div className="absolute left-0 top-full mt-1.5 w-full min-w-[320px] bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in duration-100">
+                <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between text-caption text-gray-500 font-medium">
+                  <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-gray-500">
+                    <Phone size={12} className="text-[#E00000]" />
+                    Matching Customers by Phone ({visiblePhoneCustomers.length})
+                  </span>
+                  {customersLoading ? (
+                    <span className="flex items-center gap-1 text-gray-400 text-overline">
+                      <RefreshCw size={10} className="animate-spin" /> Searching…
+                    </span>
+                  ) : (
+                    <span className="text-overline text-gray-400">Select to auto-fill details</span>
+                  )}
+                </div>
+
+                <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                  {customersLoading && visiblePhoneCustomers.length === 0 ? (
+                    <div className="px-4 py-5 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
+                      <RefreshCw size={13} className="animate-spin text-gray-400" />
+                      <span>Searching customer records…</span>
+                    </div>
+                  ) : visiblePhoneCustomers.length === 0 ? (
+                    <div className="px-4 py-4 text-center text-xs text-gray-500">
+                      <p className="font-semibold text-gray-700">No matching customer</p>
+                      <p className="text-caption text-gray-400 mt-0.5">
+                        Phone number will be saved for this customer
+                      </p>
+                    </div>
+                  ) : (
+                    visiblePhoneCustomers.map((c, idx) => {
+                      const name = c.custom_full_name || c.customer_name || c.name;
+                      const cId = c.custom_customer_id || c.customer_id || c.name;
+                      const idNum = c.id_number || c.custom_passport_number || c.custom_drivers_licence_number || c.custom_voter_id_number || c.custom_tin_number || '';
+                      const phoneNum = c.phone_number || c.mobile_no || c.phone || c.custom_contact_number || c.contact_number || '';
+                      const isHighlighted = phoneHighlightedIndex === idx;
+                      return (
+                        <div
+                          key={c.name}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleSelectCustomer(c);
+                          }}
+                          onMouseEnter={() => setPhoneHighlightedIndex(idx)}
+                          className={`px-3.5 py-2.5 cursor-pointer transition-colors flex items-center justify-between ${
+                            isHighlighted
+                              ? 'bg-red-50 text-[#E00000]'
+                              : 'hover:bg-gray-50 text-gray-700'
+                          }`}
+                        >
+                          <div className="truncate pr-2">
+                            <div
+                              className={`text-xs ${
+                                isHighlighted ? 'font-bold text-[#E00000]' : 'font-medium text-gray-800'
+                              } truncate flex items-center gap-2`}
+                            >
+                              <span>{name}</span>
+                              <span className="font-mono text-overline font-semibold px-1.5 py-0.2 bg-gray-100 rounded text-gray-700">
+                                {cId}
+                              </span>
+                            </div>
+                            <div className="text-caption text-gray-400 font-mono truncate mt-0.5">
+                              {phoneNum ? <strong className="text-gray-700">📞 {phoneNum}</strong> : <span className="italic text-gray-400">No phone attached</span>}
+                              {c.custom_date_of_birth ? ` • DOB: ${c.custom_date_of_birth}` : ''}
+                              {idNum ? ` • ID: ${idNum}` : ''}
+                            </div>
+                          </div>
+                          <div className="shrink-0 flex items-center gap-1 text-caption font-semibold text-gray-400">
+                            <span className={isHighlighted ? 'text-[#E00000]' : 'text-gray-400'}>
+                              Select &rarr;
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
             )}
-          />
-          <ErrorMsg message={errors.dateOfBirth?.message} />
-        </div>
-
-        <div>
-          <FieldLabel icon={FileText}>ID Type
-          </FieldLabel>
-          <div className="relative mt-1">
-            <select
-              className={`${fieldCls(errors.government_id)} appearance-none pr-10 ${exchangeType === 'SELL' ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
-              disabled={exchangeType === 'SELL'}
-              {...register('government_id')}>
-              <option value="">Select ID Type (Optional)</option>
-              <option value="Driver's Licence">Driver's Licence</option>
-              <option value="Voter ID Card">Voter ID Card</option>
-              <option value="Passport">Passport</option>
-              <option value="TIN Card">TIN Card</option>
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
-              <ChevronDown size={16} />
-            </div>
+            <ErrorMsg message={errors.phone_number?.message} />
           </div>
-          {exchangeType === 'SELL' && (
-            <p className="text-xs text-[#B70000] mt-1">Passport is required for Sell transactions.</p>
-          )}
-        </div>
 
-        <div id="field-idNumber">
-          <FieldLabel icon={BadgeCheck}>ID Number</FieldLabel>
-          <input type="text" placeholder={placeholders[governmentId] || 'e.g. 123456789 (Optional)'}
-            {...register('idNumber')}
-            className={`${fieldCls(errors.idNumber)} mt-1`} />
-          <ErrorMsg message={errors.idNumber?.message} />
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <div id="field-idIssueDate">
-            <FieldLabel icon={Calendar}>ID Issue Date</FieldLabel>
+          {/* Date of Birth Field */}
+          <div id="field-dateOfBirth">
+            <FieldLabel required icon={Calendar}>Date of Birth</FieldLabel>
             <Controller
-              name="id_issue_date"
-              control={control}
+              name="dateOfBirth"
+              rules={{
+                required: 'Date of birth is required',
+                validate: (v) => {
+                  if (!v) return 'Date of birth is required';
+                  const today = new Date();
+                  const dob = new Date(v);
+                  if (dob >= today) return 'Date of birth must be in the past';
+                  const minAge = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+                  if (dob > minAge) return 'You must be at least 18 years old';
+                  return true;
+                },
+              }}
               render={({ field }) => (
                 <div className="dob-picker-wrapper mt-1">
                   <DatePicker
                     selected={field.value ? (field.value instanceof Date ? field.value : new Date(field.value)) : null}
-                    onChange={(date) => field.onChange(date)}
+                    onChange={(date) => {
+                      if (selectedCustomer) handleUserDetailEdit();
+                      field.onChange(date);
+                    }}
                     onBlur={field.onBlur}
                     dateFormat="yyyy-MM-dd"
                     placeholderText="YYYY-MM-DD"
-                    maxDate={new Date()}
+                    maxDate={new Date(new Date().getFullYear() - 18, new Date().getMonth(), new Date().getDate())}
                     showMonthDropdown
                     showYearDropdown
                     dropdownMode="select"
                     yearDropdownItemNumber={100}
                     scrollableYearDropdown
-                    className={fieldCls(errors.id_issue_date)}
+                    className={fieldCls(errors.dateOfBirth)}
                     wrapperClassName="block w-full"
                     autoComplete="off"
                   />
                 </div>
               )}
             />
-            <ErrorMsg message={errors.id_issue_date?.message} />
+            <ErrorMsg message={errors.dateOfBirth?.message} />
           </div>
+        </div>
 
-          <div id="field-idExpiryDate">
-            <FieldLabel icon={Calendar}>ID Expiry Date</FieldLabel>
-            <Controller
-              name="id_expiry_date"
-              control={control}
-              render={({ field }) => (
-                <div className="dob-picker-wrapper mt-1">
-                  <DatePicker
-                    selected={field.value ? (field.value instanceof Date ? field.value : new Date(field.value)) : null}
-                    onChange={(date) => field.onChange(date)}
-                    onBlur={field.onBlur}
-                    dateFormat="yyyy-MM-dd"
-                    placeholderText="YYYY-MM-DD"
-                    showMonthDropdown
-                    showYearDropdown
-                    dropdownMode="select"
-                    yearDropdownItemNumber={100}
-                    scrollableYearDropdown
-                    className={fieldCls(errors.id_expiry_date)}
-                    wrapperClassName="block w-full"
-                    autoComplete="off"
-                  />
+        {/* Row 3: ID Number & ID Issue Country are managed via Document Upload Table */}
+        {useDocumentTable ? (
+          <>
+            <input type="hidden" {...register('idNumber')} />
+            <input type="hidden" {...register('idIssueCountry')} />
+          </>
+        ) : (
+          <>
+            {/* Row 3: ID Type / ID Number (2 columns) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div id="field-idType">
+                <FieldLabel icon={FileText}>ID Type</FieldLabel>
+                <div className="relative mt-1">
+                  <select
+                    className={`${selectCls(errors.government_id)} ${exchangeType === 'SELL' ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                    disabled={exchangeType === 'SELL'}
+                    {...register('government_id')}
+                    onChange={(e) => {
+                      if (selectedCustomer) handleUserDetailEdit();
+                      register('government_id').onChange(e);
+                    }}>
+                    <option value="">Select ID Type (Optional)</option>
+                    <option value="Driver's Licence">Driver's Licence</option>
+                    <option value="Voter ID Card">Voter ID Card</option>
+                    <option value="Passport">Passport</option>
+                    <option value="TIN Card">TIN Card</option>
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
+                    <ChevronDown size={16} />
+                  </div>
                 </div>
-              )}
-            />
-            <ErrorMsg message={errors.id_expiry_date?.message} />
-          </div>
-        </div>
+                {exchangeType === 'SELL' && (
+                  <p className="text-xs text-[#B70000] mt-1 font-semibold">Passport is required for Sell transactions.</p>
+                )}
+              </div>
 
-        <div>
-          <FieldLabel required icon={Globe}>ID Issue Country</FieldLabel>
-          {countryError ? (
-            <p className="text-[#E00000] text-sm font-medium mt-1">Failed to load countries</p>
-          ) : countryLoading ? (
-            <div className="h-12 rounded-lg animate-pulse bg-gray-100 mt-1" />
-          ) : (
-            <div className="relative mt-1">
-              <Globe size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-              <select
-                {...register('idIssueCountry', { required: 'ID Issue Country is required' })}
-                className={`${fieldCls(errors.idIssueCountry)} appearance-none pl-9 pr-9`}>
-                <option value="">Select Country</option>
-                {countries?.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-              </select>
-              <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-            </div>
-          )}
-          <ErrorMsg message={errors.idIssueCountry?.message} />
-        </div>
-
-        <div>
-          <FieldLabel icon={BadgeCheck}>ID Issue State/Province</FieldLabel>
-          <input type="text"
-            {...register('idIssueState', {
-
-              minLength: { value: 3, message: 'ID Isuue Country is too short' },
-
-            })}
-            className={`${fieldCls(errors.idIssueCountry)} mt-1`} />
-          <ErrorMsg message={errors.idIssueCountry?.message} />
-        </div>
-
-        <div id="field-oetCode">
-          <FieldLabel required icon={FileText}>OET Code</FieldLabel>
-          {potError ? (
-            <p className="text-[#E00000] text-sm font-medium mt-1">Failed to load OET codes</p>
-          ) : potLoading ? (
-            <div className="h-12 rounded-lg animate-pulse bg-gray-100 mt-1" />
-          ) : (
-            <div className="relative mt-1">
-              <select
-                {...register('oet_code', { required: 'OET Code is required' })}
-                className={`${fieldCls(errors.oet_code)} appearance-none pr-10`}
-                defaultValue="18"
-              >
-                <option value="" disabled>Select OET Code</option>
-                {potOptions.map(pot => (
-                  <option key={pot.code} value={pot.code}>{pot.label}</option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
-                <ChevronDown size={16} />
+              <div id="field-idNumber">
+                <FieldLabel icon={BadgeCheck}>ID Number</FieldLabel>
+                <input type="text" placeholder={placeholders[governmentId] || 'e.g. 123456789 (Optional)'}
+                  {...register('idNumber')}
+                  onInput={() => {
+                    if (selectedCustomer) handleUserDetailEdit();
+                  }}
+                  className={`${fieldCls(errors.idNumber)} mt-1`} />
+                <ErrorMsg message={errors.idNumber?.message} />
               </div>
             </div>
-          )}
-          <ErrorMsg message={errors.oet_code?.message} />
-        </div>
 
-        <div id="field-riskLevel">
-          <FieldLabel required icon={ShieldAlert}>Risk Level</FieldLabel>
-          <div className="relative mt-1">
-            <select
-              {...register('risk_level', { required: 'Risk Level is required' })}
-              className={`${fieldCls(errors.risk_level)} appearance-none pr-10`}
-            >
-              <option value="Low">Low</option>
-              <option value="Medium">Medium</option>
-              <option value="High">High</option>
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
-              <ChevronDown size={16} />
+            {/* Row 4: Issue Date / Expiry Date / Issue Country (3 columns for short fields) */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+              <div id="field-idIssueDate">
+                <FieldLabel icon={Calendar}>ID Issue Date</FieldLabel>
+                <Controller
+                  name="id_issue_date"
+                  control={control}
+                  render={({ field }) => (
+                    <div className="dob-picker-wrapper mt-1">
+                      <DatePicker
+                        selected={field.value ? (field.value instanceof Date ? field.value : new Date(field.value)) : null}
+                        onChange={(date) => {
+                          if (selectedCustomer) handleUserDetailEdit();
+                          field.onChange(date);
+                        }}
+                        onBlur={field.onBlur}
+                        dateFormat="yyyy-MM-dd"
+                        placeholderText="YYYY-MM-DD"
+                        maxDate={new Date()}
+                        showMonthDropdown
+                        showYearDropdown
+                        dropdownMode="select"
+                        yearDropdownItemNumber={100}
+                        scrollableYearDropdown
+                        className={fieldCls(errors.id_issue_date)}
+                        wrapperClassName="block w-full"
+                        autoComplete="off"
+                      />
+                    </div>
+                  )}
+                />
+                <ErrorMsg message={errors.id_issue_date?.message} />
+              </div>
+
+              <div id="field-idExpiryDate">
+                <FieldLabel icon={Calendar} badge={expiryBadge}>ID Expiry Date</FieldLabel>
+                <Controller
+                  name="id_expiry_date"
+                  control={control}
+                  render={({ field }) => (
+                    <div className="dob-picker-wrapper mt-1">
+                      <DatePicker
+                        selected={field.value ? (field.value instanceof Date ? field.value : new Date(field.value)) : null}
+                        onChange={(date) => {
+                          if (selectedCustomer) handleUserDetailEdit();
+                          field.onChange(date);
+                        }}
+                        onBlur={field.onBlur}
+                        dateFormat="yyyy-MM-dd"
+                        placeholderText="YYYY-MM-DD"
+                        showMonthDropdown
+                        showYearDropdown
+                        dropdownMode="select"
+                        yearDropdownItemNumber={100}
+                        scrollableYearDropdown
+                        className={`${fieldCls(errors.id_expiry_date)} ${idExpiryStatus.isExpired ? 'border-red-500 bg-red-50/20' : ''}`}
+                        wrapperClassName="block w-full"
+                        autoComplete="off"
+                      />
+                    </div>
+                  )}
+                />
+                {idExpiryStatus.isExpired && (
+                  <p className="flex items-center gap-1 text-[#E00000] text-xs mt-1.5 font-bold">
+                    ⚠️ Customer ID expired on {idExpiryStatus.formattedDate} ({idExpiryStatus.daysExpired} days ago). Expired IDs cannot be accepted.
+                  </p>
+                )}
+                <ErrorMsg message={errors.id_expiry_date?.message} />
+              </div>
+
+              <div id="field-idIssueCountry">
+                <FieldLabel required icon={Globe}>ID Issue Country</FieldLabel>
+                {countryError ? (
+                  <p className="text-[#E00000] text-sm font-medium mt-1">Failed to load countries</p>
+                ) : countryLoading ? (
+                  <div className="h-12 rounded-lg animate-pulse bg-gray-100 mt-1" />
+                ) : (
+                  <div className="relative mt-1">
+                    <Globe size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    <select
+                      {...register('idIssueCountry', { required: 'ID Issue Country is required' })}
+                      onChange={(e) => {
+                        if (selectedCustomer) handleUserDetailEdit();
+                        register('idIssueCountry').onChange(e);
+                      }}
+                      className={`${selectCls(errors.idIssueCountry)} pl-9 pr-9`}>
+                      <option value="">Select Country</option>
+                      {countries?.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                    </select>
+                    <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  </div>
+                )}
+                <ErrorMsg message={errors.idIssueCountry?.message} />
+              </div>
             </div>
-          </div>
-          <ErrorMsg message={errors.risk_level?.message} />
-        </div>
+          </>
+        )}
 
-        <div id="field-remarks">
-          <FieldLabel icon={MessageSquare}>Remarks</FieldLabel>
-          <div className="relative mt-1">
-            <input
-              type="text"
-              placeholder="Enter remarks..."
-              {...register('remarks')}
-              className={fieldCls(errors.remarks)}
-            />
-          </div>
-          <ErrorMsg message={errors.remarks?.message} />
-        </div>
+
+        {/* Hidden field to preserve state value compatibility */}
+        <input type="hidden" {...register('idIssueState')} />
 
         {!useDocumentTable && (<div id="field-docFile">
           <div className="flex items-center justify-between">

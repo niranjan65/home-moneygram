@@ -14,7 +14,6 @@ export const personalFields = [
     placeholder: "e.g. Garcia",
     rules: {
       required: "Last name is required",
-      minLength: { value: 2, message: "Too short" },
     },
   },
 ];

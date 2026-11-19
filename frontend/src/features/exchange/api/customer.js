@@ -289,13 +289,16 @@ export const createCustomer = async (
   customerImageUrl = ""
 ) => {
   try {
+    const isDealer = (form.customer_group || form.customerGroup || "").toLowerCase() === "dealer";
+
     // --------------------------------------------------
-    // 1. Obtain Customer ID (6-character unique code)
+    // 1. Obtain Customer ID
     // --------------------------------------------------
-    let customerId = (form.customer_id || form.customerId || "").trim().toUpperCase();
+    let customerId = (form.customer_id || form.customerId || "").trim();
     if (!customerId) {
       customerId = await fetchNewCustomerId(loginUser);
     }
+    customerId = customerId.toUpperCase();
 
     // --------------------------------------------------
     // 2. Check if customer already exists
@@ -320,11 +323,21 @@ export const createCustomer = async (
     // 4. Normalize Government ID Type
     // --------------------------------------------------
     const normalizedGovId = normalizeGovId(
-      form.government_id_type
+      form.government_id || form.government_id_type || form.idType
     );
 
     const idNumber =
-      (form.government_id_number || "").trim();
+      (form.government_id_number || form.idNumber || "").trim();
+
+    const rawFullName = (form.full_name || form.fullName || form.idName || "").trim();
+    const nameParts = rawFullName.split(/\s+/).filter(Boolean);
+    const firstName = form.firstName || form.first_name || nameParts[0] || "";
+    const lastName = form.lastName || form.last_name || (nameParts.length > 1 ? nameParts.slice(1).join(" ") : firstName);
+    const middleName = form.middleName || form.middle_name || "";
+    const rawDob = form.dob || form.dateOfBirth;
+    const formattedDob = rawDob
+      ? (typeof rawDob === 'string' ? rawDob.split('T')[0] : new Date(rawDob).toISOString().split('T')[0])
+      : null;
 
     // --------------------------------------------------
     // 5. Create Customer Payload
@@ -334,21 +347,43 @@ export const createCustomer = async (
       name: customerId,
       custom_customer_id: customerId,
       customer_type: "Individual",
-      customer_group: "Individual",
-      // territory: "All Territories",
+      customer_group: isDealer ? "Dealer" : (form.customer_group || "Individual"),
 
-      custom_full_name: form.full_name,
-      custom_date_of_birth: form.dob,
+      custom_full_name: rawFullName,
+      custom_first_name: firstName,
+      custom_middle_name: middleName,
+      custom_last_name: lastName,
+      custom_second_last_name_family_name: form.secondLastName || form.second_last_name_family_name || "",
+      custom_date_of_birth: formattedDob,
       custom_government_id: normalizedGovId,
 
       custom_government_document:
-        documentUrl || form.document_upload || "",
+        documentUrl || form.document_upload || form.docFile || "",
 
-      image: customerImageUrl || form.customer_image || form.image || "",
+      image: customerImageUrl || form.customer_image || form.image || form.docFile || "",
 
       mobile_no: (form.phone_number || form.mobile_no || form.phone || "").trim(),
       custom_risk_level: form.risk_level || form.custom_risk_level || "Low",
     };
+
+    if (form.country || form.destination_country) {
+      payload.custom_country = form.country || form.destination_country;
+    }
+    if (form.city || form.city__province) {
+      payload.custom_city = form.city || form.city__province;
+    }
+    if (form.idIssueCountry || form.id_issue_country) {
+      payload.custom_id_issue_country = form.idIssueCountry || form.id_issue_country;
+    }
+    if (form.idIssueState || form.id_issue_stateprovince) {
+      payload.custom_id_issue_stateprovince = form.idIssueState || form.id_issue_stateprovince;
+    }
+    if (form.occupation) {
+      payload.custom_occupation = form.occupation;
+    }
+    if (form.tinNumber || form.custom_tin_number) {
+      payload.custom_tin_number = form.tinNumber || form.custom_tin_number;
+    }
 
     // --------------------------------------------------
     // 6. Map Government ID Number

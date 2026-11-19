@@ -11,28 +11,47 @@ export const useExchangeCalculation = ({
   onSummaryChange,
   exchangeType,
   initialCurrencyCode,
+  initialManualRate,
+  initialUseManualRate,
 }) => {
 
   const [toCurrency, setToCurrency] = useState(null);
-  const [manualRate, setManualRate] = useState('');
-  const [useManualRate, setUseManualRate] = useState(false);
+  const [manualRate, setManualRate] = useState(initialManualRate ? String(initialManualRate) : '');
+  const [useManualRate, setUseManualRate] = useState(Boolean(initialUseManualRate || noDataForToday));
   const [sendAmount, setSendAmount] = useState(externalSendAmount ?? '');
   const [sendAmountError, setSendAmountError] = useState('');
-  const initialCurrencyAppliedRef = useRef(false);
+  const lastAppliedCurrencyCodeRef = useRef(null);
 
-  // Customer Request handoff: select the request's foreign currency through
-  // the same rate object used by a normal dropdown selection.
+  // Customer Request handoff / state restoration: select the requested foreign currency once or when code changes
   useEffect(() => {
-    if (initialCurrencyAppliedRef.current || !initialCurrencyCode || !availableCurrencies?.length) return;
+    if (!initialCurrencyCode || !availableCurrencies?.length) return;
     const requestedCode = String(initialCurrencyCode).trim().toUpperCase().split(/\s|-/)[0];
+    if (lastAppliedCurrencyCodeRef.current === requestedCode) return;
+
     const requestedCurrency = availableCurrencies.find(
       (currency) => String(currency.code || '').toUpperCase() === requestedCode
     );
     if (requestedCurrency) {
       setToCurrency(requestedCurrency);
-      initialCurrencyAppliedRef.current = true;
+      lastAppliedCurrencyCodeRef.current = requestedCode;
     }
   }, [initialCurrencyCode, availableCurrencies]);
+
+  const lastAppliedManualRateRef = useRef(null);
+  useEffect(() => {
+    if (initialManualRate && lastAppliedManualRateRef.current !== initialManualRate) {
+      setManualRate(String(initialManualRate));
+      lastAppliedManualRateRef.current = initialManualRate;
+    }
+  }, [initialManualRate]);
+
+  const lastAppliedSendAmountRef = useRef(null);
+  useEffect(() => {
+    if (externalSendAmount !== undefined && externalSendAmount !== '' && lastAppliedSendAmountRef.current !== externalSendAmount) {
+      setSendAmount(externalSendAmount);
+      lastAppliedSendAmountRef.current = externalSendAmount;
+    }
+  }, [externalSendAmount]);
 
   // Handle fallback if no data for today
   useEffect(() => {

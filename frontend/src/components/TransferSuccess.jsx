@@ -1131,7 +1131,7 @@ const Icon = ({ name, size = 24, className = '' }) => {
 
 // ─── Cancel Modal ─────────────────────────────────────────────────────────────
 // variant: 'confirm' | 'success' | 'error'
-const CancelModal = ({ variant, errorMessage, onConfirm, onDismiss, isCancelling }) => {
+const CancelModal = ({ variant, errorMessage, onConfirm, onDismiss, isCancelling, isExchange = false }) => {
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = ''; };
@@ -1240,9 +1240,9 @@ const CancelModal = ({ variant, errorMessage, onConfirm, onDismiss, isCancelling
           </div>
           <div>
             <p style={labelStyle('#E00000')}>Confirm Action</p>
-            <h2 id="modal-title" style={titleStyle}>Cancel this transfer?</h2>
+            <h2 id="modal-title" style={titleStyle}>Cancel this {isExchange ? 'exchange' : 'transfer'}?</h2>
             <p style={bodyStyle}>
-              This will permanently cancel the Currency Exchange transaction. This action cannot be undone.
+              This will permanently cancel the {isExchange ? 'Currency Exchange' : 'Money Transfer'} transaction. This action cannot be undone.
             </p>
           </div>
         </div>
@@ -1255,7 +1255,7 @@ const CancelModal = ({ variant, errorMessage, onConfirm, onDismiss, isCancelling
             onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
           >
-            Keep Transfer
+            Keep {isExchange ? 'Exchange' : 'Transfer'}
           </button>
           <button
             style={{ ...redBtn, opacity: isCancelling ? 0.7 : 1, cursor: isCancelling ? 'not-allowed' : 'pointer' }}
@@ -1373,6 +1373,12 @@ const printInvoice = (invoiceData) => {
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
         <style>
+          @font-face {
+            font-family: 'Inter';
+            src: url('${window.location.origin}/assets/home/frontend/Inter.ttf') format('truetype');
+            font-weight: 100 900;
+            font-style: normal;
+          }
           body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: white; }
           @page { size: A4; margin: 20mm; }
           @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
@@ -1407,6 +1413,12 @@ const downloadPDF = (invoiceData) => {
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
         <style>
+          @font-face {
+            font-family: 'Inter';
+            src: url('${window.location.origin}/assets/home/frontend/Inter.ttf') format('truetype');
+            font-weight: 100 900;
+            font-style: normal;
+          }
           body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: white; }
           @page { size: A4; margin: 20mm; }
           @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
@@ -1435,11 +1447,27 @@ export const TransferSuccess = ({
   transactionId,
   onDashboard,
   isDealer: propIsDealer,
+  isExchange: propIsExchange,
+  type,
 }) => {
   const exchange = useExchange();
   const loginUser = useUser();
   const reduxIsDealer = useSelector((state) => state.exchange.isDealer);
   const isDealer = propIsDealer !== undefined ? propIsDealer : reduxIsDealer;
+
+  const isExchange = propIsExchange !== undefined
+    ? Boolean(propIsExchange)
+    : type === 'exchange'
+      ? true
+      : type === 'transfer'
+        ? false
+        : (
+          (typeof window !== 'undefined' && (
+            window.location?.pathname?.includes('/exchange') ||
+            window.location?.pathname?.includes('/dealer')
+          )) ||
+          Boolean(data?.exchangeType || apiDoc?.exchange_type || (apiDoc?.doctype && apiDoc.doctype.toLowerCase().includes('exchange')))
+        );
 
   const [invoiceData, setInvoiceData] = useState(() => {
     const saved = sessionStorage.getItem('exchangeInvoiceData');
@@ -1447,7 +1475,9 @@ export const TransferSuccess = ({
   });
   const [isLoading, setIsLoading] = useState(() => {
     const saved = sessionStorage.getItem('exchangeInvoiceData');
-    return saved ? false : true;
+    if (saved) return false;
+    const hasInvoice = Boolean(apiDoc?.invoice || apiDoc?.sales_invoice_number || apiDoc?.purchase_invoice_number);
+    return hasInvoice;
   });
 
   const [isCancelling, setIsCancelling] = useState(false);
@@ -1567,11 +1597,15 @@ export const TransferSuccess = ({
   };
 
   useEffect(() => {
-    if (!apiDoc?.invoice) return;
-    console.log('Fetching invoice:', apiDoc.invoice);
-    getInvoiceData(apiDoc.invoice)
+    const invoiceId = apiDoc?.invoice || apiDoc?.sales_invoice_number || apiDoc?.purchase_invoice_number;
+    if (!invoiceId) {
+      setIsLoading(false);
+      return;
+    }
+    console.log('Fetching invoice:', invoiceId);
+    getInvoiceData(invoiceId)
       .then(data => {
-        setInvoiceData(data);
+        if (data) setInvoiceData(data);
         setIsLoading(false);
       })
       .catch((err) => {
@@ -1579,6 +1613,13 @@ export const TransferSuccess = ({
         setIsLoading(false);
       });
   }, [apiDoc]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (invoiceData) {
@@ -1605,9 +1646,11 @@ export const TransferSuccess = ({
   }
 
   // ── Data Mapping ──────────────────────────────────────────────────────────
-  const finalData = invoiceData || apiDoc || data;
-
-
+  const finalData = {
+    ...(data || {}),
+    ...(apiDoc || {}),
+    ...(invoiceData || {}),
+  };
 
   const fmt = (val, decimals = 2) =>
     Number(val).toLocaleString(undefined, {
@@ -1620,7 +1663,45 @@ export const TransferSuccess = ({
   const senderName = finalData?.contact_email
     ? finalData.contact_email.split('@')[0].replace(/\./g, ' ').replace(/\b\w/g, c => c.toUpperCase())
     : 'Sender';
-  const recipientName = finalData?.custom_customer_full_name ?? finalData?.custom_customer_full_name ?? 'Recipient';
+  const recipientId = (
+    data?.customer_id ||
+    data?.custom_customer_id ||
+    apiDoc?.customer_id ||
+    finalData?.custom_customer_id ||
+    finalData?.customer_id ||
+    finalData?.customer ||
+    finalData?.supplier ||
+    ''
+  ).trim();
+
+  const nameCandidates = [
+    data?.custom_full_name,
+    data?.full_name,
+    data?.fullName,
+    data?.idName,
+    [data?.firstName, data?.lastName].filter(Boolean).join(' '),
+    data?.custom_customer_full_name,
+    data?.customer_full_name,
+    apiDoc?.custom_customer_full_name,
+    apiDoc?.customer_full_name,
+    apiDoc?.full_name,
+    apiDoc?.fullName,
+    [apiDoc?.first_name, apiDoc?.last_name].filter(Boolean).join(' '),
+    finalData?.custom_customer_full_name,
+    finalData?.customer_full_name,
+    finalData?.custom_full_name,
+    finalData?.full_name,
+    finalData?.fullName,
+    finalData?.idName,
+    [finalData?.firstName, finalData?.lastName].filter(Boolean).join(' '),
+    finalData?.customer_name,
+    finalData?.supplier_name,
+  ];
+
+  const recipientName = nameCandidates
+    .map(name => (typeof name === 'string' ? name.trim() : ''))
+    .find(name => name && (!recipientId || name.toLowerCase() !== recipientId.toLowerCase()))
+    || (data?.full_name || data?.idName || 'Recipient');
   const txnId = transactionId ?? finalData?.name ?? '—';
   const rawTime = (finalData?.posting_time ?? '').split('.')[0];
   const txnDate = finalData?.posting_date
@@ -1630,19 +1711,33 @@ export const TransferSuccess = ({
   const senderCurrency = finalData?.you_send_currency_type ?? data?.senderCurrency ?? data?.foreignCurrency ?? null;
   const receiverCurrency = finalData?.they_receive_currency_type ?? data?.receiverCurrency ?? 'FJD';
 
-  const rows = (finalData?.items ?? []).map(item => ({
-    label: item.item_code ?? item.item_name ?? '—',
-    qty: item.qty ?? 0,
-    rate: item.rate ?? 0,
-    amount: item.amount ?? 0,
-  }));
+  const rows = (finalData?.items && finalData.items.length > 0)
+    ? finalData.items.map(item => ({
+      label: item.item_code ?? item.item_name ?? '—',
+      qty: item.qty ?? 0,
+      rate: item.rate ?? 0,
+      amount: item.amount ?? 0,
+    }))
+    : (Array.isArray(finalData?.denomination) && finalData.denomination.length > 0)
+      ? finalData.denomination.map(item => ({
+        label: item.denomination ?? '—',
+        qty: item.qty ?? item.count ?? 0,
+        rate: 0,
+        amount: item.amount ?? item.subtotal ?? 0,
+      }))
+      : (data?.senderDenominationRows || data?.receiverDenominationRows || []).map(item => ({
+        label: item.denomination_value ? `${item.denomination_value} (${item.denomination_type || 'Cash'})` : '—',
+        qty: item.count ?? item.qty ?? 0,
+        rate: 0,
+        amount: item.subtotal ?? item.amount ?? 0,
+      }));
 
-  const netAmount = finalData?.net_total ?? finalData?.total ?? 0;
+  const netAmount = finalData?.net_total ?? finalData?.total ?? data?.sendAmount ?? data?.totalAmount ?? 0;
   const taxAmount = finalData?.total_taxes_and_charges
     ?? (Array.isArray(finalData?.taxes)
       ? finalData.taxes.reduce((s, t) => s + (t.tax_amount ?? 0), 0)
       : 0);
-  const grandTotal = finalData?.grand_total ?? exchange?.total ?? 0;
+  const grandTotal = finalData?.grand_total ?? exchange?.total ?? data?.sendAmount ?? data?.receiverGets ?? 0;
   const roundedTotal = finalData?.rounded_total ?? grandTotal;
 
   return (
@@ -1653,6 +1748,7 @@ export const TransferSuccess = ({
           variant={modalVariant}
           errorMessage={modalError}
           isCancelling={isCancelling}
+          isExchange={isExchange}
           onConfirm={modalVariant === 'confirm' ? executeCancellation : handleCancelClick}
           onDismiss={handleModalDismiss}
         />
@@ -1674,13 +1770,15 @@ export const TransferSuccess = ({
                 <Icon name={txnStatus === 'Cancelled' ? 'cancel' : 'check_circle'} size={48} />
               </div>
 
-              <h1 className="text-4xl md:text-5xl font-black text-gray-900 tracking-tight leading-snug drop-shadow-sm">
-                {txnStatus === 'Cancelled' ? 'Transfer Cancelled' : 'Transfer Successful'}
+              <h1 className="text-h1 font-bold text-gray-900 tracking-tight leading-snug drop-shadow-sm">
+                {txnStatus === 'Cancelled'
+                  ? (isExchange ? 'Exchange Cancelled' : 'Transfer Cancelled')
+                  : (isExchange ? 'Exchange Successful' : 'Transfer Successful')}
               </h1>
-              <p className="text-gray-700 text-lg font-medium drop-shadow-sm">
+              <p className="text-gray-700 text-body font-normal drop-shadow-sm">
                 {txnStatus === 'Cancelled'
                   ? 'This transaction has been successfully cancelled'
-                  : 'Your transaction has been completed successfully'}
+                  : (isExchange ? 'Your currency exchange has been completed successfully' : 'Your transaction has been completed successfully')}
               </p>
             </div>
 
@@ -1690,16 +1788,16 @@ export const TransferSuccess = ({
               {/* Meta grid */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pb-8 border-b border-[#E00000]/30">
                 <div>
-                  <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Transaction ID</p>
-                  <p className="font-bold text-white text-sm tracking-wide">{invoiceData?.name}</p>
+                  <p className="text-overline font-semibold text-[#b5f000] uppercase tracking-wider mb-1">Transaction ID</p>
+                  <p className="font-semibold text-white text-body tracking-wide">{invoiceData?.name || txnId}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Date &amp; Time</p>
-                  <p className="font-medium text-white/90 text-sm tracking-wide">{txnDate}</p>
+                  <p className="text-overline font-semibold text-[#b5f000] uppercase tracking-wider mb-1">Date &amp; Time</p>
+                  <p className="font-normal text-white/90 text-body tracking-wide">{txnDate}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Status</p>
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${txnStatus === 'Cancelled'
+                  <p className="text-overline font-semibold text-[#b5f000] uppercase tracking-wider mb-1">Status</p>
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-caption font-semibold ${txnStatus === 'Cancelled'
                     ? 'bg-red-500/20 text-red-500 border border-red-500/30'
                     : 'bg-[#b5f000]/20 text-[#b5f000] border border-[#b5f000]/30 shadow-sm'
                     }`}>
@@ -1709,13 +1807,13 @@ export const TransferSuccess = ({
                   </span>
                 </div>
                 <div className="md:text-right">
-                  <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Payment Method</p>
-                  <p className="font-medium text-white/90 text-sm tracking-wide">Cash</p>
+                  <p className="text-overline font-semibold text-[#b5f000] uppercase tracking-wider mb-1">Payment Method</p>
+                  <p className="font-normal text-white/90 text-body tracking-wide">Cash</p>
                 </div>
                 {exchangeRate && (
                   <div className="md:text-right col-span-2 md:col-span-1">
-                    <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Exchange Rate</p>
-                    <p className="font-bold text-white text-sm tracking-wide">
+                    <p className="text-overline font-semibold text-[#b5f000] uppercase tracking-wider mb-1">Exchange Rate</p>
+                    <p className="font-semibold text-white text-body tracking-wide tnum">
                       1 FJD  = {fmt(exchangeRate, 4)} {senderCurrency ?? '—'}
                     </p>
                   </div>
@@ -1728,8 +1826,15 @@ export const TransferSuccess = ({
                     <Icon name="person_pin" size={22} />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-[#b5f000] uppercase tracking-widest mb-1">Customer Details</p>
-                    <h3 className="text-xl font-black text-white">{recipientName}</h3>
+                    <p className="text-overline font-semibold text-[#b5f000] uppercase tracking-wider mb-1">
+                      {isDealer ? 'Dealer Details' : 'Customer Details'}
+                    </p>
+                    <h3 className="text-h2 font-bold text-white">{recipientName}</h3>
+                    {recipientId && recipientId !== recipientName && (
+                      <p className="text-sm font-medium text-white/70 tracking-wide mt-0.5">
+                        {isDealer ? 'Dealer ID' : 'Customer ID'}: <span className="font-semibold text-white/90">{recipientId}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1739,19 +1844,19 @@ export const TransferSuccess = ({
                 <table className="w-full text-left border-collapse min-w-[500px]">
                   <thead className="bg-[#421010]/50 border-b border-[#E00000]/30">
                     <tr>
-                      <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider">Currency Code with Denomination</th>
-                      <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider text-right">Qty</th>
+                      <th className="px-6 py-4 text-overline font-semibold text-[#b5f000] uppercase tracking-wider">Currency Code with Denomination</th>
+                      <th className="px-6 py-4 text-overline font-semibold text-[#b5f000] uppercase tracking-wider text-right">Qty</th>
                       {/* <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider text-right">Rate ({currency})</th> */}
-                      <th className="px-6 py-4 text-xs font-bold text-[#b5f000] uppercase tracking-wider text-right">Amount ({currency})</th>
+                      <th className="px-6 py-4 text-overline font-semibold text-[#b5f000] uppercase tracking-wider text-right">Amount ({currency})</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E00000]/20">
                     {rows.map((row, i) => (
                       <tr key={i} className="hover:bg-white/5 transition-colors">
-                        <td className="px-6 py-4 text-sm font-semibold text-white/90">{row.label}</td>
-                        <td className="px-6 py-4 text-sm text-white/70 text-right">{row.qty}</td>
+                        <td className="px-6 py-4 text-label font-semibold text-white/90">{row.label}</td>
+                        <td className="px-6 py-4 text-label text-white/70 text-right tnum">{row.qty}</td>
                         {/* <td className="px-6 py-4 text-sm text-white/70 text-right">{fmt(row.rate, 4)} FJD</td> */}
-                        <td className="px-6 py-4 text-sm font-bold text-white text-right">{fmt(row.amount, 4)}</td>
+                        <td className="px-6 py-4 text-label font-bold text-white text-right tnum">{fmt(row.amount, 2)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1761,12 +1866,12 @@ export const TransferSuccess = ({
               {/* Summary */}
               <div className="mt-8 pt-8 border-t border-[#E00000]/30 flex flex-col items-end gap-3">
                 <div className="flex justify-between w-full max-w-[260px]">
-                  <span className="text-sm font-medium text-white/70">Net Amount:</span>
-                  <span className="text-sm font-bold text-white">{fmt(netAmount, 4)} {currency}</span>
+                  <span className="text-body font-normal text-white/70">Net Amount:</span>
+                  <span className="text-body font-bold text-white tnum">{fmt(netAmount, 2)} {currency}</span>
                 </div>
                 {/* <div className="flex justify-between w-full max-w-[260px]">
                   <span className="text-sm font-medium text-white/70">Taxes (VAT):</span>
-                  <span className="text-sm font-bold text-white">{fmt(taxAmount, 4)} {currency}</span>
+                  <span className="text-sm font-bold text-white">{fmt(taxAmount, 2)} {currency}</span>
                 </div> */}
                 {/* {exchangeRate && (
                   <div className="flex justify-between w-full max-w-[260px]">
@@ -1777,8 +1882,8 @@ export const TransferSuccess = ({
                   </div>
                 )} */}
                 <div className="flex justify-between w-full max-w-[260px] pt-5 mt-2 border-t border-[#E00000]/30">
-                  <span className="text-lg font-black text-white">Grand Total:</span>
-                  <span className="text-lg font-black text-[#b5f000]">{fmt(roundedTotal)} {currency}</span>
+                  <span className="text-amount font-bold text-white">Grand Total:</span>
+                  <span className="text-amount font-bold text-[#b5f000] tnum">{fmt(roundedTotal)} {currency}</span>
                 </div>
               </div>
             </div>
@@ -1787,17 +1892,17 @@ export const TransferSuccess = ({
             <div className="flex flex-wrap items-center justify-center gap-4 mt-4">
               <button
                 onClick={onDashboard}
-                className="flex items-center justify-center gap-2 bg-[#E00000] hover:bg-[#b5f000] text-white hover:text-[#421010] font-bold py-4 px-8 rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 group"
+                className="flex items-center justify-center gap-2 bg-[#E00000] hover:bg-[#b5f000] text-white hover:text-[#421010] text-btn-lg font-semibold py-3 px-8 rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 group"
               >
                 <Icon name="send" size={20} className="transition-transform group-hover:translate-x-1" />
-                Make Another Transfer
+                {isExchange ? 'Make Another Exchange' : 'Make Another Transfer'}
               </button>
 
               {apiDoc?.name && (
                 <button
                   onClick={handleCancelClick}
                   disabled={isCancelling || isCancelled}
-                  className={`flex items-center justify-center gap-2 font-bold py-4 px-8 rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 group border-2 ${isCancelled
+                  className={`flex items-center justify-center gap-2 text-btn-lg font-semibold py-3 px-8 rounded-xl transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 group border-2 ${isCancelled
                     ? 'bg-gray-600/30 border-gray-600/50 text-gray-500 cursor-not-allowed'
                     : 'bg-transparent border-red-500 text-red-500 hover:bg-red-500 hover:text-white'
                     }`}
@@ -1807,7 +1912,7 @@ export const TransferSuccess = ({
                   ) : (
                     <Icon name="cancel" size={20} />
                   )}
-                  {isCancelled ? 'Cancelled' : 'Cancel Transfer'}
+                  {isCancelled ? 'Cancelled' : (isExchange ? 'Cancel Exchange' : 'Cancel Transfer')}
                 </button>
               )}
 
@@ -1841,7 +1946,7 @@ export const TransferSuccess = ({
             </div>
 
             <p className="text-center text-sm text-white/50 mb-8 mt-4">
-              Need help with this transfer?{' '}
+              Need help with this {isExchange ? 'exchange' : 'transfer'}?{' '}
               <a href="#" className="text-[#b5f000] font-bold hover:underline">
                 Contact Support
               </a>

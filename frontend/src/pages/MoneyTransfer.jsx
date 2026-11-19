@@ -7,6 +7,7 @@ import Footer from "../components/layout/Footer";
 import { useERPFileUpload } from "../hooks/useERPFileUpload";
 import { useUser } from "../context/UserContext";
 import { getCustomerById, createCustomer, updateCustomer, fetchNewCustomerId, updateCustomerRiskLevel } from "../features/exchange/api/customer";
+import { fetchCustomerLastTransaction, extractMoneyTransferPrefill } from "../features/exchange/api/lastTransaction";
 import DocumentUploadTable from "../components/DocumentUploadTable";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -14,8 +15,10 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   ArrowLeftRight,
+  ArrowRight,
   CheckCircle2,
   ChevronDown,
+  RotateCcw,
   User,
   Phone,
   Search,
@@ -37,6 +40,91 @@ import { useCountries } from "../hooks/useCountry";
 import { buildApiUrl, getFetchOptions } from "../features/exchange/config/erpConfig";
 import { useSettings } from "../context/SettingsContext";
 import { validateStockAvailability } from "../hooks/useStockValidation";
+import { useLocation } from "react-router-dom";
+
+// ── ID Expiry Calculation Helper ──────────────────────────────────────────────
+export const getIdExpiryStatus = (rawDate) => {
+  if (!rawDate) {
+    return {
+      isExpired: false,
+      isExpiringSoon: false,
+      daysDiff: null,
+      daysExpired: 0,
+      formattedDate: "",
+    };
+  }
+
+  let expDate = null;
+  if (rawDate instanceof Date) {
+    if (!isNaN(rawDate.getTime())) {
+      expDate = new Date(rawDate.getFullYear(), rawDate.getMonth(), rawDate.getDate());
+    }
+  } else if (typeof rawDate === "string") {
+    const trimmed = rawDate.trim();
+    if (!trimmed) {
+      return {
+        isExpired: false,
+        isExpiringSoon: false,
+        daysDiff: null,
+        daysExpired: 0,
+        formattedDate: "",
+      };
+    }
+    const isoMatch = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    if (isoMatch) {
+      const year = parseInt(isoMatch[1], 10);
+      const month = parseInt(isoMatch[2], 10) - 1;
+      const day = parseInt(isoMatch[3], 10);
+      expDate = new Date(year, month, day);
+    } else {
+      const dmyMatch = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+      if (dmyMatch) {
+        const day = parseInt(dmyMatch[1], 10);
+        const month = parseInt(dmyMatch[2], 10) - 1;
+        const year = parseInt(dmyMatch[3], 10);
+        expDate = new Date(year, month, day);
+      } else {
+        const parsed = new Date(trimmed);
+        if (!isNaN(parsed.getTime())) {
+          expDate = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+        }
+      }
+    }
+  }
+
+  if (!expDate || isNaN(expDate.getTime())) {
+    return {
+      isExpired: false,
+      isExpiringSoon: false,
+      daysDiff: null,
+      daysExpired: 0,
+      formattedDate: typeof rawDate === "string" ? rawDate : "",
+    };
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const daysDiff = Math.round((expDate.getTime() - today.getTime()) / msPerDay);
+  const isExpired = daysDiff < 0;
+  const daysExpired = isExpired ? Math.abs(daysDiff) : 0;
+  const isExpiringSoon = !isExpired && daysDiff <= 30;
+
+  const yyyy = expDate.getFullYear();
+  const mm = String(expDate.getMonth() + 1).padStart(2, "0");
+  const dd = String(expDate.getDate()).padStart(2, "0");
+  const formattedDate = `${yyyy}-${mm}-${dd}`;
+
+  return {
+    isExpired,
+    daysExpired,
+    isExpiringSoon,
+    daysDiff,
+    expiryDate: expDate,
+    formattedDate,
+  };
+};
 
 // ── Fuzzy Customer Autocomplete Input for full_name / phone_number ────────────
 function CustomerAutocompleteInput({
@@ -99,12 +187,18 @@ function CustomerAutocompleteInput({
         let list = res.data?.message ?? [];
         if (!Array.isArray(list)) list = [];
 
+        // Exclude Dealer and Warehouse customer groups
+        list = list.filter((c) => {
+          const grp = (c?.customer_group || "").trim().toLowerCase();
+          return grp !== "dealer" && grp !== "warehouse branch" && grp !== "warehouse vault";
+        });
+
         // Direct search on Customer DocType by mobile_no if searchField is phone
         if (searchField === "phone" && searchTerm.trim()) {
           try {
             const phoneFilters = [
               ["mobile_no", "like", `%${searchTerm.trim()}%`],
-              ["customer_group", "not in", ["Warehouse Branch", "Warehouse Vault"]]
+              ["customer_group", "not in", ["Warehouse Branch", "Warehouse Vault", "Dealer"]]
             ];
             const directCustRes = await axios.get("/api/resource/Customer", {
               params: {
@@ -112,6 +206,7 @@ function CustomerAutocompleteInput({
                 fields: JSON.stringify([
                   "name",
                   "customer_name",
+                  "customer_group",
                   "custom_customer_id",
                   "custom_full_name",
                   "custom_date_of_birth",
@@ -129,6 +224,7 @@ function CustomerAutocompleteInput({
             });
             const directCusts = directCustRes.data?.data ?? [];
             directCusts.forEach((dc) => {
+              if ((dc.customer_group || "").trim().toLowerCase() === "dealer") return;
               dc.customer_id = dc.custom_customer_id || dc.name;
               dc.phone_number = dc.mobile_no || "";
               if (!list.some((existing) => existing.name === dc.name)) {
@@ -147,7 +243,7 @@ function CustomerAutocompleteInput({
             const directCustRes = await axios.get("/api/resource/Customer", {
               params: {
                 filters: JSON.stringify([
-                  ["customer_group", "not in", ["Warehouse Branch", "Warehouse Vault"]],
+                  ["customer_group", "not in", ["Warehouse Branch", "Warehouse Vault", "Dealer"]],
                 ]),
                 or_filters: JSON.stringify([
                   ["custom_customer_id", "like", `%${idTerm}%`],
@@ -156,6 +252,7 @@ function CustomerAutocompleteInput({
                 fields: JSON.stringify([
                   "name",
                   "customer_name",
+                  "customer_group",
                   "custom_customer_id",
                   "custom_full_name",
                   "custom_date_of_birth",
@@ -165,6 +262,7 @@ function CustomerAutocompleteInput({
                   "custom_drivers_licence_number",
                   "custom_voter_id_number",
                   "custom_tin_number",
+                  "custom_government_document",
                   "image",
                   "custom_risk_level",
                 ]),
@@ -174,6 +272,7 @@ function CustomerAutocompleteInput({
             });
             const directCusts = directCustRes.data?.data ?? [];
             directCusts.forEach((dc) => {
+              if ((dc.customer_group || "").trim().toLowerCase() === "dealer") return;
               dc.customer_id = dc.custom_customer_id || dc.name;
               dc.phone_number = dc.mobile_no || "";
               if (!list.some((existing) => existing.name === dc.name)) {
@@ -182,6 +281,55 @@ function CustomerAutocompleteInput({
             });
           } catch (e) {
             console.warn("Direct Customer ID search query error:", e);
+          }
+        }
+
+        // Direct search on Customer DocType by name / full name if searchField is name
+        if (searchField === "name" && searchTerm.trim()) {
+          try {
+            const nameTerm = searchTerm.trim();
+            const directCustRes = await axios.get("/api/resource/Customer", {
+              params: {
+                filters: JSON.stringify([
+                  ["customer_group", "not in", ["Warehouse Branch", "Warehouse Vault", "Dealer"]],
+                ]),
+                or_filters: JSON.stringify([
+                  ["custom_full_name", "like", `%${nameTerm}%`],
+                  ["customer_name", "like", `%${nameTerm}%`],
+                  ["name", "like", `%${nameTerm}%`],
+                ]),
+                fields: JSON.stringify([
+                  "name",
+                  "customer_name",
+                  "customer_group",
+                  "custom_customer_id",
+                  "custom_full_name",
+                  "custom_date_of_birth",
+                  "mobile_no",
+                  "custom_government_id",
+                  "custom_passport_number",
+                  "custom_drivers_licence_number",
+                  "custom_voter_id_number",
+                  "custom_tin_number",
+                  "custom_government_document",
+                  "image",
+                  "custom_risk_level",
+                ]),
+                limit_page_length: 25,
+              },
+              headers: authHeaders,
+            });
+            const directCusts = directCustRes.data?.data ?? [];
+            directCusts.forEach((dc) => {
+              if ((dc.customer_group || "").trim().toLowerCase() === "dealer") return;
+              dc.customer_id = dc.custom_customer_id || dc.name;
+              dc.phone_number = dc.mobile_no || "";
+              if (!list.some((existing) => existing.name === dc.name)) {
+                list.push(dc);
+              }
+            });
+          } catch (e) {
+            console.warn("Direct Customer Name search query error:", e);
           }
         }
 
@@ -321,7 +469,8 @@ function CustomerAutocompleteInput({
   // Visible customers sorted by highest match score
   const visibleCustomers = useMemo(() => {
     const q = (query || "").trim().toLowerCase();
-    const source = masterListRef.current.length > 0 ? masterListRef.current : customers;
+    const source = (masterListRef.current.length > 0 ? masterListRef.current : customers)
+      .filter((c) => (c?.customer_group || "").trim().toLowerCase() !== "dealer");
 
     if (!q) {
       return source.slice(0, 20);
@@ -337,8 +486,7 @@ function CustomerAutocompleteInput({
           (cleanTyped && cleanCust && (cleanCust.includes(cleanTyped) || cleanTyped.includes(cleanCust))) ||
           custPhone.toLowerCase().includes(q);
         console.log(
-          `   👉 Customer: "${c.custom_full_name || c.customer_name || c.name}" | mobile_no: "${c.mobile_no || "(none)"}" | Match: ${
-            isMatch ? "✅ MATCHED" : "❌ NO MATCH"
+          `   👉 Customer: "${c.custom_full_name || c.customer_name || c.name}" | mobile_no: "${c.mobile_no || "(none)"}" | Match: ${isMatch ? "✅ MATCHED" : "❌ NO MATCH"
           }`
         );
       });
@@ -348,6 +496,7 @@ function CustomerAutocompleteInput({
     const seen = new Set();
 
     customers.forEach((c) => {
+      if ((c?.customer_group || "").trim().toLowerCase() === "dealer") return;
       const cId = c?.custom_customer_id || c?.name;
       if (!cId || seen.has(cId)) return;
       seen.add(cId);
@@ -360,6 +509,7 @@ function CustomerAutocompleteInput({
     });
 
     masterListRef.current.forEach((c) => {
+      if ((c?.customer_group || "").trim().toLowerCase() === "dealer") return;
       const cId = c?.custom_customer_id || c?.name;
       if (!cId || seen.has(cId)) return;
       seen.add(cId);
@@ -382,12 +532,13 @@ function CustomerAutocompleteInput({
   }, [customers, query, searchField]);
 
   const handleSelect = (c) => {
+    if ((c?.customer_group || "").trim().toLowerCase() === "dealer") return;
     const chosenVal =
       searchField === "phone"
         ? (c.phone_number || c.mobile_no || c.phone || "")
         : searchField === "id"
-        ? (c.custom_customer_id || c.customer_id || c.name || "")
-        : (c.custom_full_name || c.customer_name || c.name || "");
+          ? (c.custom_customer_id || c.customer_id || c.name || "")
+          : (c.custom_full_name || c.customer_name || c.name || "");
     setQuery(chosenVal);
     setIsOpen(false);
     onSelectCustomer(c);
@@ -459,29 +610,29 @@ function CustomerAutocompleteInput({
               {searchField === "phone"
                 ? "Matching Customers by Phone"
                 : searchField === "id"
-                ? "Matching Customers by Customer ID"
-                : "Matching Customers"}{" "}
+                  ? "Matching Customers by Customer ID"
+                  : "Matching Customers"}{" "}
               ({visibleCustomers.length})
             </span>
             {loading ? (
-              <span className="flex items-center gap-1 text-gray-400 text-[10px]">
-                <RefreshCw size={10} className="animate-spin" /> Searching…
+              <span className="flex items-center gap-1 text-gray-600 text-[10px] font-medium">
+                <RefreshCw size={10} className="animate-spin text-gray-600" /> Searching…
               </span>
             ) : (
-              <span className="text-[10px] text-gray-400">Select to auto-populate</span>
+              <span className="text-[10px] text-gray-600 font-medium">Select to auto-populate</span>
             )}
           </div>
 
           <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
             {loading && visibleCustomers.length === 0 ? (
-              <div className="px-4 py-5 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
-                <RefreshCw size={13} className="animate-spin text-gray-400" />
+              <div className="px-4 py-5 text-center text-xs text-gray-600 flex items-center justify-center gap-2">
+                <RefreshCw size={13} className="animate-spin text-gray-600" />
                 <span>Searching customer records…</span>
               </div>
             ) : visibleCustomers.length === 0 ? (
-              <div className="px-4 py-4 text-center text-xs text-gray-500">
-                <p className="font-semibold text-gray-700">No matching customer found</p>
-                <p className="text-[11px] text-gray-400 mt-0.5">
+              <div className="px-4 py-4 text-center text-xs text-gray-600">
+                <p className="font-semibold text-gray-800">No matching customer found</p>
+                <p className="text-[11px] text-gray-600 mt-0.5">
                   Try searching by Phone number, Customer ID, Name or ID number
                 </p>
               </div>
@@ -492,6 +643,7 @@ function CustomerAutocompleteInput({
                 const idNum = c.id_number || c.custom_passport_number || c.custom_drivers_licence_number || c.custom_voter_id_number || c.custom_tin_number || '';
                 const phoneNum = c.phone_number || c.mobile_no || c.phone || c.custom_contact_number || c.contact_number || '';
                 const isHighlighted = highlightedIndex === idx;
+                const customerExp = getIdExpiryStatus(c.custom_id_expiry_date || c.id_expiry_date);
                 return (
                   <div
                     key={c.name}
@@ -500,17 +652,15 @@ function CustomerAutocompleteInput({
                       handleSelect(c);
                     }}
                     onMouseEnter={() => setHighlightedIndex(idx)}
-                    className={`px-3.5 py-2.5 cursor-pointer transition-colors flex items-center justify-between ${
-                      isHighlighted
+                    className={`px-3.5 py-2.5 cursor-pointer transition-colors flex items-center justify-between ${isHighlighted
                         ? "bg-red-50 text-[#E00000]"
-                        : "hover:bg-gray-50 text-gray-700"
-                    }`}
+                        : "hover:bg-gray-50 text-gray-800"
+                      }`}
                   >
-                    <div className="truncate pr-2">
+                    <div className="truncate pr-2 flex-1 min-w-0">
                       <div
-                        className={`text-xs ${
-                          isHighlighted ? "font-bold text-[#E00000]" : "font-medium text-gray-800"
-                        } truncate flex items-center gap-2`}
+                        className={`text-xs ${isHighlighted ? "font-bold text-[#E00000]" : "font-medium text-gray-900"
+                          } truncate flex items-center gap-2`}
                       >
                         {searchField === "id" ? (
                           <>
@@ -522,24 +672,39 @@ function CustomerAutocompleteInput({
                         ) : (
                           <>
                             <span>{name}</span>
-                            <span className="font-mono text-[11px] font-bold px-1.5 py-0.2 bg-gray-100 rounded text-gray-700">
+                            <span className="font-mono text-[11px] font-bold px-1.5 py-0.2 bg-gray-100 rounded text-gray-800">
                               {cId}
                             </span>
                           </>
                         )}
-                      </div>
-                      <div className="text-[10px] text-gray-400 font-mono truncate mt-0.5">
-                        {phoneNum ? (
-                          <strong className="text-gray-700">📞 {phoneNum}</strong>
-                        ) : (
-                          <span className="italic text-gray-400">No phone attached</span>
+                        {customerExp.isExpired && (
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-overline font-semibold bg-red-100 text-red-700 border border-red-300 shrink-0">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse"></span>
+                            Expired ID
+                          </span>
                         )}
-                        {c.custom_date_of_birth ? ` • DOB: ${c.custom_date_of_birth}` : ''}
-                        {idNum ? ` • ID: ${idNum}` : ''}
+                      </div>
+                      <div className="text-[11px] text-gray-600 font-mono truncate mt-0.5 flex items-center flex-wrap gap-x-2">
+                        {phoneNum ? (
+                          <strong className="text-gray-800">📞 {phoneNum}</strong>
+                        ) : (
+                          <span className="italic text-gray-500">No phone attached</span>
+                        )}
+                        {c.custom_date_of_birth ? <span>• DOB: {c.custom_date_of_birth}</span> : null}
+                        {idNum ? <span>• ID: {idNum}</span> : null}
+                        {customerExp.formattedDate ? (
+                          customerExp.isExpired ? (
+                            <span className="text-red-600 font-bold">
+                              • Exp: {customerExp.formattedDate} (Expired {customerExp.daysExpired}d ago)
+                            </span>
+                          ) : (
+                            <span>• Exp: {customerExp.formattedDate}</span>
+                          )
+                        ) : null}
                       </div>
                     </div>
-                    <div className="shrink-0 flex items-center gap-1 text-[11px] font-semibold text-gray-400">
-                      <span className={isHighlighted ? "text-[#E00000]" : "text-gray-400"}>
+                    <div className="shrink-0 flex items-center gap-1 text-[11px] font-semibold text-gray-600">
+                      <span className={isHighlighted ? "text-[#E00000]" : "text-gray-600"}>
                         Select &rarr;
                       </span>
                     </div>
@@ -555,12 +720,15 @@ function CustomerAutocompleteInput({
 }
 
 const MoneyTransfer = () => {
+  const location = useLocation();
+  const requestedTransferType = new URLSearchParams(location.search).get("type");
+  const launchTransferType = ["Send", "Receive"].includes(requestedTransferType) ? requestedTransferType : "Send";
   console.log("🚨🚨🚨 NEW MONEY TRANSFER FILE IS RUNNING 🚨🚨🚨");
   const { uploadFile } = useERPFileUpload();
   const loginUser = useUser();
   const { potOptions, loading: potLoading, error: potError } = useAppConfiguration();
   const [metaFields, setMetaFields] = useState([]);
-  const [form, setForm] = useState({ transfer_type: "Send", oet_code: "18" });
+  const [form, setForm] = useState({ transfer_type: launchTransferType, oet_code: "18" });
   const [currencyDenominationRows, setCurrencyDenominationRows] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [enableSplitPayout, setEnableSplitPayout] = useState(false);
@@ -569,6 +737,12 @@ const MoneyTransfer = () => {
   const [successInfo, setSuccessInfo] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
   const [submitError, setSubmitError] = useState("");
+  const [complianceAssessment, setComplianceAssessment] = useState(null);
+  const [complianceConfig, setComplianceConfig] = useState(null);
+  const missingComplianceDocs = useMemo(() => {
+    return complianceAssessment?.missing_documents || [];
+  }, [complianceAssessment]);
+  const hasMissingComplianceDocs = missingComplianceDocs.length > 0;
   const { data: baseCurrencyData, loading: baseDenomLoading, error: baseDenomError } = useBaseCurrency();
   const { countries: hookCountries, loading: hookCountriesLoading } = useCountries();
   const [linkOptionsMap, setLinkOptionsMap] = useState({});
@@ -609,11 +783,11 @@ const MoneyTransfer = () => {
         const isCountry = doctype.toLowerCase() === "country";
         const url = isCountry
           ? buildApiUrl(
-              '/api/resource/Country?fields=["name","country_name"]&limit_page_length=300&order_by=name%20asc'
-            )
+            '/api/resource/Country?fields=["name","country_name"]&limit_page_length=300&order_by=name%20asc'
+          )
           : buildApiUrl(
-              `/api/resource/${encodeURIComponent(doctype)}?fields=["name"]&limit_page_length=300&order_by=name%20asc`
-            );
+            `/api/resource/${encodeURIComponent(doctype)}?fields=["name"]&limit_page_length=300&order_by=name%20asc`
+          );
 
         const res = await fetch(
           url,
@@ -994,10 +1168,79 @@ const MoneyTransfer = () => {
     return map;
   }, [metaFields]);
 
-  const documentRows = form.documents ?? [
-    ...(form.document_upload ? [{ document_type: "ID", attachment: form.document_upload, notes: "" }] : []),
-    ...(form.upload_additional_info ? [{ document_type: "Additional Info", attachment: form.upload_additional_info, notes: "" }] : []),
-  ];
+  const idAttachment = form.document_upload || form.custom_government_document || null;
+  const additionalAttachment = form.upload_additional_info || null;
+  const documentRows = (Array.isArray(form.documents) && form.documents.length > 0)
+    ? form.documents
+    : [
+        ...(idAttachment ? [{
+          document_type: form.government_id_type || form.custom_government_id || "Passport",
+          document_number: form.government_id_number || form.passport_number || "",
+          issue_date: form.id_issue_date || form.custom_id_issue_date || "",
+          expiry_date: form.id_expiry_date || form.custom_id_expiry_date || "",
+          issue_country: form.id_issue_country || form.custom_id_issue_country || "",
+          attachment: idAttachment,
+          notes: "",
+        }] : []),
+        ...(additionalAttachment ? [{
+          document_type: "Other",
+          attachment: additionalAttachment,
+          notes: "",
+        }] : []),
+      ];
+
+  const handleDocumentsChange = (rows) => {
+    const primaryIdDoc = rows.find((r) => r.document_type && r.document_type !== "Other" && r.document_type !== "Additional Info") || rows[0];
+
+    setForm((prev) => {
+      const next = {
+        ...prev,
+        documents: rows,
+        document_upload: rows.find((r) => r.attachment)?.attachment || "",
+        upload_additional_info: rows.find((r) => r.document_type === "Additional Info" || r.document_type === "Other")?.attachment || "",
+      };
+
+      if (primaryIdDoc) {
+        if (primaryIdDoc.document_type) {
+          next.government_id_type = primaryIdDoc.document_type;
+          next.custom_government_id = primaryIdDoc.document_type;
+        }
+        if (primaryIdDoc.document_number !== undefined) {
+          next.government_id_number = primaryIdDoc.document_number;
+          if (primaryIdDoc.document_type === "Passport") {
+            next.passport_number = primaryIdDoc.document_number;
+            next.custom_passport_number = primaryIdDoc.document_number;
+          }
+        }
+        if (primaryIdDoc.issue_date !== undefined) {
+          next.id_issue_date = primaryIdDoc.issue_date;
+          next.custom_id_issue_date = primaryIdDoc.issue_date;
+        }
+        if (primaryIdDoc.expiry_date !== undefined) {
+          next.id_expiry_date = primaryIdDoc.expiry_date;
+          next.custom_id_expiry_date = primaryIdDoc.expiry_date;
+        }
+        if (primaryIdDoc.issue_country !== undefined) {
+          next.id_issue_country = primaryIdDoc.issue_country;
+          next.custom_id_issue_country = primaryIdDoc.issue_country;
+        }
+      }
+
+      return next;
+    });
+
+    setFieldErrors((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev };
+      delete updated.documents;
+      delete updated.document_upload;
+      delete updated.government_id_type;
+      delete updated.government_id_number;
+      delete updated.id_issue_date;
+      delete updated.id_expiry_date;
+      return updated;
+    });
+  };
 
   const usableFields = React.useMemo(() => {
     let fields = metaFields
@@ -1008,6 +1251,11 @@ const MoneyTransfer = () => {
           f.fieldtype !== "Attach" &&
           f.fieldname !== "documents" &&
           f.fieldname !== "documents_section" &&
+          f.fieldname !== "government_id_type" &&
+          f.fieldname !== "government_id_number" &&
+          f.fieldname !== "id_issue_date" &&
+          f.fieldname !== "id_expiry_date" &&
+          f.fieldname !== "id_issue_country" &&
           f.fieldtype !== "Column Break" &&
           f.fieldname !== "cash_denomination_section" &&
           f.fieldname !== "currency_denomination" &&
@@ -1017,7 +1265,7 @@ const MoneyTransfer = () => {
       );
 
     if (fields.length > 0 && !fields.some((f) => f.fieldname === "oet_code")) {
-      const txnIdx = fields.findIndex((f) => f.fieldname === "transaction_id");
+      const refIdx = fields.findIndex((f) => f.fieldname === "reference_number" || f.fieldname === "amount");
       const oetField = {
         fieldname: "oet_code",
         label: "OET Code",
@@ -1025,11 +1273,11 @@ const MoneyTransfer = () => {
         reqd: 1,
         default: "18",
       };
-      if (txnIdx !== -1) {
+      if (refIdx !== -1) {
         fields = [
-          ...fields.slice(0, txnIdx + 1),
+          ...fields.slice(0, refIdx + 1),
           oetField,
-          ...fields.slice(txnIdx + 1),
+          ...fields.slice(refIdx + 1),
         ];
       } else {
         fields = [...fields, oetField];
@@ -1042,140 +1290,113 @@ const MoneyTransfer = () => {
     }));
   }, [metaFields, sectionMap]);
 
-  const orderedFields = React.useMemo(() => {
-    const getParentFieldname = (field) => {
-      if (field.fieldname === "amount") return null;
-      if (field.fieldtype === "Section Break") return null;
-      if (!field.depends_on) return null;
-      const condition = field.depends_on.replace("eval:", "");
-      const matches = [...condition.matchAll(/doc\.([a-zA-Z0-9_]+)/g)];
-      const parents = matches.map((m) => m[1]).filter((name) => name && name !== field.fieldname);
-      return parents.length ? parents[0] : null;
-    };
+  const CUSTOMER_FIELD_NAMES = [
+    "customer_id",
+    "full_name",
+    "phone_number",
+    "occupation",
+  ];
 
-    const dependents = new Map();
-    const roots = [];
+  const TRANSACTION_FIELD_NAMES = [
+    "transfer_type",
+    "amount",
+    "oet_code",
+    "risk_level",
+    "reference_number",
+    "remarks",
+  ];
 
-    usableFields.forEach((field) => {
-      const parent = getParentFieldname(field);
-      if (parent) {
-        dependents.set(parent, [...(dependents.get(parent) || []), field]);
-      } else {
-        roots.push(field);
-      }
-    });
+  const IDENTITY_FIELD_NAMES = [
+    "dob",
+    "tin_number",
+  ];
 
-    const sorted = [];
-    const visited = new Set();
+  const SENDER_RECEIVER_FIELD_NAMES = [
+    "address",
+    "address_line_2",
+    "city",
+    "stateprovince",
+    "postal_code",
+    "country",
+    "receiver_name",
+    "receiver_address",
+    "receiver_address_line_2",
+    "receiver_city",
+    "receiver_stateprovince",
+    "receiver_postal_code",
+    "receiver_country",
+  ];
 
-    const addFieldWithDependents = (field) => {
-      if (visited.has(field.fieldname)) return;
-      visited.add(field.fieldname);
-      sorted.push(field);
-      const children = dependents.get(field.fieldname) || [];
-      children.forEach(addFieldWithDependents);
-    };
+  const COMPLIANCE_FIELD_NAMES = [];
 
-    usableFields.forEach((field) => {
-      if (!visited.has(field.fieldname) && !getParentFieldname(field)) {
-        addFieldWithDependents(field);
-      }
-    });
-
-    usableFields.forEach((field) => {
-      if (!visited.has(field.fieldname)) {
-        addFieldWithDependents(field);
-      }
-    });
-
-    const positionOetCode = (list) => {
-      const tIdx = list.findIndex((f) => f.fieldname === "transaction_id");
-      const oIdx = list.findIndex((f) => f.fieldname === "oet_code");
-      if (tIdx !== -1 && oIdx !== -1 && oIdx !== tIdx + 1) {
-        const [oetField] = list.splice(oIdx, 1);
-        const newTIdx = list.findIndex((f) => f.fieldname === "transaction_id");
-        list.splice(newTIdx + 1, 0, oetField);
-      }
-      return list;
-    };
-
-    // Reorder: transfer_type, then amount, and keep check fields (enable_currency_denomination) at the end of all fields
-    const transferTypeField = sorted.find((f) => f.fieldname === "transfer_type");
-    const amountField = sorted.find((f) => f.fieldname === "amount");
-    const checkFields = sorted.filter(
-      (f) => f.fieldtype === "Check" && f.fieldname !== "enable_currency_denomination"
-    );
-
-    let result = [...sorted];
-
-    if (transferTypeField) {
-      const anchorIndex = result.findIndex(
-        (f) => f.fieldname === "transfer_type" || f.fieldname === "amount"
-      );
-
-      const remaining = result.filter(
-        (f) =>
-          f.fieldname !== "transfer_type" &&
-          f.fieldname !== "amount" &&
-          f.fieldname !== "enable_currency_denomination" &&
-          !checkFields.some((c) => c.fieldname === f.fieldname)
-      );
-
-      // Ensure customer_id comes right before full_name if both present
-      const cIdIdx = remaining.findIndex((f) => f.fieldname === "customer_id");
-      const fnIdx = remaining.findIndex((f) => f.fieldname === "full_name");
-      if (cIdIdx !== -1 && fnIdx !== -1 && cIdIdx > fnIdx) {
-        const [cIdField] = remaining.splice(cIdIdx, 1);
-        const newFnIdx = remaining.findIndex((f) => f.fieldname === "full_name");
-        remaining.splice(newFnIdx, 0, cIdField);
-      }
-
-      positionOetCode(remaining);
-
-      const insertAt =
-        anchorIndex !== -1 ? Math.min(anchorIndex, remaining.length) : remaining.length;
-
-      const orderedGroup = [transferTypeField];
-      if (amountField) orderedGroup.push(amountField);
-
-      remaining.splice(insertAt, 0, ...orderedGroup);
-      remaining.push(...checkFields);
-      return remaining;
-    } else if (checkFields.length > 0) {
-      const remaining = result.filter(
-        (f) => f.fieldname !== "enable_currency_denomination" && !checkFields.some((c) => c.fieldname === f.fieldname)
-      );
-
-      const cIdIdx = remaining.findIndex((f) => f.fieldname === "customer_id");
-      const fnIdx = remaining.findIndex((f) => f.fieldname === "full_name");
-      if (cIdIdx !== -1 && fnIdx !== -1 && cIdIdx > fnIdx) {
-        const [cIdField] = remaining.splice(cIdIdx, 1);
-        const newFnIdx = remaining.findIndex((f) => f.fieldname === "full_name");
-        remaining.splice(newFnIdx, 0, cIdField);
-      }
-
-      positionOetCode(remaining);
-
-      remaining.push(...checkFields);
-      return remaining;
-    }
-
-    return positionOetCode(sorted.filter((f) => f.fieldname !== "enable_currency_denomination"));
+  const customerFields = React.useMemo(() => {
+    return CUSTOMER_FIELD_NAMES.map((name) =>
+      usableFields.find((f) => f.fieldname === name)
+    ).filter(Boolean);
   }, [usableFields]);
 
+  const transactionFields = React.useMemo(() => {
+    return TRANSACTION_FIELD_NAMES.map((name) =>
+      usableFields.find((f) => f.fieldname === name)
+    ).filter(Boolean);
+  }, [usableFields]);
+
+  const identityFields = React.useMemo(() => {
+    return IDENTITY_FIELD_NAMES.map((name) =>
+      usableFields.find((f) => f.fieldname === name)
+    ).filter(Boolean);
+  }, [usableFields]);
+
+  const senderReceiverFields = React.useMemo(() => {
+    return SENDER_RECEIVER_FIELD_NAMES.map((name) =>
+      usableFields.find((f) => f.fieldname === name)
+    ).filter(Boolean);
+  }, [usableFields]);
+
+  const complianceFields = React.useMemo(() => {
+    return COMPLIANCE_FIELD_NAMES.map((name) =>
+      usableFields.find((f) => f.fieldname === name)
+    ).filter(Boolean);
+  }, [usableFields]);
+
+  const otherFields = React.useMemo(() => {
+    const knownNames = new Set([
+      ...CUSTOMER_FIELD_NAMES,
+      ...TRANSACTION_FIELD_NAMES,
+      ...IDENTITY_FIELD_NAMES,
+      ...SENDER_RECEIVER_FIELD_NAMES,
+      ...COMPLIANCE_FIELD_NAMES,
+      "enable_currency_denomination",
+    ]);
+    return usableFields.filter(
+      (f) => !knownNames.has(f.fieldname) && f.fieldtype !== "Section Break"
+    );
+  }, [usableFields]);
+
+  const orderedFields = React.useMemo(() => {
+    return [
+      ...customerFields,
+      ...transactionFields,
+      ...identityFields,
+      ...senderReceiverFields,
+      ...complianceFields,
+      ...otherFields,
+    ];
+  }, [customerFields, transactionFields, identityFields, senderReceiverFields, complianceFields, otherFields]);
+
   const inputStyle =
-    "w-full min-w-0 box-border bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#E00000] focus:bg-white transition-all duration-200";
+    "w-full min-w-0 box-border bg-gray-50 border border-gray-200 text-gray-900 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#E00000] focus:bg-white placeholder:text-gray-400 transition-all duration-200";
 
   const getInputStyle = (fieldname, extra = "") => {
     const hasError = Boolean(fieldErrors && fieldErrors[fieldname]);
     const errorClasses = hasError
       ? "border-red-400 bg-red-50/20 ring-1 ring-red-400 focus:ring-red-500"
-      : "border-gray-100 focus:ring-[#E00000]";
+      : "border-gray-200 focus:ring-[#E00000]";
     return `${inputStyle} ${errorClasses} ${extra}`.trim();
   };
 
   const labelStyle =
-    "text-xs uppercase font-bold text-gray-400 mb-2 block";
+    "text-xs uppercase font-bold text-gray-700 tracking-wider mb-2 block";
 
   const handleChange = (key, value) => {
     // Clear error for this field if user modifies it
@@ -1199,6 +1420,13 @@ const MoneyTransfer = () => {
         ...prev,
         [key]: value,
       }));
+    }
+
+    if (key === "transfer_type" || key === "transaction_type") {
+      if (form.transfer_type !== value) {
+        resetForm(value);
+        return;
+      }
     }
 
     if (
@@ -1460,7 +1688,7 @@ const MoneyTransfer = () => {
   //   return () => clearTimeout(delay);
   // ── Handle customer selected from autocomplete dropdown ───────────────────
   const handleSelectCustomer = async (c) => {
-    if (!c) return;
+    if (!c || (c?.customer_group || "").trim().toLowerCase() === "dealer") return;
     const nameVal = c.custom_full_name || c.customer_name || c.full_name || c.name || "";
     const custId = c.custom_customer_id || c.customer_id || c.name || "";
     const phoneVal = c.mobile_no || c.phone_number || c.phone || c.custom_contact_number || c.contact_number || "";
@@ -1484,6 +1712,8 @@ const MoneyTransfer = () => {
       setCustomerImageFile(null);
     }
 
+    const existingDoc = c.custom_government_document || c.document_upload || "";
+
     // Immediately populate all fields from selected customer into form
     setForm((prev) => ({
       ...prev,
@@ -1497,9 +1727,17 @@ const MoneyTransfer = () => {
       custom_date_of_birth: c.custom_date_of_birth || c.dob || prev.custom_date_of_birth || "",
       passport_number: c.custom_passport_number || prev.passport_number || "",
       custom_passport_number: c.custom_passport_number || prev.custom_passport_number || "",
-      // Evidence attachments are transaction-specific and must be uploaded again.
-      document_upload: "",
-      custom_government_document: "",
+      document_upload: existingDoc || prev.document_upload || "",
+      custom_government_document: existingDoc || prev.custom_government_document || "",
+      documents: existingDoc ? [{
+        document_type: govIdType || "Passport",
+        document_number: govIdNumber || "",
+        issue_date: c.custom_id_issue_date || c.id_issue_date || "",
+        expiry_date: c.custom_id_expiry_date || c.id_expiry_date || "",
+        issue_country: c.custom_id_issue_country || c.id_issue_country || "",
+        attachment: existingDoc,
+        notes: "",
+      }] : (prev.documents && prev.documents.length > 0 ? prev.documents : []),
       custom_government_id: govIdType || prev.custom_government_id || "",
       government_id_type: govIdType || prev.government_id_type || "",
       government_id_number: govIdNumber || prev.government_id_number || "",
@@ -1530,10 +1768,15 @@ const MoneyTransfer = () => {
         setCustomerImageUrl(existingImg || c.image || c.custom_image || "");
         setCustomerImageFile(null);
 
-        setForm((prev) => ({
-          ...prev,
-          customer_id: resolvedId,
-          customer: customer.name,
+        setForm((prev) => {
+          const docUrl = customer.custom_government_document || customer.document_upload || existingDoc || prev.document_upload || "";
+          const finalGovId = customer.custom_government_id || customer.government_id_type || govIdType || "Passport";
+          const finalGovIdNum = customer.custom_passport_number || customer.custom_drivers_licence_number || customer.custom_tin_number || customer.custom_voter_id_number || govIdNumber || "";
+
+          return {
+            ...prev,
+            customer_id: resolvedId,
+            customer: customer.name,
           full_name:
             customer.custom_full_name ||
             customer.customer_name ||
@@ -1564,15 +1807,17 @@ const MoneyTransfer = () => {
             customer.passport_number ||
             prev.custom_passport_number ||
             "",
-          document_upload:
-            customer.custom_government_document ||
-            customer.document_upload ||
-            prev.document_upload ||
-            "",
-          custom_government_document:
-            customer.custom_government_document ||
-            prev.custom_government_document ||
-            "",
+          document_upload: docUrl,
+          custom_government_document: docUrl,
+          documents: docUrl ? [{
+            document_type: finalGovId,
+            document_number: finalGovIdNum,
+            issue_date: customer.custom_id_issue_date || customer.id_issue_date || prev.id_issue_date || "",
+            expiry_date: customer.custom_id_expiry_date || customer.id_expiry_date || prev.id_expiry_date || "",
+            issue_country: customer.custom_id_issue_country || customer.id_issue_country || prev.id_issue_country || "",
+            attachment: docUrl,
+            notes: "",
+          }] : (prev.documents && prev.documents.length > 0 ? prev.documents : []),
           custom_government_id:
             customer.custom_government_id ||
             customer.government_id_type ||
@@ -1666,7 +1911,26 @@ const MoneyTransfer = () => {
             customer.risk_level ||
             prev.risk_level ||
             "Low",
-        }));
+          };
+        });
+
+        // Fetch customer's last transaction and auto-fill form (skipping amount, reference_number, remarks)
+        try {
+          const lastTxResult = await fetchCustomerLastTransaction(customer || c, "Money Transfer");
+          if (lastTxResult?.data) {
+            const prefill = extractMoneyTransferPrefill(lastTxResult.data);
+            setForm((prev) => ({
+              ...prev,
+              ...prefill,
+              documents:
+                prefill.documents && prefill.documents.length > 0
+                  ? prefill.documents
+                  : (prev.documents && prev.documents.length > 0 ? prev.documents : []),
+            }));
+          }
+        } catch (txErr) {
+          console.warn("Could not prefill last transaction in MoneyTransfer:", txErr);
+        }
       }
     } catch (err) {
       console.error("Error auto-filling customer from dropdown:", err);
@@ -1818,11 +2082,23 @@ const MoneyTransfer = () => {
             document_upload:
               customer.custom_government_document ||
               customer.document_upload ||
+              prev.document_upload ||
               "",
 
             custom_government_document:
               customer.custom_government_document ||
+              prev.custom_government_document ||
               "",
+
+            documents: (customer.custom_government_document || customer.document_upload) ? [{
+              document_type: customer.custom_government_id || customer.government_id_type || "Passport",
+              document_number: customer.custom_passport_number || customer.custom_drivers_licence_number || customer.custom_tin_number || customer.custom_voter_id_number || prev.government_id_number || "",
+              issue_date: customer.custom_id_issue_date || customer.id_issue_date || prev.id_issue_date || "",
+              expiry_date: customer.custom_id_expiry_date || customer.id_expiry_date || prev.id_expiry_date || "",
+              issue_country: customer.custom_id_issue_country || customer.id_issue_country || prev.id_issue_country || "",
+              attachment: customer.custom_government_document || customer.document_upload,
+              notes: "",
+            }] : (prev.documents && prev.documents.length > 0 ? prev.documents : []),
 
             custom_government_id:
               customer.custom_government_id ||
@@ -1962,6 +2238,30 @@ const MoneyTransfer = () => {
 
 
   const handleSubmit = async () => {
+    if (!requiredFieldsInfo.isAllComplete) {
+      const msg = `Please complete all required fields (${requiredFieldsInfo.completedCount} of ${requiredFieldsInfo.totalCount} completed).`;
+      setSubmitError(msg);
+      if (requiredFieldsInfo.missingFields.length > 0) {
+        scrollToErrorField(requiredFieldsInfo.missingFields[0].fieldname);
+      }
+      return;
+    }
+
+    if (idExpiryStatus.isExpired) {
+      const msg = `Cannot submit transaction: customer government ID expired on ${idExpiryStatus.formattedDate}.`;
+      setSubmitError(msg);
+      scrollToErrorField("id_expiry_date");
+      return;
+    }
+
+    if (hasMissingComplianceDocs) {
+      const docList = missingComplianceDocs.join(", ");
+      const msg = `Cannot submit transaction: missing required compliance documents (${docList}). Please attach them in the Compliance section.`;
+      setSubmitError(msg);
+      scrollToErrorField("compliance");
+      return;
+    }
+
     setIsSubmitting(true);
     setSuccessInfo(null);
     setSubmitError("");
@@ -2051,14 +2351,23 @@ const MoneyTransfer = () => {
           ? await uploadFile(row.attachment, { isPrivate: 1 })
           : row.attachment;
         if (typeof attachment !== 'string' || !attachment.trim()) throw new Error(`Please go back and reselect the attachment for ${row.document_type}. The selected file was lost after a page refresh.`);
-        uploadedDocuments.push({ document_type: row.document_type.trim(), attachment, notes: row.notes || "" });
+        uploadedDocuments.push({
+          document_type: row.document_type.trim(),
+          document_number: row.document_number || "",
+          issue_date: row.issue_date || "",
+          expiry_date: row.expiry_date || "",
+          issue_country: row.issue_country || "",
+          attachment,
+          notes: row.notes || "",
+        });
       }
-      const documentUrl = uploadedDocuments.find(row => row.document_type === "ID")?.attachment || "";
-      const submissionForm = { 
-        ...form, 
-        documents: uploadedDocuments, 
+      const primaryDoc = uploadedDocuments.find((row) => row.attachment) || uploadedDocuments[0];
+      const documentUrl = primaryDoc?.attachment || "";
+      const submissionForm = {
+        ...form,
+        documents: uploadedDocuments,
         document_upload: documentUrl,
-        upload_additional_info: uploadedDocuments.find(row => row.document_type === "Additional Info")?.attachment || "",
+        upload_additional_info: uploadedDocuments.find((row) => row.document_type === "Additional Info" || row.document_type === "Other")?.attachment || "",
         enable_split_payout: enableSplitPayout ? 1 : 0,
         customer_consent: splitConsent ? 1 : 0,
         distribution_legs: enableSplitPayout ? splitLegs : [],
@@ -2115,8 +2424,12 @@ const MoneyTransfer = () => {
 
         // Update customer documents and/or photo if changed
         const updates = {};
-        if (documentRows.some(row => row.document_type === "ID" && row.attachment instanceof File) && documentUrl) {
+        if (uploadedDocuments.length > 0 && documentUrl) {
           updates.custom_government_document = documentUrl;
+          if (primaryDoc?.document_type) updates.custom_government_id = primaryDoc.document_type;
+          if (primaryDoc?.document_number) updates.custom_passport_number = primaryDoc.document_number;
+          if (primaryDoc?.issue_date) updates.custom_id_issue_date = primaryDoc.issue_date;
+          if (primaryDoc?.expiry_date) updates.custom_id_expiry_date = primaryDoc.expiry_date;
         }
         if (customerImageFile instanceof File && customerUploadedImageUrl) {
           updates.image = customerUploadedImageUrl;
@@ -2134,7 +2447,7 @@ const MoneyTransfer = () => {
           });
         }
         if (form.risk_level) {
-          await updateCustomerRiskLevel(customerId, form.risk_level, loginUser).catch(() => {});
+          await updateCustomerRiskLevel(customerId, form.risk_level, loginUser).catch(() => { });
         }
       } else {
         // New customer: createCustomer creates record using 6-character code and image
@@ -2147,10 +2460,10 @@ const MoneyTransfer = () => {
         if (form.phone_number) postCreateUpdates.mobile_no = form.phone_number;
         if (form.risk_level) postCreateUpdates.custom_risk_level = form.risk_level;
         if (Object.keys(postCreateUpdates).length > 0 && customerId) {
-          await updateCustomer(customerId, postCreateUpdates, loginUser).catch(() => {});
+          await updateCustomer(customerId, postCreateUpdates, loginUser).catch(() => { });
         }
         if (form.risk_level && customerId) {
-          await updateCustomerRiskLevel(customerId, form.risk_level, loginUser).catch(() => {});
+          await updateCustomerRiskLevel(customerId, form.risk_level, loginUser).catch(() => { });
         }
       }
 
@@ -2304,6 +2617,136 @@ const MoneyTransfer = () => {
     return true;
   };
 
+  // ── Auto-calculated Customer ID Expiry Status ──────────────────────────────
+  const idExpiryStatus = React.useMemo(() => {
+    const raw = form.id_expiry_date || form.custom_id_expiry_date;
+    return getIdExpiryStatus(raw);
+  }, [form.id_expiry_date, form.custom_id_expiry_date]);
+
+  const requiredFieldsInfo = React.useMemo(() => {
+    const fields = [];
+
+    // 1. customer_id (always mandatory in teller form)
+    fields.push({
+      fieldname: "customer_id",
+      label: "Customer ID",
+      isFilled: Boolean(form.customer_id && String(form.customer_id).trim()),
+    });
+
+    // 2. Identity Document (always mandatory for proceeding with money transfer)
+    const hasUploadedIdDoc = Boolean(
+      (documentRows && documentRows.some((row) => row.document_type?.trim() && (row.attachment instanceof File || (typeof row.attachment === "string" && row.attachment.trim())))) ||
+      (form.document_upload instanceof File || (typeof form.document_upload === "string" && form.document_upload.trim()))
+    );
+    fields.push({
+      fieldname: "documents",
+      label: "Identity Document",
+      isFilled: hasUploadedIdDoc,
+    });
+
+    // 3. Scan usableFields for fields marked reqd
+    usableFields.forEach((f) => {
+      if (
+        f.fieldname === "customer_id" ||
+        f.fieldname === "documents" ||
+        f.fieldtype === "Section Break" ||
+        !f.reqd ||
+        !shouldShowField(f)
+      ) {
+        return;
+      }
+
+      const val = form[f.fieldname];
+      let filled = false;
+
+      if (f.fieldname === "amount") {
+        const num = Number(val);
+        filled = !Number.isNaN(num) && num > 0;
+      } else if (f.fieldname === "dob") {
+        filled = Boolean(val && formatDate(val));
+      } else if (f.fieldname === "oet_code") {
+        filled = Boolean(val && String(val).trim());
+      } else if (f.fieldtype === "Check") {
+        filled = val === 1 || val === "1" || val === true;
+      } else {
+        filled = val !== undefined && val !== null && String(val).trim() !== "";
+      }
+
+      fields.push({
+        fieldname: f.fieldname,
+        label: f.label || f.fieldname,
+        isFilled: filled,
+      });
+    });
+
+    // 3. Fallback core fields to ensure standard required fields are tracked even before metaFields load
+    const standardCore = [
+      { fieldname: "full_name", label: "Full Name" },
+      { fieldname: "dob", label: "Date of Birth" },
+      { fieldname: "transfer_type", label: "Transfer Type" },
+      { fieldname: "amount", label: "Amount" },
+      { fieldname: "oet_code", label: "OET Code" },
+      { fieldname: "reference_number", label: "Reference Number" },
+      { fieldname: "risk_level", label: "Risk Level" },
+    ];
+
+    standardCore.forEach(({ fieldname, label }) => {
+      if (!fields.some((item) => item.fieldname === fieldname)) {
+        const val = form[fieldname];
+        let filled = false;
+        if (fieldname === "amount") {
+          const num = Number(val);
+          filled = !Number.isNaN(num) && num > 0;
+        } else if (fieldname === "dob") {
+          filled = Boolean(val && formatDate(val));
+        } else {
+          filled = val !== undefined && val !== null && String(val).trim() !== "";
+        }
+        fields.push({
+          fieldname,
+          label,
+          isFilled: filled,
+        });
+      }
+    });
+
+    // 4. If cash denomination is enabled, verify it is balanced
+    const denominationsEnabled =
+      form.enable_currency_denomination === 1 ||
+      form.enable_currency_denomination === "1" ||
+      form.enable_currency_denomination === true;
+
+    if (denominationsEnabled) {
+      const targetAmount = parseFloat(form.amount || 0);
+      const totalCounted = denomStatusRef.current.total !== undefined
+        ? denomStatusRef.current.total
+        : currencyDenominationRows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
+      const diff = Math.abs(totalCounted - targetAmount);
+      const isBalanced = currencyDenominationRows.length > 0 && diff < 0.01;
+
+      fields.push({
+        fieldname: "currency_denomination",
+        label: "Currency Denomination (Balanced)",
+        isFilled: isBalanced,
+      });
+    }
+
+    const totalCount = fields.length;
+    const completedCount = fields.filter((f) => f.isFilled).length;
+    const missingFields = fields.filter((f) => !f.isFilled);
+    const percent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+    const isAllComplete = completedCount === totalCount && totalCount > 0;
+
+    return {
+      fields,
+      totalCount,
+      completedCount,
+      missingFields,
+      percent,
+      isAllComplete,
+    };
+  }, [usableFields, form, currencyDenominationRows, shouldShowField, documentRows]);
+
   const clearCustomerDetails = () => {
     setSelectedCustomer(null);
     setCustomerFound(false);
@@ -2355,12 +2798,15 @@ const MoneyTransfer = () => {
       id_issue_country: "",
       id_issue_state: "",
       risk_level: defaultRisk,
+      documents: [],
     }));
   };
 
-  const resetForm = () => {
+  const resetForm = (newType) => {
     const transferField = metaFields.find((f) => f.fieldname === "transfer_type");
     const defaultType =
+      newType ||
+      form.transfer_type ||
       transferField?.options
         ?.split("\n")
         .map((s) => s.trim())
@@ -2374,7 +2820,8 @@ const MoneyTransfer = () => {
         .filter(Boolean)
         .find((o) => o === "Low") || "Low";
 
-    setForm({ transfer_type: defaultType, risk_level: defaultRisk, oet_code: "18" });
+    setForm({ transfer_type: defaultType, risk_level: defaultRisk, oet_code: "18", documents: [] });
+    setSelectedCustomer(null);
     setStockError("");
     setFieldErrors({});
     setSubmitError("");
@@ -2388,6 +2835,28 @@ const MoneyTransfer = () => {
     setEnableSplitPayout(false);
     setSplitLegs([]);
     setSplitConsent(false);
+    setComplianceAssessment(null);
+  };
+
+  const handleClearForm = () => {
+    if (isFormLocked || isSubmitting) return;
+    const hasData =
+      Boolean(form.amount) ||
+      Boolean(form.customer_id) ||
+      Boolean(form.full_name) ||
+      Boolean(form.phone_number) ||
+      Boolean(form.id_number) ||
+      Boolean(form.remarks) ||
+      Boolean(form.documents && form.documents.length > 0);
+
+    if (hasData) {
+      const confirmed = window.confirm(
+        "Are you sure you want to clear the form? All entered data will be reset."
+      );
+      if (!confirmed) return;
+    }
+    resetForm();
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const buildMoneyTransferInvoiceData = (transfer, info = successInfo) => {
@@ -2508,8 +2977,7 @@ const MoneyTransfer = () => {
         form.custom_remarks ||
         info?.remarks ||
         "",
-      name: transfer.name || transfer.transaction_id || info?.transaction || "",
-      transaction_id: transfer.transaction_id || form.transaction_id || "",
+      name: transfer.name || info?.transaction || "",
       oet_code: transfer.oet_code || form.oet_code || "18",
       transfer_type: transferType,
       transaction_type: transferType,
@@ -2570,6 +3038,12 @@ const MoneyTransfer = () => {
         <script src="https://cdn.tailwindcss.com"></script>
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
         <style>
+          @font-face {
+            font-family: 'Inter';
+            src: url('${window.location.origin}/assets/home/frontend/Inter.ttf') format('truetype');
+            font-weight: 100 900;
+            font-style: normal;
+          }
           body { font-family: 'Inter', sans-serif; margin: 0; padding: 0; background: #fff; }
           @page { size: A4; margin: 8mm; }
           @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
@@ -2631,7 +3105,7 @@ const MoneyTransfer = () => {
         if (input && typeof input.focus === "function") {
           try {
             input.focus({ preventScroll: true });
-          } catch (_) {}
+          } catch (_) { }
         }
       }
     }, 80);
@@ -2639,8 +3113,20 @@ const MoneyTransfer = () => {
 
   const validateForm = () => {
     const errors = {};
-    if (documentRows.some(row => !row.document_type?.trim() || !row.attachment)) {
-      errors.documents = "Each document row needs a document type and an uploaded file.";
+    const hasUploadedIdDoc = Boolean(
+      (documentRows && documentRows.some((row) => row.document_type?.trim() && (row.attachment instanceof File || (typeof row.attachment === "string" && row.attachment.trim())))) ||
+      (form.document_upload instanceof File || (typeof form.document_upload === "string" && form.document_upload.trim()))
+    );
+
+    if (!hasUploadedIdDoc) {
+      errors.documents = "An identity document is required to proceed with this transfer.";
+    } else if (documentRows.some((row) => !row.document_type?.trim() || !(row.attachment instanceof File || (typeof row.attachment === "string" && row.attachment.trim())))) {
+      errors.documents = "Each document row needs a document type and a valid attachment. Reselect files lost after a page refresh.";
+    }
+    const expiredDoc = documentRows.find((row) => row.expiry_date && getIdExpiryStatus(row.expiry_date).isExpired);
+    if (expiredDoc) {
+      const expStatus = getIdExpiryStatus(expiredDoc.expiry_date);
+      errors.documents = `Attached ${expiredDoc.document_type || "ID"} expired on ${expStatus.formattedDate} (${expStatus.daysExpired} days ago). Expired IDs cannot be accepted for money transfers.`;
     }
 
     usableFields.forEach((field) => {
@@ -2669,6 +3155,15 @@ const MoneyTransfer = () => {
         errors[field.fieldname] = `${field.label || "Date"} is required.`;
       }
     });
+
+    // Check government ID expiry date validity
+    const idExpiryVal = form.id_expiry_date || form.custom_id_expiry_date;
+    if (idExpiryVal) {
+      const expStatus = getIdExpiryStatus(idExpiryVal);
+      if (expStatus.isExpired) {
+        errors.id_expiry_date = `Customer ID expired on ${expStatus.formattedDate} (${expStatus.daysExpired} days ago). Expired IDs cannot be accepted for money transfers.`;
+      }
+    }
 
     const denominationsEnabled =
       form.enable_currency_denomination === 1 ||
@@ -2733,8 +3228,8 @@ const MoneyTransfer = () => {
         (firstField === "documents"
           ? "Documents"
           : firstField === "currency_denomination"
-          ? "Currency Denomination"
-          : firstField);
+            ? "Currency Denomination"
+            : firstField);
 
       setSubmitError(`Please fill in the required field: ${fieldLabel}.`);
       scrollToErrorField(firstField);
@@ -2746,16 +3241,31 @@ const MoneyTransfer = () => {
   };
 
   /**
-   * Render field label with red mandatory asterisk
+   * Render field label with red mandatory asterisk and optional badge (e.g. Expired ID)
    */
-  const renderLabel = (field) => (
-    <label className={labelStyle}>
-      {field.label}
-      {field.reqd || field.fieldname === "amount" ? (
-        <span className="text-red-500 ml-1">*</span>
-      ) : null}
-    </label>
-  );
+  const renderLabel = (field, extraBadge = null) => {
+    if (!extraBadge) {
+      return (
+        <label className={labelStyle}>
+          {field.label}
+          {field.reqd || field.fieldname === "amount" ? (
+            <span className="text-red-500 ml-1">*</span>
+          ) : null}
+        </label>
+      );
+    }
+    return (
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-1.5">
+        <label className="text-xs uppercase font-bold text-gray-700 tracking-wider inline-flex items-center">
+          {field.label}
+          {field.reqd || field.fieldname === "amount" ? (
+            <span className="text-red-500 ml-1">*</span>
+          ) : null}
+        </label>
+        {extraBadge}
+      </div>
+    );
+  };
 
   const renderFieldError = (fieldname) =>
     fieldErrors[fieldname] ? (
@@ -2791,8 +3301,8 @@ const MoneyTransfer = () => {
                   disabled={isFormLocked}
                   onClick={() => handleChange(field.fieldname, opt)}
                   className={`relative py-4 px-3 sm:px-4 rounded-xl border-2 text-sm font-medium transition-all flex flex-col items-center gap-2 cursor-pointer min-w-0 ${active
-                      ? "border-[#E00000] bg-[#E00000]/5 text-[#B70000]"
-                      : "border-gray-200 bg-white text-gray-400 hover:border-gray-300 hover:text-gray-600"
+                    ? "border-[#E00000] bg-[#E00000]/5 text-[#B70000]"
+                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-400 hover:text-gray-900"
                     }`}
                 >
                   {active && (
@@ -2804,15 +3314,15 @@ const MoneyTransfer = () => {
                   )}
                   <div
                     className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${active
-                        ? "bg-[#E00000] text-white"
-                        : "bg-gray-100 text-gray-400"
+                      ? "bg-[#E00000] text-white"
+                      : "bg-gray-100 text-gray-600"
                       }`}
                   >
                     <Icon size={17} strokeWidth={1.75} />
                   </div>
                   <span
                     className={
-                      active ? "text-[#B70000] font-semibold" : "text-gray-400"
+                      active ? "text-[#B70000] font-bold" : "text-gray-700 font-semibold"
                     }
                   >
                     {opt}
@@ -2830,7 +3340,7 @@ const MoneyTransfer = () => {
       return (
         <div key={field.fieldname} id={`field-${field.fieldname}`} data-fieldname={field.fieldname} className="min-w-0">
           <div className="flex flex-wrap items-center justify-between gap-1.5 mb-2">
-            <label className="text-xs uppercase font-bold text-gray-400 block shrink-0">
+            <label className="text-xs uppercase font-bold text-gray-700 tracking-wider inline-flex items-center shrink-0">
               {isIdSearchMode ? "Search Customer ID" : "Customer ID"}{" "}
               <span className="text-red-500 ml-1">*</span>
             </label>
@@ -2839,7 +3349,7 @@ const MoneyTransfer = () => {
                 <button
                   type="button"
                   onClick={handleCancelIdSearch}
-                  className="text-[11px] text-gray-500 hover:text-red-600 flex items-center gap-1 font-medium transition-colors cursor-pointer"
+                  className="text-[11px] text-gray-600 hover:text-red-600 flex items-center gap-1 font-medium transition-colors cursor-pointer"
                   title="Cancel search and return to auto-generated ID"
                 >
                   <X size={11} /> Cancel Search
@@ -2854,7 +3364,7 @@ const MoneyTransfer = () => {
                         setForm((prev) => ({ ...prev, customer_id: "" }));
                       }
                     }}
-                    className="text-[11px] text-gray-500 hover:text-[#E00000] flex items-center gap-1 font-medium transition-colors cursor-pointer"
+                    className="text-[11px] text-gray-600 hover:text-[#E00000] flex items-center gap-1 font-medium transition-colors cursor-pointer"
                     title="Search customer by entering Customer ID"
                   >
                     <Search size={11} /> Search by ID
@@ -2874,9 +3384,9 @@ const MoneyTransfer = () => {
                   } else if (
                     selectedCustomer &&
                     val !==
-                      (selectedCustomer.custom_customer_id ||
-                        selectedCustomer.customer_id ||
-                        selectedCustomer.name)
+                    (selectedCustomer.custom_customer_id ||
+                      selectedCustomer.customer_id ||
+                      selectedCustomer.name)
                   ) {
                     setSelectedCustomer(null);
                     setCustomerFound(false);
@@ -2901,11 +3411,10 @@ const MoneyTransfer = () => {
                 readOnly
                 placeholder="Auto-generating 6-character ID..."
                 value={form.customer_id || ""}
-                className={`${getInputStyle("customer_id")} font-mono font-bold tracking-widest text-sm bg-gray-50 ${
-                  form.customer_id
+                className={`${getInputStyle("customer_id")} font-mono font-bold tracking-widest text-sm bg-gray-50 ${form.customer_id
                     ? "text-[#E00000] border-gray-300"
-                    : "text-gray-400 border-gray-200"
-                }`}
+                    : "text-gray-600 border-gray-300"
+                  }`}
               />
             </div>
           )}
@@ -2925,19 +3434,19 @@ const MoneyTransfer = () => {
           ) : (
             <div className="relative min-w-0">
               <select
-                className={`${getInputStyle("oet_code")} appearance-none pr-10`}
+                className={`${getInputStyle("oet_code")} appearance-none pr-10 cursor-pointer`}
                 value={form.oet_code ?? "18"}
                 disabled={isFormLocked}
                 onChange={(e) => handleChange("oet_code", e.target.value)}
               >
-                <option value="" disabled>Select OET Code</option>
+                <option value="" disabled className="text-gray-400 bg-white">Select OET Code</option>
                 {potOptions.map((pot) => (
-                  <option key={pot.code} value={pot.code}>
+                  <option key={pot.code} value={pot.code} className="text-gray-900 bg-white py-1">
                     {pot.label}
                   </option>
                 ))}
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-gray-400">
                 <ChevronDown size={16} />
               </div>
             </div>
@@ -3016,15 +3525,51 @@ const MoneyTransfer = () => {
           );
         }
 
+        if (isAmount) {
+          return (
+            <div
+              key={field.fieldname}
+              id={`field-${field.fieldname}`}
+              data-fieldname={field.fieldname}
+              className="col-span-1 md:col-span-2 min-w-0"
+            >
+              {renderLabel(
+                field,
+                <span className="text-overline font-semibold uppercase tracking-wider text-red-600 bg-red-50 border border-red-200/60 px-2 py-0.5 rounded-md">
+                  Transfer Amount
+                </span>
+              )}
+              <div className="relative rounded-2xl shadow-xs">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 z-10">
+                  <span className="text-gray-500 font-bold text-h3">FJ$</span>
+                </div>
+                <input
+                  {...commonProps}
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  className={getInputStyle(
+                    field.fieldname,
+                    "pl-14 text-amount font-bold tnum text-gray-900 placeholder:text-gray-300 py-3.5 bg-white border-2 border-red-200 focus:border-[#E00000] focus:ring-4 focus:ring-red-100"
+                  )}
+                  autoComplete="one-time-code"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
+                  data-form-type="other"
+                />
+              </div>
+              {renderFieldError(field.fieldname)}
+            </div>
+          );
+        }
+
         return (
-          <div key={field.fieldname} id={`field-${field.fieldname}`} data-fieldname={field.fieldname} className={`min-w-0 ${isAmount ? "col-span-1 md:col-span-2" : ""}`}>
+          <div key={field.fieldname} id={`field-${field.fieldname}`} data-fieldname={field.fieldname} className="min-w-0">
             {renderLabel(field)}
             <input
               {...commonProps}
-              type={isAmount ? "number" : "text"}
-              step={isAmount ? "0.01" : undefined}
-              min={isAmount ? "0" : undefined}
-              placeholder={isAmount ? "Enter transfer amount" : ""}
+              type="text"
               autoComplete="one-time-code"
               data-lpignore="true"
               data-1p-ignore="true"
@@ -3050,7 +3595,7 @@ const MoneyTransfer = () => {
                 handleChange(field.fieldname, e.target.checked ? 1 : 0)
               }
             />
-            <label htmlFor={field.fieldname} className="text-sm font-semibold text-gray-700">
+            <label htmlFor={field.fieldname} className="text-xs uppercase font-bold text-gray-700 tracking-wider cursor-pointer">
               {field.label}
             </label>
           </div>
@@ -3076,9 +3621,24 @@ const MoneyTransfer = () => {
           }
         }
 
+        const fieldExpiryStatus = isExpiry
+          ? getIdExpiryStatus(form[field.fieldname] || (field.fieldname === "id_expiry_date" ? form.custom_id_expiry_date : null))
+          : { isExpired: false, isExpiringSoon: false };
+
+        const expiryBadge = isExpiry && fieldExpiryStatus.isExpired ? (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-caption font-semibold bg-red-600 text-white shadow-xs animate-pulse">
+            <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
+            EXPIRED ID ({fieldExpiryStatus.daysExpired === 1 ? "1 day ago" : `${fieldExpiryStatus.daysExpired}d ago`})
+          </span>
+        ) : isExpiry && fieldExpiryStatus.isExpiringSoon ? (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+            ⚠️ Expires in {fieldExpiryStatus.daysDiff}d
+          </span>
+        ) : null;
+
         return (
           <div key={field.fieldname} id={`field-${field.fieldname}`} data-fieldname={field.fieldname} className="min-w-0">
-            {renderLabel(field)}
+            {renderLabel(field, expiryBadge)}
             <div className="w-full min-w-0">
               <DatePicker
                 selected={selectedDate}
@@ -3086,31 +3646,47 @@ const MoneyTransfer = () => {
                   handleChange(field.fieldname, formatLocalDate(date))
                 }
                 wrapperClassName="w-full block"
-                className={`${getInputStyle(field.fieldname)} w-full min-w-0`}
+                className={`${getInputStyle(field.fieldname)} w-full min-w-0 ${isExpiry && fieldExpiryStatus.isExpired
+                    ? "border-red-500 bg-red-50/30 text-red-950 font-bold ring-2 ring-red-200"
+                    : ""
+                  }`}
                 dateFormat="yyyy-MM-dd"
                 showYearDropdown
                 showMonthDropdown
                 dropdownMode="select"
                 {...(isDob
                   ? {
-                      maxDate: new Date(),
-                      yearDropdownItemNumber: 100,
-                      scrollableYearDropdown: true,
-                      openToDate: new Date(2000, 0, 1),
-                    }
+                    maxDate: new Date(),
+                    yearDropdownItemNumber: 100,
+                    scrollableYearDropdown: true,
+                    openToDate: new Date(2000, 0, 1),
+                  }
                   : isExpiry
-                  ? {
+                    ? {
                       yearDropdownItemNumber: 30,
                       scrollableYearDropdown: true,
                       openToDate: new Date(),
                     }
-                  : {
+                    : {
                       maxDate: new Date(),
                       yearDropdownItemNumber: 50,
                       scrollableYearDropdown: true,
                     })}
               />
             </div>
+            {isExpiry && fieldExpiryStatus.isExpired && (
+              <div className="mt-2.5 p-3 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-800 flex items-start gap-2.5 shadow-xs">
+                <span className="text-lg leading-none shrink-0 text-red-600">🚫</span>
+                <div className="min-w-0">
+                  <div className="font-semibold text-danger uppercase tracking-wider text-overline">
+                    Expired Identification Flagged
+                  </div>
+                  <p className="mt-0.5 text-xs text-red-700 leading-relaxed">
+                    This ID expired on <strong className="underline">{fieldExpiryStatus.formattedDate}</strong> ({fieldExpiryStatus.daysExpired} {fieldExpiryStatus.daysExpired === 1 ? "day" : "days"} ago). Current AML and KYC compliance regulations prohibit processing money transfers with expired identity credentials.
+                  </p>
+                </div>
+              </div>
+            )}
             {renderFieldError(field.fieldname)}
           </div>
         );
@@ -3126,16 +3702,16 @@ const MoneyTransfer = () => {
               <select
                 {...commonProps}
                 disabled={isFormLocked}
-                className={`${getInputStyle(field.fieldname)} appearance-none pr-10`}
+                className={`${getInputStyle(field.fieldname)} appearance-none pr-10 cursor-pointer`}
               >
-                <option value="">Select {field.label || field.fieldname}</option>
+                <option value="" className="text-gray-400 bg-white">Select {field.label || field.fieldname}</option>
                 {options.map((opt) => (
-                  <option key={opt} value={opt}>
+                  <option key={opt} value={opt} className="text-gray-900 bg-white py-1">
                     {opt}
                   </option>
                 ))}
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-gray-400">
                 <ChevronDown size={16} />
               </div>
             </div>
@@ -3184,28 +3760,28 @@ const MoneyTransfer = () => {
               <select
                 {...commonProps}
                 disabled={isFormLocked || isLoading}
-                className={`${getInputStyle(field.fieldname)} appearance-none pr-10`}
+                className={`${getInputStyle(field.fieldname)} appearance-none pr-10 cursor-pointer`}
                 onFocus={() => {
                   if (doctype && !linkOptionsMap[doctype] && !loadingLinkOptions[doctype]) {
                     fetchLinkOptions(doctype);
                   }
                 }}
               >
-                <option value="">
+                <option value="" className="text-gray-400 bg-white">
                   {isLoading
                     ? `Loading ${field.label || doctype}...`
                     : `Select ${field.label || doctype}`}
                 </option>
                 {hasSelectedNotInList && (
-                  <option value={currentValue}>{currentValue}</option>
+                  <option value={currentValue} className="text-gray-900 bg-white py-1">{currentValue}</option>
                 )}
                 {rawOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
+                  <option key={opt.value} value={opt.value} className="text-gray-900 bg-white py-1">
                     {opt.label}
                   </option>
                 ))}
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-gray-400">
                 <ChevronDown size={16} />
               </div>
             </div>
@@ -3215,25 +3791,33 @@ const MoneyTransfer = () => {
       }
 
       case "Section Break":
-        if (!field.label) return null;
-        if (field.fieldname === "cash_denomination_section" || field.fieldname === "customer_details_section") {
-          return null;
-        }
-        return (
-          <div key={field.fieldname} className="col-span-1 md:col-span-2 min-w-0 mt-4 pt-4 border-t border-gray-100">
-            <div className="flex items-center gap-2.5">
-              <span className="w-1.5 h-4 bg-[#E00000] rounded-full inline-block shrink-0" />
-              <h3 className="text-sm font-bold uppercase tracking-wider text-gray-700">
-                {field.label}
-              </h3>
-            </div>
-          </div>
-        );
+        return null;
 
       default:
         return null;
     }
   };
+
+  const renderSectionHeader = (title, subtitle = null, badge = null) => (
+    <div className="w-full min-w-0 mb-6">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2.5">
+          <span className="w-1.5 h-4 bg-[#E00000] rounded-full inline-block shrink-0" />
+          <h3 className="text-sm font-bold uppercase tracking-wider text-gray-800">
+            {title}
+          </h3>
+        </div>
+        <div className="flex items-center gap-2">
+          {badge}
+          {subtitle && (
+            <span className="text-xs text-gray-400 font-medium hidden sm:inline-block">
+              {subtitle}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
 
   const isFormLocked = Boolean(successInfo);
@@ -3241,12 +3825,12 @@ const MoneyTransfer = () => {
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Navbar />
 
-      <main className="grow py-8 sm:py-10 px-4 sm:px-6 lg:px-8 xl:px-12 w-full">
-        <div className="max-w-7xl mx-auto flex flex-col gap-6 sm:gap-8 w-full min-w-0">
+      <main className="grow py-8 sm:py-10 px-4 sm:px-6 lg:px-8 xl:px-12 w-full pb-28 sm:pb-32">
+        <div className="max-w-[80%] mx-auto flex flex-col gap-6 sm:gap-8 w-full min-w-0">
 
           {/* HEADER */}
           <div>
-            <h1 className="text-gray-900 text-3xl sm:text-5xl font-black tracking-tight leading-none">
+            <h1 className="text-gray-900 text-h1 font-bold tracking-tight">
               MH Money{" "}
               <span className="text-[#E00000] italic">
                 Transfer
@@ -3256,114 +3840,264 @@ const MoneyTransfer = () => {
 
           {/* MAIN CONTENT: FORM ON LEFT, CUSTOMER LIMITS ON RIGHT */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start w-full min-w-0">
-            {/* LEFT: FORM CARD */}
-            <div className="lg:col-span-8 w-full min-w-0">
-              <div className="rounded-3xl border border-gray-100 bg-white shadow-[0_10px_40px_rgba(0,0,0,0.06)] p-6 sm:p-8 lg:p-10 w-full min-w-0 box-border">
-                {!selectedWarehouse?.warehouse && (
-                  <div className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 p-5 shadow-xs">
-                    <div className="flex items-center gap-3">
-                      <span className="text-amber-700 text-2xl font-bold">⚠️</span>
-                      <div>
-                        <h3 className="text-sm font-black text-amber-900 uppercase tracking-wide">
-                          User is not assigned to any branch location
-                        </h3>
-                        <p className="text-xs text-amber-800 mt-0.5">
-                          You cannot process transfers until a branch location is assigned to your account in ERPNext. Please contact your administrator.
-                        </p>
-                      </div>
+            {/* LEFT: FORM CARDS */}
+            <div className="lg:col-span-8 flex flex-col gap-6 w-full min-w-0">
+              {!selectedWarehouse?.warehouse && (
+                <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 shadow-xs">
+                  <div className="flex items-center gap-3">
+                    <span className="text-amber-700 text-2xl font-bold">⚠️</span>
+                    <div>
+                      <h3 className="text-label font-bold text-amber-900 uppercase tracking-wide">
+                        User is not assigned to any branch location
+                      </h3>
+                      <p className="text-xs text-amber-800 mt-0.5">
+                        You cannot process transfers until a branch location is assigned to your account in ERPNext. Please contact your administrator.
+                      </p>
                     </div>
                   </div>
-                )}
+                </div>
+              )}
 
-                {successInfo && (
-                  <div className="mb-6 rounded-2xl border border-green-100 bg-linear-to-r from-white to-green-50 p-6 shadow-sm">
-                    <div className="flex items-start gap-4">
-                      <div className="text-green-600 text-3xl">✓</div>
-                      <div className="flex-1">
-                        <h2 className="text-lg font-extrabold text-gray-800">Transfer Complete</h2>
-                        <p className="text-sm text-gray-600 mt-1">{successInfo.message}</p>
-                        <p className="mt-3 text-sm text-gray-700">
-                          <strong>Customer:</strong> {successInfo.customerFullName} &nbsp;•
-                          &nbsp; <strong>Transaction:</strong> {successInfo.transaction} &nbsp;
-                          {/* •
-                          &nbsp; <strong>Amount:</strong> {successInfo.currency || "FJD"} {Number(successInfo.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} */}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-3">
-                        <button
-                          onClick={() => handlePrintInvoice(successInfo.transfer)}
-                          className="rounded-2xl bg-[#E00000] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#c70000]"
-                        >
-                          Print Invoice
-                        </button>
-                        <button
-                          onClick={() => setSuccessInfo(null)}
-                          className="rounded-2xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
-                        >
-                          Dismiss
-                        </button>
-                      </div>
+              {successInfo && (
+                <div className="rounded-2xl border border-green-100 bg-linear-to-r from-white to-green-50 p-6 shadow-sm">
+                  <div className="flex items-start gap-4">
+                    <div className="text-green-600 text-3xl">✓</div>
+                    <div className="flex-1">
+                      <h2 className="text-h2 font-bold text-gray-800">Transfer Complete</h2>
+                      <p className="text-sm text-gray-600 mt-1">{successInfo.message}</p>
+                      <p className="mt-3 text-sm text-gray-700">
+                        <strong>Customer:</strong> {successInfo.customerFullName} &nbsp;•
+                        &nbsp; <strong>Transaction:</strong> {successInfo.transaction} &nbsp;
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        onClick={() => handlePrintInvoice(successInfo.transfer)}
+                        className="rounded-2xl bg-[#E00000] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#c70000]"
+                      >
+                        Print Invoice
+                      </button>
+                      <button
+                        onClick={() => setSuccessInfo(null)}
+                        className="rounded-2xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                      >
+                        Dismiss
+                      </button>
                     </div>
                   </div>
-                )}
+                </div>
+              )}
 
-                {submitError && (
-                  <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    {submitError}
-                  </div>
-                )}
+              {submitError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {submitError}
+                </div>
+              )}
 
-                <fieldset
-                  disabled={isFormLocked}
-                  className={`w-full min-w-0 border-0 p-0 m-0 ${
-                    isFormLocked
-                      ? "opacity-50 cursor-not-allowed select-none"
-                      : ""
+              <fieldset
+                disabled={isFormLocked}
+                className={`flex flex-col gap-6 w-full min-w-0 border-0 p-0 m-0 ${isFormLocked
+                    ? "opacity-50 cursor-not-allowed select-none"
+                    : ""
                   }`}
-                >
+              >
 
-
+                {/* CARD 1: TRANSACTION (HIGHLIGHTED) — moved first */}
+                <div className="rounded-3xl border-2 border-red-200 bg-linear-to-b from-red-50/30 via-white to-white shadow-[0_4px_30px_rgba(224,0,0,0.06)] p-6 sm:p-8 w-full min-w-0 box-border ring-1 ring-[#E00000]/10">
+                  {renderSectionHeader(
+                    "Transaction",
+                    "Direction, amount and reference codes",
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-[#E00000]">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#E00000] animate-pulse"></span>
+                      Transaction Details
+                    </span>
+                  )}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full min-w-0">
-                    {orderedFields.map((field) => (
+                    {transactionFields.map((field) => (
                       <React.Fragment key={field.fieldname}>
                         {renderField(field)}
                       </React.Fragment>
                     ))}
                   </div>
-                  <div id="field-documents" data-fieldname="documents" className="mt-6 w-full min-w-0">
-                    <DocumentUploadTable rows={documentRows} onChange={rows => setForm(prev => ({ ...prev, documents: rows, document_upload: "", upload_additional_info: "" }))} disabled={isFormLocked || isSubmitting} />
+                </div>
+
+                {/* CARD 2: CUSTOMER + IDENTIFICATION (merged) */}
+                <div
+                  className={`rounded-3xl border ${idExpiryStatus.isExpired
+                      ? "border-red-300 ring-2 ring-red-200 bg-linear-to-b from-red-50/20 via-white to-white"
+                      : "border-gray-100 bg-white"
+                    } shadow-[0_4px_25px_rgba(0,0,0,0.04)] p-6 sm:p-8 w-full min-w-0 box-border transition-all`}
+                >
+                  {/* Customer sub-section */}
+                  {renderSectionHeader(
+                    "Customer",
+                    "Search or enter customer details",
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${requiredFieldsInfo.isAllComplete
+                        ? "bg-green-100 text-green-800"
+                        : "bg-gray-100 text-gray-700"
+                      }`}>
+                      {requiredFieldsInfo.completedCount} of {requiredFieldsInfo.totalCount} fields
+                    </span>
+                  )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full min-w-0">
+                    {customerFields.map((field) => (
+                      <React.Fragment key={field.fieldname}>
+                        {renderField(field)}
+                      </React.Fragment>
+                    ))}
+                  </div>
+
+                  {/* Divider between Customer and Identification */}
+                  <div className="my-6 border-t border-gray-100" />
+
+                  {/* Merged Identification sub-section */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
+                    <div>
+                      <h3 className="text-h3 font-bold uppercase tracking-wider text-gray-900">Identification</h3>
+                      <p className="text-xs text-gray-400 mt-0.5">Date of birth, tax details &amp; identity documents</p>
+                    </div>
+                    {idExpiryStatus.isExpired && (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-caption font-semibold bg-red-600 text-white shadow-xs animate-pulse">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
+                        EXPIRED ID FLAGGED
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Date of birth and TIN number first */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full min-w-0 mb-6">
+                    {identityFields.map((field) => (
+                      <React.Fragment key={field.fieldname}>
+                        {renderField(field)}
+                      </React.Fragment>
+                    ))}
+                  </div>
+
+                  {/* Document upload section directly inside Identification */}
+                  <div id="field-documents" data-fieldname="documents" className="w-full min-w-0">
+                    <DocumentUploadTable
+                      rows={documentRows}
+                      onChange={handleDocumentsChange}
+                      disabled={isFormLocked || isSubmitting}
+                      title="Identification Documents"
+                      subtitle="Government ID, passport & supporting identity documents"
+                    />
                     {renderFieldError("documents")}
                   </div>
 
+                  {/* Divider between Identification and Customer Details */}
+                  <div className="my-6 border-t border-gray-100" />
+
+                  {/* Customer Details sub-section */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
+                    <div>
+                      <h3 className="text-h3 font-bold uppercase tracking-wider text-gray-900">Customer Details</h3>
+                      <p className="text-xs text-gray-400 mt-0.5">Address and contact information</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full min-w-0">
+                    {senderReceiverFields.map((field) => (
+                      <React.Fragment key={field.fieldname}>
+                        {renderField(field)}
+                      </React.Fragment>
+                    ))}
+                    {otherFields.map((field) => (
+                      <React.Fragment key={field.fieldname}>
+                        {renderField(field)}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                </div>
+
+                {/* CARD 5: COMPLIANCE */}
+                <div id="field-compliance" data-fieldname="compliance" className="rounded-3xl border border-gray-100 bg-white shadow-[0_4px_25px_rgba(0,0,0,0.04)] p-6 sm:p-8 w-full min-w-0 box-border scroll-mt-24">
+                  {renderSectionHeader(
+                    "Compliance",
+                    "Reserve Bank of Fiji – Exchange Control 2026",
+                    complianceConfig && !complianceConfig.enabled ? (
+                      <div className="relative group inline-block">
+                        <span
+                          title="RBF enforcement is installed but remains disabled pending authorised compliance review. Current transaction processing is unchanged."
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 cursor-help transition-colors hover:bg-blue-100 shadow-2xs"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                          RBF enforcement off
+                        </span>
+                        <div className="absolute right-0 top-full mt-1.5 hidden group-hover:block z-50 w-72 p-3 rounded-xl bg-gray-900 text-white text-xs leading-relaxed shadow-xl border border-gray-800 text-left pointer-events-none">
+                          RBF enforcement is installed but remains disabled pending authorised compliance review. Current transaction processing is unchanged.
+                        </div>
+                      </div>
+                    ) : null
+                  )}
+                  {complianceFields.length > 0 && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full min-w-0 mb-6">
+                      {complianceFields.map((field) => (
+                        <React.Fragment key={field.fieldname}>
+                          {renderField(field)}
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  )}
                   <RbfComplianceSection
                     transactionType="MONEY_TRANSFER"
                     fjdAmount={Number(form.amount || 0)}
                     exchangeType={form.transfer_type || "Send"}
                     currency="FJD"
                     customerId={form.customer_id || form.customer}
-                    recipientName={form.receiver_name || form.receiver_full_name}
+                    recipientName={
+                      form.receiver_name || form.receiver_full_name
+                    }
                     value={form}
                     onChange={setForm}
+                    onAssessmentChange={setComplianceAssessment}
+                    onConfigChange={setComplianceConfig}
                     disabled={isFormLocked || isSubmitting}
+                    hideIdentityScreening={true}
+                    hideCardHeader={true}
                   />
+                </div>
 
-                  {/* CURRENCY DENOMINATION PANEL */}
-                  {form.enable_currency_denomination === 1 ||
-                  form.enable_currency_denomination === "1" ||
-                  form.enable_currency_denomination === true ? (
-                    <div id="field-currency_denomination" data-fieldname="currency_denomination" ref={denomErrorRef} className="mt-8 col-span-1 md:col-span-2 w-full min-w-0">
-                      <div className="mb-4">
-                        <h3 className="text-lg font-bold text-gray-700">
+                {/* CARD 7: SETTLEMENT & SUBMIT */}
+                <div className="rounded-3xl border border-gray-100 bg-white shadow-[0_4px_25px_rgba(0,0,0,0.04)] p-6 sm:p-8 w-full min-w-0 box-border">
+                  {renderSectionHeader("Settlement & Submit", "Verify payment and submit transaction")}
+
+                  {/* Enable Cash Denomination Checkbox (Opens panel below) */}
+                  <label htmlFor="enable_currency_denomination_submit" className="flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50/60 px-4 py-3.5 shadow-xs hover:border-red-200 hover:bg-red-50/30 transition-colors">
+                    <input
+                      id="enable_currency_denomination_submit"
+                      type="checkbox"
+                      disabled={isFormLocked || isSubmitting}
+                      checked={
+                        form.enable_currency_denomination === 1 ||
+                        form.enable_currency_denomination === "1" ||
+                        form.enable_currency_denomination === true
+                      }
+                      onChange={(event) => handleChange("enable_currency_denomination", event.target.checked ? 1 : 0)}
+                      className="h-5 w-5 shrink-0 rounded border-gray-300 text-[#E00000] focus:ring-[#E00000]"
+                    />
+                    <div className="flex flex-col">
+                      <span className="text-xs uppercase font-bold text-gray-700 tracking-wider">Enable Cash Denomination</span>
+                      <span className="text-xs text-gray-500 mt-0.5">Record physical note and coin counts for teller reconciliation</span>
+                    </div>
+                  </label>
+
+                  {/* CURRENCY DENOMINATION PANEL (Opens below the check) */}
+                  {(form.enable_currency_denomination === 1 ||
+                    form.enable_currency_denomination === "1" ||
+                    form.enable_currency_denomination === true) ? (
+                    <div id="field-currency_denomination" data-fieldname="currency_denomination" ref={denomErrorRef} className="mt-6 mb-6 w-full min-w-0">
+                      <div className="mb-2">
+                        <label className={labelStyle}>
                           Currency Denomination
-                        </h3>
+                        </label>
                       </div>
 
                       {baseDenomLoading ? (
-                        <div className="rounded-3xl border border-gray-200 bg-white p-8 text-center text-gray-500">
+                        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6 text-center text-gray-500 text-sm">
                           Loading denomination panel...
                         </div>
                       ) : baseDenomError ? (
-                        <div className="rounded-3xl border border-red-200 bg-red-50 p-8 text-center text-red-600">
+                        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-red-600 text-sm">
                           {baseDenomError}
                         </div>
                       ) : baseCurrencyData ? (
@@ -3380,7 +4114,7 @@ const MoneyTransfer = () => {
                           accentColor="#E00000"
                         />
                       ) : (
-                        <div className="rounded-3xl border border-gray-200 bg-white p-8 text-center text-gray-500">
+                        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6 text-center text-gray-500 text-sm">
                           Fiji denomination data is not available.
                         </div>
                       )}
@@ -3404,55 +4138,219 @@ const MoneyTransfer = () => {
                     </div>
                   ) : null}
 
-                  {/* SUBMIT ERROR BANNER */}
-                  {submitError && (
-                    <div className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
-                      <span className="font-bold text-red-600 text-base">⚠</span>
-                      <span>{submitError}</span>
+                  {/* SUBMIT VALIDATION STATUS */}
+                  {!requiredFieldsInfo.isAllComplete && (
+                    <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-xs text-amber-900 flex items-start gap-3">
+                      <span className="font-bold text-amber-600 text-base leading-none">⚠</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-amber-950 text-sm">
+                          Required Fields Incomplete ({requiredFieldsInfo.completedCount} of {requiredFieldsInfo.totalCount} completed)
+                        </div>
+                        <p className="mt-1 text-amber-800">
+                          Submit is disabled until all required fields are filled. Missing:{" "}
+                          <span className="font-semibold text-amber-950">
+                            {requiredFieldsInfo.missingFields.map((f) => f.label).join(", ")}
+                          </span>
+                        </p>
+                      </div>
                     </div>
                   )}
 
-                  {/* Enable Cash is intentionally placed immediately before Submit. */}
-                  <label htmlFor="enable_currency_denomination_submit" className="mt-6 flex w-full cursor-pointer items-center gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3.5 shadow-sm hover:border-red-200 hover:bg-red-50/30">
-                    <input
-                      id="enable_currency_denomination_submit"
-                      type="checkbox"
-                      disabled={isFormLocked || isSubmitting}
-                      checked={
-                        form.enable_currency_denomination === 1 ||
-                        form.enable_currency_denomination === "1" ||
-                        form.enable_currency_denomination === true
-                      }
-                      onChange={(event) => handleChange("enable_currency_denomination", event.target.checked ? 1 : 0)}
-                      className="h-5 w-5 shrink-0 rounded border-gray-300 text-[#E00000] focus:ring-[#E00000]"
-                    />
-                    <span className="text-sm font-bold text-gray-800">Enable Cash</span>
-                  </label>
+                  {/* EXPIRED ID SUBMIT WARNING */}
+                  {idExpiryStatus.isExpired && (
+                    <div className="mt-6 rounded-2xl border-2 border-red-300 bg-red-50 p-4 text-xs text-red-900 flex items-start gap-3 shadow-xs">
+                      <span className="font-bold text-danger text-lg leading-none shrink-0">🚫</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-danger text-label flex items-center gap-2">
+                          <span>EXPIRED ID FLAGGED</span>
+                          <span className="px-2 py-0.5 rounded-full text-overline font-semibold bg-red-600 text-white">
+                            BLOCKING
+                          </span>
+                        </div>
+                        <p className="mt-1 text-red-700 leading-relaxed">
+                          Customer identification expired on <strong>{idExpiryStatus.formattedDate}</strong> ({idExpiryStatus.daysExpired} {idExpiryStatus.daysExpired === 1 ? "day" : "days"} ago). Submit is blocked until a valid, unexpired government ID is provided.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
-                  {/* BUTTON */}
-                  <button
-                    onClick={handleSubmit}
-                    disabled={isSubmitting || stockLoading}
-                    className={`mt-6 w-full bg-[#E00000] ${isSubmitting || stockLoading ? 'opacity-60 cursor-not-allowed' : 'hover:opacity-90'} text-white rounded-2xl py-4 font-black transition`}
-                  >
-                    {isSubmitting ? (
-                      <span className="flex items-center justify-center gap-3">
-                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-                        </svg>
-                        Processing Transfer...
-                      </span>
-                    ) : (
-                      'Submit'
-                    )}
-                  </button>
-                </fieldset>
-              </div>
+                  {/* MISSING COMPLIANCE DOCUMENTS WARNING */}
+                  {hasMissingComplianceDocs && (
+                    <div className="mt-6 rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 text-xs text-amber-950 flex items-start gap-3 shadow-xs">
+                      <span className="font-bold text-amber-600 text-lg leading-none shrink-0">🚫</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-amber-900 text-label flex items-center gap-2">
+                          <span>MISSING COMPLIANCE DOCUMENTS</span>
+                          <span className="px-2 py-0.5 rounded-full text-overline font-semibold bg-amber-500 text-white">
+                            BLOCKING
+                          </span>
+                        </div>
+                        <p className="mt-1 text-amber-900 leading-relaxed">
+                          Reserve Bank of Fiji compliance rules require the following documents before submission:{" "}
+                          <strong className="text-amber-950">{missingComplianceDocs.join(", ")}</strong>. Please attach them in the Compliance section.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => scrollToErrorField("compliance")}
+                          className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs transition-colors cursor-pointer"
+                        >
+                          <span>Go to Compliance Section</span>
+                          <ArrowRight size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* CARD ACTIONS: CLEAR & SUBMIT */}
+                  <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-3 pt-6 border-t border-gray-100">
+                    <button
+                      type="button"
+                      onClick={handleClearForm}
+                      disabled={isFormLocked || isSubmitting}
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl border border-gray-200 hover:border-red-200 bg-white hover:bg-red-50 text-gray-700 hover:text-[#E00000] font-bold text-sm transition-all shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <RotateCcw size={16} />
+                      <span>Clear Form</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSubmit}
+                      disabled={!requiredFieldsInfo.isAllComplete || idExpiryStatus.isExpired || hasMissingComplianceDocs || isSubmitting || stockLoading || isFormLocked}
+                      className={`w-full sm:w-auto sm:flex-1 max-w-md inline-flex items-center justify-center gap-2 rounded-2xl py-3.5 px-8 font-semibold text-btn-lg transition ${!requiredFieldsInfo.isAllComplete || idExpiryStatus.isExpired || hasMissingComplianceDocs || isFormLocked
+                          ? "bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-300 shadow-none"
+                          : isSubmitting || stockLoading
+                            ? "bg-[#E00000] opacity-60 text-white cursor-not-allowed"
+                            : "bg-[#E00000] hover:bg-[#c70000] text-white shadow-md hover:shadow-lg cursor-pointer"
+                        }`}
+                    >
+                      {isSubmitting ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <RefreshCw size={18} className="animate-spin text-white" />
+                          <span>Processing Transfer...</span>
+                        </span>
+                      ) : idExpiryStatus.isExpired ? (
+                        <span>🚫 Cannot Submit: Expired ID</span>
+                      ) : hasMissingComplianceDocs ? (
+                        <span>🚫 Missing Compliance Docs ({missingComplianceDocs.length})</span>
+                      ) : !requiredFieldsInfo.isAllComplete ? (
+                        <span>Complete Fields to Submit ({requiredFieldsInfo.completedCount}/{requiredFieldsInfo.totalCount})</span>
+                      ) : (
+                        <span className="flex items-center justify-center gap-2">
+                          <span>Submit Transfer</span>
+                          <ArrowRight size={18} />
+                        </span>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </fieldset>
             </div>
 
-            {/* RIGHT: CUSTOMER PHOTO SIDEBAR */}
+            {/* RIGHT: SIDEBAR */}
             <div className="lg:col-span-4 lg:sticky lg:top-8 flex flex-col gap-6 w-full min-w-0">
+
+              {/* PROGRESS INDICATOR CARD */}
+              <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-[0_4px_25px_rgba(0,0,0,0.04)] w-full min-w-0 box-border">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-caption transition-colors shrink-0 ${idExpiryStatus.isExpired
+                          ? "bg-red-100 text-red-700"
+                          : hasMissingComplianceDocs
+                            ? "bg-amber-100 text-amber-700"
+                            : requiredFieldsInfo.isAllComplete
+                              ? "bg-green-100 text-green-700"
+                              : "bg-blue-50 text-blue-700"
+                        }`}
+                    >
+                      {idExpiryStatus.isExpired ? (
+                        <span className="text-base font-bold text-red-600">⚠</span>
+                      ) : hasMissingComplianceDocs ? (
+                        <span className="text-base font-bold text-amber-600">!</span>
+                      ) : requiredFieldsInfo.isAllComplete ? (
+                        <CheckCircle2 size={20} strokeWidth={2.5} />
+                      ) : (
+                        `${requiredFieldsInfo.percent}%`
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-h3 font-bold uppercase tracking-wider text-gray-900">Form Progress</h3>
+                      <p className="text-xs text-gray-700 mt-0.5">
+                        {idExpiryStatus.isExpired ? (
+                          <span className="font-bold text-red-600">
+                            ⚠️ ID expired ({idExpiryStatus.daysExpired}d ago)
+                          </span>
+                        ) : (
+                          <>
+                            <strong className="text-gray-900 font-bold">
+                              {requiredFieldsInfo.completedCount} of {requiredFieldsInfo.totalCount} fields
+                            </strong>
+                            {hasMissingComplianceDocs ? (
+                              <span className="font-bold text-amber-700 ml-1">
+                                · ⚠️ {missingComplianceDocs.length} compliance {missingComplianceDocs.length === 1 ? "issue" : "issues"}
+                              </span>
+                            ) : requiredFieldsInfo.isAllComplete ? (
+                              <span className="font-bold text-green-700 ml-1">· ✓ Ready!</span>
+                            ) : (
+                              <span className="text-gray-500 ml-1">
+                                ({requiredFieldsInfo.totalCount - requiredFieldsInfo.completedCount} remaining)
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* PROGRESS BAR */}
+                <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-300 ease-out ${idExpiryStatus.isExpired
+                        ? "bg-red-600"
+                        : hasMissingComplianceDocs
+                          ? "bg-amber-500"
+                          : requiredFieldsInfo.isAllComplete
+                            ? "bg-green-600"
+                            : "bg-blue-600"
+                      }`}
+                    style={{ width: `${requiredFieldsInfo.percent}%` }}
+                  />
+                </div>
+
+                {/* MISSING FIELDS PILLS */}
+                {!requiredFieldsInfo.isAllComplete && requiredFieldsInfo.missingFields.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-1.5 text-xs">
+                    <span className="text-gray-700 font-bold shrink-0">Required:</span>
+                    {requiredFieldsInfo.missingFields.map((field) => (
+                      <button
+                        key={field.fieldname}
+                        type="button"
+                        onClick={() => scrollToErrorField(field.fieldname)}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-gray-50 hover:bg-red-50 hover:text-red-700 hover:border-red-200 border border-gray-200 text-gray-700 font-medium text-[11px] transition-colors cursor-pointer"
+                      >
+                        • {field.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* MISSING COMPLIANCE DOCS */}
+                {hasMissingComplianceDocs && (
+                  <div className="mt-2 pt-2 border-t border-gray-100 flex flex-wrap items-center gap-1.5 text-xs">
+                    <span className="text-amber-800 font-bold shrink-0">Compliance:</span>
+                    <button
+                      type="button"
+                      onClick={() => scrollToErrorField("compliance")}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-300 font-semibold text-[11px] hover:bg-amber-100 transition-colors cursor-pointer"
+                    >
+                      📄 {missingComplianceDocs.join(", ")}
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {/* CUSTOMER PHOTO CARD */}
               <CustomerPhotoCard
                 customerImageUrl={customerImageUrl}
@@ -3483,6 +4381,95 @@ const MoneyTransfer = () => {
           />
         </div>
       </main>
+
+      {/* ── STICKY SUBMIT & CLEAR BAR ────────────────────────────────────────── */}
+      <div className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-200/90 shadow-[0_-4px_25px_rgba(0,0,0,0.09)] py-3 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[80%] mx-auto flex items-center justify-between gap-3 sm:gap-6">
+          {/* Quick status summary on left */}
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <span className="px-2.5 py-1 rounded-xl text-overline font-semibold uppercase tracking-wider bg-red-50 text-[#E00000] border border-red-200 shrink-0">
+              {form.transfer_type || "Send"}
+            </span>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-mono font-bold tnum text-gray-900 text-body-value shrink-0">
+                {form.amount ? `$${Number(form.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })} FJD` : "—"}
+              </span>
+              {form.full_name && (
+                <span className="text-xs text-gray-500 font-medium truncate max-w-[150px] hidden sm:inline">
+                  • {form.full_name}
+                </span>
+              )}
+            </div>
+
+            {idExpiryStatus.isExpired ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-caption font-semibold bg-red-600 text-white animate-pulse shrink-0">
+                ⚠️ Expired ID
+              </span>
+            ) : hasMissingComplianceDocs ? (
+              <button
+                type="button"
+                onClick={() => scrollToErrorField("compliance")}
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white shrink-0 cursor-pointer transition-colors shadow-xs"
+                title="Click to jump to Compliance section"
+              >
+                ⚠️ {requiredFieldsInfo.completedCount} of {requiredFieldsInfo.totalCount} fields · {missingComplianceDocs.length} compliance {missingComplianceDocs.length === 1 ? "issue" : "issues"}
+              </button>
+            ) : requiredFieldsInfo.isAllComplete ? (
+              <span className="hidden md:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800 border border-green-200 shrink-0">
+                <CheckCircle2 size={13} strokeWidth={2.5} /> Ready
+              </span>
+            ) : (
+              <span className="text-xs text-gray-400 font-medium hidden md:inline shrink-0">
+                ({requiredFieldsInfo.completedCount}/{requiredFieldsInfo.totalCount} required)
+              </span>
+            )}
+          </div>
+
+          {/* Action buttons on right: Clear and Submit */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={handleClearForm}
+              disabled={isFormLocked || isSubmitting}
+              className="inline-flex items-center gap-1.5 px-3.5 sm:px-5 py-2.5 rounded-xl border border-gray-200 hover:border-red-200 bg-white hover:bg-red-50 text-gray-700 hover:text-[#E00000] font-bold text-xs sm:text-sm transition-all shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Clear all fields in this form"
+            >
+              <RotateCcw size={15} />
+              <span>Clear</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={!requiredFieldsInfo.isAllComplete || idExpiryStatus.isExpired || hasMissingComplianceDocs || isSubmitting || stockLoading || isFormLocked}
+              className={`inline-flex items-center justify-center gap-1.5 sm:gap-2 px-5 sm:px-7 py-2.5 rounded-xl font-semibold text-btn-lg transition-all shadow-md ${!requiredFieldsInfo.isAllComplete || idExpiryStatus.isExpired || hasMissingComplianceDocs || isFormLocked
+                  ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
+                  : isSubmitting || stockLoading
+                    ? "bg-[#E00000] opacity-60 text-white cursor-not-allowed"
+                    : "bg-[#E00000] hover:bg-[#c70000] text-white hover:shadow-lg cursor-pointer"
+                }`}
+            >
+              {isSubmitting ? (
+                <>
+                  <RefreshCw size={15} className="animate-spin text-white" />
+                  <span>Processing...</span>
+                </>
+              ) : idExpiryStatus.isExpired ? (
+                <span>Expired ID</span>
+              ) : hasMissingComplianceDocs ? (
+                <span>Missing Docs ({missingComplianceDocs.length})</span>
+              ) : !requiredFieldsInfo.isAllComplete ? (
+                <span>Submit ({requiredFieldsInfo.completedCount}/{requiredFieldsInfo.totalCount})</span>
+              ) : (
+                <>
+                  <span>Submit</span>
+                  <ArrowRight size={15} />
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
 
       <Footer />
     </div>

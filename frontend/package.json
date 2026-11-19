@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "test:session": "node --test scripts/sessionClient.test.mjs",
     "preview": "vite preview",
-    "copy-html-entry": "cp ../home/public/frontend/index.html ../home/www/home.html"
+    "copy-html-entry": "cp ../home/public/frontend/index.html ../home/www/home.html && cp ../home/public/frontend/index.html ../home/www/frontend.html"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.12.0",

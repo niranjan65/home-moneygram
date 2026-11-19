@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { ArrowRight, ShieldCheck, Globe, Zap, CheckCircle2, Lock, ArrowUpRight } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { ArrowRight, ArrowDownLeft, ShieldCheck, Globe, Zap, CheckCircle2, Lock, ArrowUpRight } from "lucide-react";
+import { Link } from "react-router-dom";
 import feature1 from "../assets/feature1.png";
 import feature2 from "../assets/feature2.png";
 import feature3 from "../assets/feature3.png";
@@ -31,8 +31,8 @@ const PhoneMockup = () => {
       <div className="absolute -top-4 -left-4 sm:-left-8 z-30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md rounded-2xl px-3.5 py-2 shadow-xl border border-red-100 dark:border-gray-800 flex items-center gap-2 animate-bounce duration-1000">
         <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
         <div>
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Live Rate</p>
-          <p className="text-xs font-black text-gray-900 dark:text-white">1 FJD = 0.4430 USD</p>
+          <p className="text-overline font-semibold text-gray-400 uppercase tracking-wider">Live Rate</p>
+          <p className="text-caption font-bold text-gray-900 dark:text-white tnum">1 FJD = 0.4430 USD</p>
         </div>
       </div>
 
@@ -42,8 +42,8 @@ const PhoneMockup = () => {
           <ShieldCheck size={16} />
         </div>
         <div>
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Security</p>
-          <p className="text-xs font-black text-gray-900 dark:text-white">RBF Authorized</p>
+          <p className="text-overline font-semibold text-gray-400 uppercase tracking-wider">Security</p>
+          <p className="text-caption font-bold text-gray-900 dark:text-white">RBF Authorized</p>
         </div>
       </div>
 
@@ -65,10 +65,10 @@ const PhoneMockup = () => {
           <div>
             <div className="flex items-center justify-between px-1 pt-1 pb-2">
               <div>
-                <p className="text-[10px] text-gray-400 font-semibold">MH Money Express</p>
-                <p className="text-xs font-black text-gray-900 dark:text-white">Suva Terminal POS</p>
+                <p className="text-overline font-semibold text-gray-400">MH Money Express</p>
+                <p className="text-caption font-bold text-gray-900 dark:text-white">Suva Terminal POS</p>
               </div>
-              <div className="w-6 h-6 rounded-full bg-red-100 text-[#E00000] flex items-center justify-center text-[10px] font-black">
+              <div className="w-6 h-6 rounded-full bg-red-100 text-[#E00000] flex items-center justify-center text-overline font-bold">
                 FJ
               </div>
             </div>
@@ -76,23 +76,23 @@ const PhoneMockup = () => {
             {/* Balance Card in MH Red */}
             <div className="rounded-2xl bg-gradient-to-br from-[#E00000] via-[#C50000] to-[#990000] p-4 text-white shadow-lg relative overflow-hidden">
               <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-8 -mt-8 pointer-events-none" />
-              <div className="flex justify-between items-center text-[10px] font-semibold opacity-90 mb-1">
+              <div className="flex justify-between items-center text-overline font-semibold opacity-90 mb-1">
                 <span>ACTIVE VAULT BALANCE</span>
-                <span className="bg-white/20 px-2 py-0.5 rounded-full text-[9px]">Verified</span>
+                <span className="bg-white/20 px-2 py-0.5 rounded-full text-overline">Verified</span>
               </div>
-              <p className="text-2xl font-black tracking-tight">$ 320,299.00</p>
-              <p className="text-[10px] opacity-80 mb-3">Branch Vault #01 · FJD Cash</p>
+              <p className="text-display font-bold tracking-tight tnum">$ 320,299.00</p>
+              <p className="text-caption opacity-80 mb-3 font-normal">Branch Vault #01 · FJD Cash</p>
               
               <div className="flex items-center gap-2 pt-1 border-t border-white/20">
                 <Link
                   to="/money-transfer"
-                  className="flex-1 bg-white text-[#E00000] hover:bg-gray-100 text-[10px] font-black py-1.5 rounded-xl text-center shadow-xs transition"
+                  className="flex-1 bg-white text-[#E00000] hover:bg-gray-100 text-caption font-semibold py-1.5 rounded-xl text-center shadow-xs transition"
                 >
                   Send
                 </Link>
                 <Link
                   to="/exchange"
-                  className="flex-1 bg-black/30 hover:bg-black/40 text-white text-[10px] font-black py-1.5 rounded-xl text-center border border-white/20 transition"
+                  className="flex-1 bg-black/30 hover:bg-black/40 text-white text-caption font-semibold py-1.5 rounded-xl text-center border border-white/20 transition"
                 >
                   Exchange
                 </Link>
@@ -101,14 +101,14 @@ const PhoneMockup = () => {
 
             {/* Quick Contacts */}
             <div className="mt-3.5">
-              <p className="text-[10px] font-bold text-gray-400 mb-2 px-1">Frequent Receivers</p>
+              <p className="text-overline font-semibold text-gray-400 mb-2 px-1">Frequent Receivers</p>
               <div className="flex justify-between px-1">
                 {contacts.map((c) => (
                   <div key={c.name} className="flex flex-col items-center gap-1">
-                    <div className={`w-8 h-8 rounded-full ${c.color} flex items-center justify-center text-white text-[10px] font-black shadow-xs`}>
+                    <div className={`w-8 h-8 rounded-full ${c.color} flex items-center justify-center text-white text-caption font-bold shadow-xs`}>
                       {c.initial}
                     </div>
-                    <span className="text-[8px] font-bold text-gray-500">{c.name}</span>
+                    <span className="text-overline font-semibold text-gray-500">{c.name}</span>
                   </div>
                 ))}
               </div>
@@ -119,13 +119,13 @@ const PhoneMockup = () => {
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <span className="text-[10px] font-bold text-gray-800 dark:text-gray-200">MoneyGram Inward</span>
+                  <span className="text-caption font-semibold text-gray-800 dark:text-gray-200">MoneyGram Inward</span>
                 </div>
-                <span className="text-[9px] font-extrabold text-emerald-600 dark:text-emerald-400">Paid Out</span>
+                <span className="text-overline font-semibold text-emerald-600 dark:text-emerald-400">Paid Out</span>
               </div>
-              <div className="flex justify-between items-center text-[10px]">
-                <span className="text-gray-500">Ref: MG-84920</span>
-                <span className="font-black text-gray-900 dark:text-white">$ 1,250.00 FJD</span>
+              <div className="flex justify-between items-center text-caption">
+                <span className="text-gray-500 font-normal">Ref: MG-84920</span>
+                <span className="font-bold text-gray-900 dark:text-white tnum">$ 1,250.00 FJD</span>
               </div>
             </div>
           </div>
@@ -143,9 +143,9 @@ const PhoneMockup = () => {
 
 const StatItem = ({ value, label, subtext }) => (
   <div className="flex flex-col gap-0.5">
-    <span className="text-3xl sm:text-4xl font-black text-gray-900 tracking-tight">{value}</span>
-    <span className="text-xs font-bold text-gray-800 uppercase tracking-wider">{label}</span>
-    {subtext && <span className="text-[11px] text-gray-500">{subtext}</span>}
+    <span className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight tnum">{value}</span>
+    <span className="text-overline font-semibold text-gray-800 uppercase tracking-wider">{label}</span>
+    {subtext && <span className="text-caption text-gray-500 font-normal">{subtext}</span>}
   </div>
 );
 
@@ -172,39 +172,66 @@ const features = [
 
 export default function SoldiLanding() {
   const [hoveredCard, setHoveredCard] = useState(null);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("erpnext_session");
-      if (stored) {
-        const session = JSON.parse(stored);
-        if (session?.sessionActive && session?.user_type === "Teller") {
-          navigate("/money-transfer", { replace: true });
-        }
-      }
-    } catch {}
-  }, [navigate]);
+  const services = [
+    {
+      title: "Buy forex",
+      eyebrow: "Customer needs foreign currency",
+      description: "Collect FJD and give the customer the selected foreign currency.",
+      to: "/exchange?type=BUY&new=1",
+      action: "Start buying",
+      Icon: ArrowUpRight,
+      tone: "from-[#E00000] to-[#A80000]",
+    },
+    {
+      title: "Sell forex",
+      eyebrow: "Customer brings foreign currency",
+      description: "Receive foreign currency and pay the customer in FJD.",
+      to: "/exchange?type=SELL&new=1",
+      action: "Start selling",
+      Icon: ArrowDownLeft,
+      tone: "from-[#174A7E] to-[#0F3157]",
+    },
+    {
+      title: "Send money",
+      eyebrow: "Outbound MoneyGram transfer",
+      description: "Create a transfer for a customer sending money overseas.",
+      to: "/money-transfer?type=Send",
+      action: "Start sending",
+      Icon: ArrowUpRight,
+      tone: "from-[#0B7669] to-[#07544C]",
+    },
+    {
+      title: "Receive money",
+      eyebrow: "Inbound MoneyGram payout",
+      description: "Pay out a customer’s incoming MoneyGram transfer securely.",
+      to: "/money-transfer?type=Receive",
+      action: "Start receiving",
+      Icon: ArrowDownLeft,
+      tone: "from-[#8B5A11] to-[#654008]",
+    },
+  ];
 
   return (
     <div className="min-h-screen font-sans overflow-hidden bg-[url('../assets/redbg.png')] bg-cover bg-fixed">
       <Navbar />
 
+
+
       {/* Main Hero Section: Back-and-Forth Layout (Headline/CTA on Left, Visual Phone on Right) */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 md:px-12 pt-12 md:pt-16 pb-12">
+      <section className="relative z-10 max-w-[80%] mx-auto px-6 md:px-12 pt-12 md:pt-16 pb-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
 
           {/* Left Column: Heading, Value Proposition, Action CTAs, and Stats (Swapped from right!) */}
           <div className="lg:col-span-7 flex flex-col gap-6 text-left">
             <div>
               {/* Category Pill */}
-              <div className="inline-flex items-center gap-2 border border-red-200 bg-white/90 shadow-xs rounded-full px-4 py-1.5 text-xs font-bold text-[#E00000] tracking-wider uppercase mb-4 backdrop-blur-sm">
+              <div className="inline-flex items-center gap-2 border border-red-200 bg-white/90 shadow-xs rounded-full px-4 py-1.5 text-overline font-semibold text-[#E00000] tracking-wider uppercase mb-4 backdrop-blur-sm">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 MH Money Express · Authorized MoneyGram Principal Agent
               </div>
 
               {/* Main Headline */}
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-gray-900 leading-[1.12] tracking-tight">
+              <h1 className="text-display sm:text-5xl lg:text-6xl font-bold text-gray-900 leading-[1.12] tracking-tight">
                 Fast &amp; Secure{" "}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#E00000] via-[#C50000] to-[#990000]">
                   International
@@ -227,7 +254,7 @@ export default function SoldiLanding() {
               </h1>
             </div>
 
-            <p className="text-base text-gray-600 leading-relaxed max-w-xl">
+            <p className="text-body font-normal text-gray-600 leading-relaxed max-w-xl">
               Fiji's premier authorized foreign exchange dealer and global remittance hub. Experience guaranteed vault cash availability, transparent mid-market exchange rates, and strict RBF regulatory compliance.
             </p>
 
@@ -235,7 +262,7 @@ export default function SoldiLanding() {
             <div className="flex flex-wrap items-center gap-4 mt-1">
               <Link
                 to="/money-transfer"
-                className="bg-[#E00000] hover:bg-[#C50000] text-white font-extrabold px-7 py-3.5 text-sm rounded-xl transition-all duration-200 shadow-lg hover:shadow-red-500/30 hover:-translate-y-0.5 flex items-center gap-2 group"
+                className="bg-[#E00000] hover:bg-[#C50000] text-white text-btn-lg font-semibold px-7 py-3.5 rounded-xl transition-all duration-200 shadow-lg hover:shadow-red-500/30 hover:-translate-y-0.5 flex items-center gap-2 group"
               >
                 Transfer Money
                 <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
@@ -243,7 +270,7 @@ export default function SoldiLanding() {
 
               <Link
                 to="/exchange"
-                className="bg-white hover:bg-gray-50 text-gray-900 font-extrabold px-6 py-3.5 text-sm rounded-xl transition-all duration-200 shadow-md hover:shadow-lg border border-gray-200 flex items-center gap-2 group"
+                className="bg-white hover:bg-gray-50 text-gray-900 text-btn-lg font-semibold px-6 py-3.5 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg border border-gray-200 flex items-center gap-2 group"
               >
                 Exchange Currency
                 <ArrowUpRight size={16} className="text-[#E00000] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
@@ -251,7 +278,7 @@ export default function SoldiLanding() {
 
               <Link
                 to="/dealer-exchange"
-                className="text-xs font-bold text-gray-700 hover:text-[#E00000] transition-colors py-2 px-3 underline underline-offset-4"
+                className="text-caption font-semibold text-gray-700 hover:text-[#E00000] transition-colors py-2 px-3 underline underline-offset-4"
               >
                 Dealer Wholesale &gt;
               </Link>
@@ -281,15 +308,15 @@ export default function SoldiLanding() {
 
       {/* Features Section: Matching MH Theme with Premium Dark Obsidian Glass */}
       <section className="w-full bg-gradient-to-b from-gray-950 via-gray-900 to-[#1e0404] text-white">
-        <div className="max-w-7xl mx-auto px-6 md:px-16 py-20">
+        <div className="max-w-[80%] mx-auto px-6 md:px-16 py-20">
           
           {/* Header Row */}
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-14">
-            <span className="bg-red-500/10 border border-red-500/30 rounded-full px-5 py-2 text-xs font-bold tracking-widest uppercase text-red-400">
+            <span className="bg-red-500/10 border border-red-500/30 rounded-full px-5 py-2 text-overline font-semibold tracking-wider uppercase text-red-400">
               Our Core Capabilities
             </span>
 
-            <h2 className="text-2xl md:text-3xl font-black text-left md:text-center leading-snug tracking-tight max-w-md text-white">
+            <h2 className="text-h1 font-bold text-left md:text-center leading-snug tracking-tight max-w-md text-white">
               World-Class &amp;{" "}
               <span className="text-[#E00000] relative inline-block">
                 Fastest
@@ -303,7 +330,7 @@ export default function SoldiLanding() {
 
             <Link
               to="/money-transfer"
-              className="bg-[#E00000] hover:bg-[#C50000] text-white font-bold px-7 py-3 rounded-xl text-sm transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 whitespace-nowrap"
+              className="bg-[#E00000] hover:bg-[#C50000] text-white text-btn-lg font-semibold px-7 py-3 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 whitespace-nowrap"
             >
               Get Started
             </Link>
@@ -328,10 +355,10 @@ export default function SoldiLanding() {
                   </div>
 
                   {/* Title */}
-                  <h3 className="text-white font-extrabold text-lg leading-snug mb-2">{f.title}</h3>
+                  <h3 className="text-white font-bold text-h3 leading-snug mb-2">{f.title}</h3>
 
                   {/* Description */}
-                  <p className="text-gray-400 text-xs leading-relaxed mb-4">{f.desc}</p>
+                  <p className="text-gray-400 text-caption font-normal leading-relaxed mb-4">{f.desc}</p>
                 </div>
 
                 {/* Mockup Preview */}

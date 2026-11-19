@@ -40,10 +40,10 @@ export default function SoldiAboutSection() {
       {/* Header Row */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-14">
         <div>
-          <span className="inline-block border border-red-200 dark:border-red-900/50 rounded-full px-4 py-1 text-xs font-bold tracking-widest uppercase text-[#E00000] bg-red-50 dark:bg-red-950/40 mb-3">
+          <span className="inline-block border border-red-200 dark:border-red-900/50 rounded-full px-4 py-1 text-overline font-semibold tracking-wider uppercase text-[#E00000] bg-red-50 dark:bg-red-950/40 mb-3">
             About MH Money Express
           </span>
-          <h2 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white leading-tight tracking-tight">
+          <h2 className="text-h1 font-bold text-gray-900 dark:text-white leading-tight tracking-tight">
             Fiji's Premier Choice for{" "}
             <span className="relative inline-block text-[#E00000]">
               Forex &amp; Remittances
@@ -67,7 +67,7 @@ export default function SoldiAboutSection() {
 
         <Link
           to="/money-transfer"
-          className="bg-[#E00000] hover:bg-[#C50000] text-white font-bold px-7 py-3 rounded-xl text-sm transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 whitespace-nowrap"
+          className="bg-[#E00000] hover:bg-[#C50000] text-white text-btn-lg font-semibold px-7 py-3 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 whitespace-nowrap"
         >
           Start a Transfer
         </Link>
@@ -89,12 +89,12 @@ export default function SoldiAboutSection() {
             {/* Floating Trust Banner */}
             <div className="absolute bottom-6 left-6 right-6 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md rounded-2xl p-4 shadow-xl border border-red-100 dark:border-gray-700">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-950 flex items-center justify-center text-[#E00000] font-black shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-950 flex items-center justify-center text-[#E00000] font-bold text-caption shrink-0">
                   25+
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-gray-900 dark:text-white">Years of Financial Trust</h4>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Serving thousands of Fijian families &amp; travelers</p>
+                  <h4 className="text-label font-bold text-gray-900 dark:text-white">Years of Financial Trust</h4>
+                  <p className="text-caption text-gray-500 dark:text-gray-400">Serving thousands of Fijian families &amp; travelers</p>
                 </div>
               </div>
             </div>
@@ -109,7 +109,7 @@ export default function SoldiAboutSection() {
               <button
                 key={i}
                 onClick={() => setActiveItem(i)}
-                className={`p-4 rounded-2xl font-bold text-left transition-all duration-200 border flex flex-col justify-between gap-2 ${
+                className={`p-4 rounded-2xl font-semibold text-left transition-all duration-200 border flex flex-col justify-between gap-2 ${
                   activeItem === i
                     ? "bg-[#E00000] text-white border-[#E00000] shadow-lg shadow-red-500/20"
                     : "bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-800 hover:border-red-300 dark:hover:border-red-900 hover:bg-red-50/50"
@@ -121,17 +121,17 @@ export default function SoldiAboutSection() {
                   </div>
                   <ArrowUpRight size={16} className={activeItem === i ? "text-white" : "text-gray-400"} />
                 </div>
-                <span className="text-sm font-bold">{item.label}</span>
+                <span className="text-label font-semibold">{item.label}</span>
               </button>
             ))}
           </div>
 
           {/* Active Detail Showcase Card */}
           <div className="bg-gradient-to-br from-red-50/70 via-white to-red-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-red-950/20 rounded-3xl p-7 border border-red-100 dark:border-gray-800 shadow-md">
-            <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2">
+            <h3 className="text-h2 font-bold text-gray-900 dark:text-white mb-2">
               {menuItems[activeItem].label}
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed mb-6">
+            <p className="text-gray-600 dark:text-gray-400 text-body font-normal leading-relaxed mb-6">
               {menuItems[activeItem].desc}
             </p>
 
@@ -144,7 +144,7 @@ export default function SoldiAboutSection() {
                   <div className="w-5 h-5 rounded-full bg-[#E00000] flex items-center justify-center shrink-0">
                     <Check size={12} className="text-white" strokeWidth={3} />
                   </div>
-                  <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">{feat}</span>
+                  <span className="text-caption font-semibold text-gray-800 dark:text-gray-200">{feat}</span>
                 </div>
               ))}
             </div>

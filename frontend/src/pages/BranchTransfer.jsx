@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../components/layout/Navbar";
+import TransactionTabBar from "../components/common/TransactionTabBar";
 import { useSettings } from "../context/SettingsContext";
 import { useUser } from "../context/UserContext";
 import { sessionAxios as axios } from "../api/sessionClient.js";
@@ -21,6 +22,7 @@ import {
   Landmark,
   Check,
   ChevronRight,
+  ChevronDown,
   Edit3,
   Printer,
   RotateCcw,
@@ -398,7 +400,10 @@ export default function BranchTransfer() {
     <div className="min-h-screen bg-gray-50/60 pb-16">
       <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+      <main className="max-w-[80%] mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+        {/* Service Mode Navigation Tabs */}
+        <TransactionTabBar activeTab="OPERATIONAL" className="mb-6" />
+
         {/* Sub-Navigation Tabs */}
         <div className="flex items-center gap-1.5 mb-6 p-1 bg-gray-200/70 rounded-2xl w-fit">
           <Link
@@ -410,7 +415,7 @@ export default function BranchTransfer() {
           </Link>
           <Link
             to="/branch-transfer"
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all bg-white text-gray-900 shadow-xs"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-label font-semibold transition-all bg-white text-gray-900 shadow-xs"
           >
             <Truck size={15} className="text-[#E00000]" />
             <span>Branch Transfer</span>
@@ -420,16 +425,16 @@ export default function BranchTransfer() {
         {/* Page Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-8 border-b border-gray-200">
           <div>
-            <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest mb-1.5">
+            <div className="flex items-center gap-2 text-overline font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
               <span>Transfer</span>
               <span>&gt;</span>
               <span className="text-[#E00000]">Branch to Branch</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
+            <h1 className="text-h1 font-bold text-gray-900 tracking-tight flex items-center gap-3">
               <Truck size={28} className="text-[#E00000]" />
               Branch Transfer
             </h1>
-            <p className="text-gray-500 text-sm mt-1">
+            <p className="text-gray-500 text-body mt-1">
               Inter-branch foreign currency transfer with automated Sales Invoice, Purchase Invoice, Cash Payments, and local stock adjustments.
             </p>
           </div>
@@ -439,14 +444,14 @@ export default function BranchTransfer() {
             <div className="flex items-center gap-3 bg-white px-4 py-2.5 rounded-2xl border border-gray-200 shadow-xs">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                <span className="text-xs font-black text-gray-900">{fromBranch}</span>
+                <span className="text-label font-semibold text-gray-900">{fromBranch}</span>
               </div>
               <ArrowRight size={14} className="text-gray-400" />
-              <div className="text-xs font-black text-gray-900">{toBranch}</div>
+              <div className="text-label font-semibold text-gray-900">{toBranch}</div>
               <button
                 type="button"
                 onClick={() => setIsRouteConfirmed(false)}
-                className="ml-2 text-[11px] font-bold text-[#E00000] hover:underline flex items-center gap-1 cursor-pointer"
+                className="ml-2 text-caption font-semibold text-[#E00000] hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <Edit3 size={12} />
                 Change
@@ -459,7 +464,7 @@ export default function BranchTransfer() {
         {errorMsg && (
           <div className="my-6 p-4 rounded-2xl bg-red-50 border border-red-200 flex items-start gap-3">
             <AlertCircle size={18} className="text-[#E00000] shrink-0 mt-0.5" />
-            <div className="text-sm font-semibold text-red-800">{errorMsg}</div>
+            <div className="text-label font-semibold text-red-800">{errorMsg}</div>
           </div>
         )}
 
@@ -473,10 +478,10 @@ export default function BranchTransfer() {
                 <div className="w-14 h-14 rounded-2xl bg-red-50 border border-red-100 text-[#E00000] flex items-center justify-center mx-auto mb-3 shadow-xs">
                   <ArrowLeftRight size={26} />
                 </div>
-                <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
+                <h2 className="text-h2 font-bold text-gray-900 tracking-tight">
                   Select Transfer Route
                 </h2>
-                <p className="text-xs sm:text-sm text-gray-500 mt-1 max-w-md mx-auto">
+                <p className="text-body text-gray-500 mt-1 max-w-md mx-auto">
                   Choose the originating branch and destination branch. Only branches assigned to your account or accessible in Settings can be selected as the source.
                 </p>
               </div>
@@ -484,46 +489,62 @@ export default function BranchTransfer() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                 {/* From Branch (Source) */}
                 <div className="p-5 rounded-2xl bg-gray-50/80 border border-gray-200 shadow-2xs">
-                  <label className="text-[11px] font-black tracking-widest uppercase text-gray-400 block mb-2 flex items-center gap-1.5">
+                  <label className="text-overline uppercase font-semibold text-gray-700 tracking-wider mb-2 flex items-center gap-1.5">
                     <Building2 size={14} className="text-[#E00000]" />
                     From Branch (Origin)
                   </label>
-                  <select
-                    value={fromBranch}
-                    onChange={(e) => setFromBranch(e.target.value)}
-                    disabled={loadingWarehouses}
-                    className="w-full px-3.5 py-3 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#E00000]/20 focus:border-[#E00000] transition-all cursor-pointer"
-                  >
-                    {fromBranchOptions.map((w) => (
-                      <option key={w.name} value={w.name}>
-                        {w.warehouse_name || w.name}
+                  <div className="relative min-w-0">
+                    <select
+                      value={fromBranch}
+                      onChange={(e) => setFromBranch(e.target.value)}
+                      disabled={loadingWarehouses}
+                      className="w-full min-w-0 box-border bg-white border border-gray-200 text-gray-900 rounded-xl px-4 py-3 text-body font-medium focus:outline-none focus:ring-2 focus:ring-[#E00000] focus:border-[#E00000] placeholder:text-gray-400 transition-all duration-200 appearance-none pr-10 cursor-pointer shadow-xs disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <option value="" disabled className="text-gray-400 bg-white">
+                        {loadingWarehouses ? "Loading branches..." : "Select Origin Branch"}
                       </option>
-                    ))}
-                  </select>
-                  <span className="text-[11px] text-gray-500 mt-2 block font-medium">
+                      {fromBranchOptions.map((w) => (
+                        <option key={w.name} value={w.name} className="text-gray-900 bg-white py-1">
+                          {w.warehouse_name || w.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-gray-400">
+                      <ChevronDown size={16} />
+                    </div>
+                  </div>
+                  <span className="text-caption text-gray-500 mt-2 block font-medium">
                     Cash Account: <span className="font-mono font-bold text-gray-800">{fromBranch ? `${fromBranch} - ${companyAbbr}` : "—"}</span>
                   </span>
                 </div>
 
                 {/* To Branch (Destination) */}
                 <div className="p-5 rounded-2xl bg-gray-50/80 border border-gray-200 shadow-2xs">
-                  <label className="text-[11px] font-black tracking-widest uppercase text-gray-400 block mb-2 flex items-center gap-1.5">
+                  <label className="text-overline uppercase font-semibold text-gray-700 tracking-wider mb-2 flex items-center gap-1.5">
                     <Truck size={14} className="text-[#E00000]" />
                     To Branch (Destination)
                   </label>
-                  <select
-                    value={toBranch}
-                    onChange={(e) => setToBranch(e.target.value)}
-                    disabled={loadingWarehouses}
-                    className="w-full px-3.5 py-3 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#E00000]/20 focus:border-[#E00000] transition-all cursor-pointer"
-                  >
-                    {toBranchOptions.map((w) => (
-                      <option key={w.name} value={w.name}>
-                        {w.warehouse_name || w.name}
+                  <div className="relative min-w-0">
+                    <select
+                      value={toBranch}
+                      onChange={(e) => setToBranch(e.target.value)}
+                      disabled={loadingWarehouses}
+                      className="w-full min-w-0 box-border bg-white border border-gray-200 text-gray-900 rounded-xl px-4 py-3 text-body font-medium focus:outline-none focus:ring-2 focus:ring-[#E00000] focus:border-[#E00000] placeholder:text-gray-400 transition-all duration-200 appearance-none pr-10 cursor-pointer shadow-xs disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <option value="" disabled className="text-gray-400 bg-white">
+                        {loadingWarehouses ? "Loading branches..." : "Select Destination Branch"}
                       </option>
-                    ))}
-                  </select>
-                  <span className="text-[11px] text-gray-500 mt-2 block font-medium">
+                      {toBranchOptions.map((w) => (
+                        <option key={w.name} value={w.name} className="text-gray-900 bg-white py-1">
+                          {w.warehouse_name || w.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-gray-400">
+                      <ChevronDown size={16} />
+                    </div>
+                  </div>
+                  <span className="text-caption text-gray-500 mt-2 block font-medium">
                     Cash Account: <span className="font-mono font-bold text-gray-800">{toBranch ? `${toBranch} - ${companyAbbr}` : "—"}</span>
                   </span>
                 </div>
@@ -531,9 +552,9 @@ export default function BranchTransfer() {
 
               {/* Continue Action */}
               <div className="mt-8 pt-6 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="text-xs text-gray-400 font-medium">
-                  Transferring from <span className="font-bold text-gray-800">{fromBranch || "Source"}</span> to{" "}
-                  <span className="font-bold text-gray-800">{toBranch || "Destination"}</span>
+                <div className="text-caption text-gray-400 font-medium">
+                  Transferring from <span className="font-semibold text-gray-800">{fromBranch || "Source"}</span> to{" "}
+                  <span className="font-semibold text-gray-800">{toBranch || "Destination"}</span>
                 </div>
                 <button
                   type="button"
@@ -549,7 +570,7 @@ export default function BranchTransfer() {
                     setIsRouteConfirmed(true);
                   }}
                   disabled={loadingWarehouses || !fromBranch || !toBranch || fromBranch === toBranch}
-                  className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-[#E00000] hover:bg-[#b70000] text-white font-black text-sm shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-[#E00000] hover:bg-[#b70000] text-white font-semibold text-btn-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span>Proceed to Transfer Details</span>
                   <ArrowRight size={16} />
@@ -565,14 +586,14 @@ export default function BranchTransfer() {
             {/* Active Route Header Banner */}
             <div className="p-4 sm:p-5 rounded-3xl bg-white border border-gray-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-red-50 text-[#E00000] flex items-center justify-center font-black shrink-0">
+                <div className="w-12 h-12 rounded-2xl bg-red-50 text-[#E00000] flex items-center justify-center font-bold shrink-0">
                   <ArrowLeftRight size={22} />
                 </div>
                 <div>
-                  <div className="text-[11px] font-black uppercase tracking-wider text-gray-400">
+                  <div className="text-overline font-semibold uppercase tracking-wider text-gray-400">
                     Active Transfer Route
                   </div>
-                  <div className="text-base font-black text-gray-900 flex items-center gap-2 mt-0.5">
+                  <div className="text-body font-bold text-gray-900 flex items-center gap-2 mt-0.5">
                     <span className="text-emerald-700">{fromBranch}</span>
                     <ArrowRight size={16} className="text-gray-400" />
                     <span className="text-blue-700">{toBranch}</span>
@@ -583,7 +604,7 @@ export default function BranchTransfer() {
               <button
                 type="button"
                 onClick={() => setIsRouteConfirmed(false)}
-                className="px-4 py-2 text-xs font-bold text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all flex items-center gap-1.5 self-start sm:self-center cursor-pointer"
+                className="px-4 py-2 text-label font-semibold text-gray-700 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all flex items-center gap-1.5 self-start sm:self-center cursor-pointer"
               >
                 <RotateCcw size={13} />
                 <span>Change Branches</span>
@@ -598,11 +619,11 @@ export default function BranchTransfer() {
                 <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <h3 className="text-xs font-black tracking-widest uppercase text-[#E00000] flex items-center gap-2">
+                      <h3 className="text-overline font-semibold tracking-wider uppercase text-[#E00000] flex items-center gap-2">
                         <DollarSign size={15} />
                         Select Foreign Currency
                       </h3>
-                      <p className="text-xs text-gray-400 mt-0.5">
+                      <p className="text-caption text-gray-400 mt-0.5">
                         Live exchange rates and denomination availability loaded directly from ERPNext
                       </p>
                     </div>
@@ -612,7 +633,7 @@ export default function BranchTransfer() {
                   {/* Currencies Pills */}
                   <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin">
                     {loadingCurrencies ? (
-                      <div className="py-2 text-xs text-gray-400 flex items-center gap-2">
+                      <div className="py-2 text-caption text-gray-400 flex items-center gap-2">
                         <RefreshCw size={14} className="animate-spin text-[#E00000]" />
                         <span>Loading currencies...</span>
                       </div>
@@ -629,14 +650,14 @@ export default function BranchTransfer() {
                               foreignDenomRowsRef.current = [];
                               fjdDenomRowsRef.current = [];
                             }}
-                            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer border flex items-center gap-1.5 ${
+                            className={`px-4 py-2.5 rounded-xl text-label font-semibold transition-all shrink-0 cursor-pointer border flex items-center gap-1.5 ${
                               isActive
-                                ? "bg-[#E00000] text-white border-[#E00000] shadow-sm font-black"
+                                ? "bg-[#E00000] text-white border-[#E00000] shadow-sm"
                                 : "bg-gray-50 text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-100"
                             }`}
                           >
                             <span>{c.code}</span>
-                            <span className="opacity-75 text-[10px]">({c.symbol})</span>
+                            <span className="opacity-80 text-caption">({c.symbol})</span>
                           </button>
                         );
                       })
@@ -646,43 +667,43 @@ export default function BranchTransfer() {
                   {/* Active Currency Exchange Rate Info Card */}
                   <div className="mt-4 p-4 rounded-2xl bg-gray-50/80 border border-gray-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-white border border-gray-200 flex items-center justify-center font-black text-sm text-gray-900 shadow-2xs">
+                      <div className="w-10 h-10 rounded-xl bg-white border border-gray-200 flex items-center justify-center font-bold text-label text-gray-900 shadow-2xs">
                         {activeCurrency.symbol}
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-gray-900">
+                        <div className="text-label font-semibold text-gray-900">
                           {activeCurrency.country} ({activeCurrency.code})
                         </div>
-                        <div className="text-[11px] text-gray-500 mt-0.5">
-                          ERPNext Selling Rate: <span className="font-mono font-bold text-gray-700">{activeCurrency.selling_price || "—"}</span> · Buying Rate: <span className="font-mono font-bold text-gray-700">{activeCurrency.buying_price || "—"}</span>
+                        <div className="text-caption text-gray-500 mt-0.5">
+                          ERPNext Selling Rate: <span className="font-mono font-bold tnum text-gray-700">{activeCurrency.selling_price || "—"}</span> · Buying Rate: <span className="font-mono font-bold tnum text-gray-700">{activeCurrency.buying_price || "—"}</span>
                         </div>
                       </div>
                     </div>
 
                     <div className="text-right">
-                      <div className="text-xs font-black text-emerald-800">
+                      <div className="text-label font-bold tnum text-emerald-800">
                         1 {activeCurrency.code} = {effectiveFjdRate?.toFixed(4)} FJD
                       </div>
-                      <div className="text-[10px] text-gray-400">Currency Master Data rate</div>
+                      <div className="text-overline text-gray-400">Currency Master Data rate</div>
                     </div>
                   </div>
 
                   <div className="mt-4 grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 sm:grid-cols-2 sm:items-end">
                     <label>
-                      <span className="mb-1.5 block text-[11px] font-black uppercase tracking-wider text-gray-500">Foreign amount to transfer</span>
+                      <span className="mb-1.5 block text-overline font-semibold uppercase tracking-wider text-gray-500">Foreign amount to transfer</span>
                       <div className="flex overflow-hidden rounded-xl border border-gray-300 focus-within:border-[#E00000] focus-within:ring-2 focus-within:ring-[#E00000]/10">
-                        <input type="number" min="0" step="0.01" value={transferAmount} onChange={(event) => setTransferAmount(event.target.value)} placeholder="0.00" className="min-w-0 flex-1 px-4 py-3 text-lg font-black outline-none" />
-                        <span className="flex items-center bg-gray-50 px-4 text-sm font-black text-gray-600">{activeCurrency.code}</span>
+                        <input type="number" min="0" step="0.01" value={transferAmount} onChange={(event) => setTransferAmount(event.target.value)} placeholder="0.00" className="min-w-0 flex-1 px-4 py-3 text-amount font-bold tnum outline-none" />
+                        <span className="flex items-center bg-gray-50 px-4 text-label font-bold text-gray-600">{activeCurrency.code}</span>
                       </div>
                     </label>
                     <div className="rounded-xl bg-gray-50 px-4 py-3">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">FJD cash value</span>
-                      <div className="mt-0.5 text-xl font-black text-gray-900">${roundedLocalFjdAmount.toFixed(2)} <span className="text-xs text-gray-500">FJD</span></div>
+                      <span className="text-overline font-semibold uppercase tracking-wider text-gray-400">FJD cash value</span>
+                      <div className="mt-0.5 text-h2 font-bold tnum text-gray-900">${roundedLocalFjdAmount.toFixed(2)} <span className="text-label font-medium text-gray-500">FJD</span></div>
                     </div>
                   </div>
 
                   <details className="mt-4 overflow-hidden rounded-2xl border border-gray-200 bg-white">
-                    <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-xs font-black text-gray-800 hover:bg-gray-50">
+                    <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-label font-semibold text-gray-800 hover:bg-gray-50">
                       <span>
                         View selected-route stock: {activeCurrency.code} at Location A
                         {enableCash ? " and FJD at Location B" : ""}
@@ -691,17 +712,17 @@ export default function BranchTransfer() {
                     </summary>
                     <div className={`grid gap-4 border-t border-gray-100 bg-gray-50/60 p-4 ${enableCash ? "md:grid-cols-2" : ""}`}>
                       <div className="rounded-xl border border-red-100 bg-white p-3">
-                        <div className="text-[10px] font-black uppercase tracking-widest text-red-500">{fromBranch} · {activeCurrency.code} Stock</div>
+                        <div className="text-overline font-semibold uppercase tracking-wider text-red-600">{fromBranch} · {activeCurrency.code} Stock</div>
                         <div className="mt-3 space-y-1.5">
-                          {allItemsList.map((item) => <div key={item.item_code} className="flex items-center justify-between text-xs"><span className="text-gray-600">{activeCurrency.symbol}{Number(item.value).toFixed(Number(item.value) < 1 ? 2 : 0)}</span><b className="text-gray-900">{Number(item.available_qty || 0).toLocaleString()} pcs</b></div>)}
-                          {!allItemsList.length && <div className="text-xs text-gray-400">No {activeCurrency.code} denomination stock configured.</div>}
+                          {allItemsList.map((item) => <div key={item.item_code} className="flex items-center justify-between text-caption"><span className="text-gray-600">{activeCurrency.symbol}{Number(item.value).toFixed(Number(item.value) < 1 ? 2 : 0)}</span><b className="text-gray-900 tnum font-semibold">{Number(item.available_qty || 0).toLocaleString()} pcs</b></div>)}
+                          {!allItemsList.length && <div className="text-caption text-gray-400">No {activeCurrency.code} denomination stock configured.</div>}
                         </div>
                       </div>
                       {enableCash && <div className="rounded-xl border border-emerald-100 bg-white p-3">
-                        <div className="text-[10px] font-black uppercase tracking-widest text-emerald-600">{toBranch} · FJD Stock</div>
+                        <div className="text-overline font-semibold uppercase tracking-wider text-emerald-600">{toBranch} · FJD Stock</div>
                         <div className="mt-3 space-y-1.5">
-                          {fjdItemsList.map((item) => <div key={item.item_code} className="flex items-center justify-between text-xs"><span className="text-gray-600">${Number(item.value).toFixed(Number(item.value) < 1 ? 2 : 0)}</span><b className="text-gray-900">{Number(item.available_qty || 0).toLocaleString()} pcs</b></div>)}
-                          {!fjdItemsList.length && <div className="text-xs text-gray-400">No FJD denomination stock configured.</div>}
+                          {fjdItemsList.map((item) => <div key={item.item_code} className="flex items-center justify-between text-caption"><span className="text-gray-600">${Number(item.value).toFixed(Number(item.value) < 1 ? 2 : 0)}</span><b className="text-gray-900 tnum font-semibold">{Number(item.available_qty || 0).toLocaleString()} pcs</b></div>)}
+                          {!fjdItemsList.length && <div className="text-caption text-gray-400">No FJD denomination stock configured.</div>}
                         </div>
                       </div>}
                     </div>
@@ -713,7 +734,7 @@ export default function BranchTransfer() {
                 <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 md:p-8">
                   <div className="flex items-center justify-between pb-4 mb-6 border-b border-gray-100">
                     <div>
-                      <h2 className="text-base font-black text-gray-900">
+                      <h2 className="text-h3 font-bold text-gray-900">
                         Enter Transfer Denominations ({activeCurrency.code})
                       </h2>
                       <p className="text-xs text-gray-400 mt-0.5">
@@ -774,11 +795,11 @@ export default function BranchTransfer() {
                                 >
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2.5">
-                                      <div className="w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center font-black text-xs shadow-xs">
+                                      <div className="w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
                                         {activeCurrency.symbol}
                                       </div>
                                       <div>
-                                        <div className="font-black text-sm text-gray-900">
+                                        <div className="font-bold text-sm text-gray-900">
                                           {item.value} {activeCurrency.code}
                                         </div>
                                         <div className="text-[11px] text-gray-500">
@@ -789,7 +810,7 @@ export default function BranchTransfer() {
 
                                     {count > 0 && (
                                       <div className="text-right">
-                                        <div className="text-xs font-black text-[#E00000]">
+                                        <div className="text-xs font-bold tnum text-[#E00000]">
                                           {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} {activeCurrency.code}
                                         </div>
                                         <div className="text-[10px] text-gray-400 font-semibold">{count} pcs</div>
@@ -852,11 +873,11 @@ export default function BranchTransfer() {
                                 >
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2.5">
-                                      <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black text-xs shadow-xs">
+                                      <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-xs shadow-xs">
                                         {activeCurrency.symbol}
                                       </div>
                                       <div>
-                                        <div className="font-black text-sm text-gray-900">
+                                        <div className="font-bold text-sm text-gray-900">
                                           {item.value} {activeCurrency.code}
                                         </div>
                                         <div className="text-[11px] text-gray-500">
@@ -867,7 +888,7 @@ export default function BranchTransfer() {
 
                                     {count > 0 && (
                                       <div className="text-right">
-                                        <div className="text-xs font-black text-[#E00000]">
+                                        <div className="text-xs font-bold tnum text-[#E00000]">
                                           {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} {activeCurrency.code}
                                         </div>
                                         <div className="text-[10px] text-gray-400 font-semibold">{count} pcs</div>
@@ -910,14 +931,14 @@ export default function BranchTransfer() {
                 <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 md:p-8">
                   <div className="flex flex-col gap-3 border-b border-gray-100 pb-4 mb-5 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <h2 className="text-base font-black text-gray-900">Select Local Currency Denominations (FJD)</h2>
+                      <h2 className="text-h3 font-bold text-gray-900">Select Local Currency Denominations (FJD)</h2>
                       <p className="mt-0.5 text-xs text-gray-400">
                         FJD stock goes out from destination branch <span className="font-bold text-gray-700">{toBranch}</span> and comes into <span className="font-bold text-gray-700">{fromBranch}</span>.
                       </p>
                     </div>
                     <div className={`rounded-xl border px-3 py-2 text-right ${isFjdBalanced ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}>
                       <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Expected / Counted</div>
-                      <div className={`text-sm font-black ${isFjdBalanced ? "text-emerald-700" : "text-[#E00000]"}`}>
+                      <div className={`text-body font-bold tnum ${isFjdBalanced ? "text-emerald-700" : "text-[#E00000]"}`}>
                         ${roundedLocalFjdAmount.toFixed(2)} / ${totalSelectedFjd.toFixed(2)} FJD
                       </div>
                     </div>
@@ -941,23 +962,23 @@ export default function BranchTransfer() {
                 <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 md:p-8">
                   <div className="mb-5 flex items-center justify-between border-b border-gray-100 pb-4">
                     <div>
-                      <h2 className="text-base font-black text-gray-900">Cash Denomination Counts</h2>
+                      <h2 className="text-h3 font-bold text-gray-900">Cash Denomination Counts</h2>
                     </div>
-                    {totalForeignAmount > 0 && <button type="button" onClick={handleClearAll} className="rounded-lg px-3 py-1.5 text-xs font-bold text-red-500 hover:bg-red-50">Reset</button>}
+                    {totalForeignAmount > 0 && <button type="button" onClick={handleClearAll} className="rounded-lg px-3 py-1.5 text-caption font-semibold text-red-500 hover:bg-red-50 cursor-pointer">Reset</button>}
                   </div>
                   {loadingCurrencies || (enableCash && loadingDestinationFjd) ? (
-                    <div className="py-14 text-center text-xs font-semibold text-gray-400"><RefreshCw size={20} className="mx-auto mb-2 animate-spin text-[#E00000]" />Loading denomination data...</div>
+                    <div className="py-14 text-center text-caption font-semibold text-gray-400"><RefreshCw size={20} className="mx-auto mb-2 animate-spin text-[#E00000]" />Loading denomination data...</div>
                   ) : (
                     <div className={`grid grid-cols-1 gap-4 ${enableCash ? "md:grid-cols-2" : ""}`}>
                       <div className="flex min-w-0 flex-col gap-3">
                         <div className="rounded-xl border border-red-200 bg-red-50/60 p-3">
-                          <div className="text-[10px] font-black uppercase tracking-widest text-red-500">Location A · Provides Foreign Currency</div>
-                          <div className="mt-1 truncate text-sm font-black text-gray-900">{fromBranch}</div>
-                          <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
-                            <div><span className="block text-gray-400">Currency</span><b className="text-gray-800">{activeCurrency.code}</b></div>
-                            <div><span className="block text-gray-400">Cash movement</span><b className="text-red-700">Goes out</b></div>
-                            <div><span className="block text-gray-400">Transfer value</span><b className="text-gray-800">{activeCurrency.symbol}{totalForeignAmount.toFixed(2)}</b></div>
-                            <div><span className="block text-gray-400">Received by</span><b className="text-gray-800">Location B</b></div>
+                          <div className="text-overline font-semibold uppercase tracking-wider text-red-600">Location A · Provides Foreign Currency</div>
+                          <div className="mt-1 truncate text-label font-bold text-gray-900">{fromBranch}</div>
+                          <div className="mt-2 grid grid-cols-2 gap-2 text-caption">
+                            <div><span className="block text-gray-400">Currency</span><b className="text-gray-800 font-semibold">{activeCurrency.code}</b></div>
+                            <div><span className="block text-gray-400">Cash movement</span><b className="text-red-700 font-semibold">Goes out</b></div>
+                            <div><span className="block text-gray-400">Transfer value</span><b className="text-gray-800 font-semibold tnum">{activeCurrency.symbol}{totalForeignAmount.toFixed(2)}</b></div>
+                            <div><span className="block text-gray-400">Received by</span><b className="text-gray-800 font-semibold">Location B</b></div>
                           </div>
                         </div>
                         <DenominationPanel
@@ -976,13 +997,13 @@ export default function BranchTransfer() {
                       </div>
                       {enableCash && <div className="flex min-w-0 flex-col gap-3">
                         <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
-                          <div className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Location B · Buys Foreign Currency with FJD</div>
-                          <div className="mt-1 truncate text-sm font-black text-gray-900">{toBranch}</div>
-                          <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
-                            <div><span className="block text-gray-400">Currency</span><b className="text-gray-800">FJD</b></div>
-                            <div><span className="block text-gray-400">Cash movement</span><b className="text-emerald-700">Goes out</b></div>
-                            <div><span className="block text-gray-400">Transfer value</span><b className="text-gray-800">${roundedLocalFjdAmount.toFixed(2)}</b></div>
-                            <div><span className="block text-gray-400">Received by</span><b className="text-gray-800">Location A</b></div>
+                          <div className="text-overline font-semibold uppercase tracking-wider text-emerald-600">Location B · Buys Foreign Currency with FJD</div>
+                          <div className="mt-1 truncate text-label font-bold text-gray-900">{toBranch}</div>
+                          <div className="mt-2 grid grid-cols-2 gap-2 text-caption">
+                            <div><span className="block text-gray-400">Currency</span><b className="text-gray-800 font-semibold">FJD</b></div>
+                            <div><span className="block text-gray-400">Cash movement</span><b className="text-emerald-700 font-semibold">Goes out</b></div>
+                            <div><span className="block text-gray-400">Transfer value</span><b className="text-gray-800 font-semibold tnum">${roundedLocalFjdAmount.toFixed(2)}</b></div>
+                            <div><span className="block text-gray-400">Received by</span><b className="text-gray-800 font-semibold">Location A</b></div>
                           </div>
                         </div>
                         <DenominationPanel
@@ -1002,7 +1023,7 @@ export default function BranchTransfer() {
                     </div>
                   )}
                   {totalForeignAmount > 0 && (!isForeignBalanced || (enableCash && !isFjdBalanced)) && (
-                    <div className="mt-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+                    <div className="mt-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-label font-semibold text-danger">
                       <AlertCircle size={14} />
                       {enableCash
                         ? "Both denomination panels must be balanced before transfer."
@@ -1015,61 +1036,61 @@ export default function BranchTransfer() {
               {/* Right Column: Transfer Summary & Execution */}
               <div className="lg:col-span-4 sticky top-24 flex flex-col gap-6">
                 <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 flex flex-col gap-5">
-                  <h3 className="text-sm font-bold text-gray-800 pb-3 border-b border-gray-100 flex items-center justify-between">
+                  <h3 className="text-label font-bold text-gray-900 pb-3 border-b border-gray-100 flex items-center justify-between">
                     <span>Transfer Summary</span>
-                    <span className="text-[11px] px-2.5 py-1 rounded-full font-bold bg-red-50 text-[#E00000]">
+                    <span className="text-overline px-2.5 py-1 rounded-full font-semibold uppercase tracking-wider bg-red-50 text-[#E00000]">
                       FX Inter-Branch
                     </span>
                   </h3>
 
                   <div className="flex flex-col gap-3">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-400 font-medium">Location A provides {activeCurrency.code}</span>
-                      <span className="font-bold text-gray-800 text-right truncate max-w-[170px]">
+                    <div className="flex items-center justify-between text-body">
+                      <span className="text-gray-500">Location A provides {activeCurrency.code}</span>
+                      <span className="font-semibold text-gray-900 text-right truncate max-w-[170px]">
                         {fromBranch}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-400 font-medium">
+                    <div className="flex items-center justify-between text-body">
+                      <span className="text-gray-500">
                         {enableCash ? "Location B pays physical FJD" : "Location B settles FJD by accounting"}
                       </span>
-                      <span className="font-bold text-gray-800 text-right truncate max-w-[170px]">
+                      <span className="font-semibold text-gray-900 text-right truncate max-w-[170px]">
                         {toBranch}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-400 font-medium">Exchange Rate</span>
-                      <span className="font-bold text-gray-800">
+                    <div className="flex items-center justify-between text-body">
+                      <span className="text-gray-500">Exchange Rate</span>
+                      <span className="font-semibold tnum text-gray-900">
                         1 {activeCurrency.code} = {effectiveFjdRate?.toFixed(4)} FJD
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-400 font-medium">Total Counted Pieces</span>
-                      <span className="font-bold text-gray-900">{totalPieces} pcs</span>
+                    <div className="flex items-center justify-between text-body">
+                      <span className="text-gray-500">Total Counted Pieces</span>
+                      <span className="font-semibold tnum text-gray-900">{totalPieces} pcs</span>
                     </div>
                   </div>
 
                   {/* Foreign Currency Amount Box */}
                   <div className="p-4 rounded-2xl bg-red-50/50 border border-red-100">
-                    <span className="text-[11px] uppercase font-bold text-gray-500 block mb-1">
+                    <span className="text-overline uppercase font-semibold tracking-wider text-gray-500 block mb-1">
                       Foreign Transfer Total ({activeCurrency.code})
                     </span>
-                    <div className="text-2xl font-black text-[#E00000]">
+                    <div className="text-amount font-bold tnum text-[#E00000]">
                       {totalForeignAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
-                      <span className="text-sm font-bold text-gray-600">{activeCurrency.code}</span>
+                      <span className="text-label font-bold text-gray-600">{activeCurrency.code}</span>
                     </div>
                   </div>
 
                   {/* Local Currency FJD Equivalent Box */}
                   <div className="p-4 rounded-2xl bg-gray-50 border border-gray-200">
-                    <span className="text-[11px] uppercase font-bold text-gray-400 block mb-1">
+                    <span className="text-overline uppercase font-semibold tracking-wider text-gray-400 block mb-1">
                       {enableCash ? "FJD Denominations Counted" : "FJD Accounting Value"}
                     </span>
-                    <div className="text-xl font-black text-gray-900">
+                    <div className="text-h2 font-bold tnum text-gray-900">
                       ${(enableCash ? fjdDenomStatus.total : roundedLocalFjdAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
-                      <span className="text-xs font-bold text-gray-500">FJD</span>
+                      <span className="text-caption font-semibold text-gray-500">FJD</span>
                     </div>
-                    <span className="text-[10px] text-gray-400 mt-0.5 block">
+                    <span className="text-caption text-gray-400 mt-0.5 block tnum">
                       {enableCash
                         ? `Exchange value: $${roundedLocalFjdAmount.toFixed(2)} FJD`
                         : "No physical FJD denomination stock movement"}
@@ -1078,7 +1099,7 @@ export default function BranchTransfer() {
 
                   {/* Remarks */}
                   <div>
-                    <label className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
+                    <label className="text-overline font-semibold text-gray-500 uppercase tracking-wider block mb-1.5">
                       Remarks / Tracking Note
                     </label>
                     <textarea
@@ -1086,7 +1107,7 @@ export default function BranchTransfer() {
                       value={remarks}
                       onChange={(e) => setRemarks(e.target.value)}
                       placeholder="Optional tracking remarks..."
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#E00000]/20 focus:border-[#E00000]"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-body font-normal text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#E00000]/20 focus:border-[#E00000]"
                     />
                   </div>
 
@@ -1098,8 +1119,8 @@ export default function BranchTransfer() {
                       className="mt-0.5 h-4 w-4 accent-[#E00000]"
                     />
                     <span>
-                      <span className="block text-xs font-black text-gray-900">Enable Cash</span>
-                      <span className="mt-1 block text-[10px] leading-4 text-gray-500">
+                      <span className="block text-label font-semibold text-gray-900">Enable Cash</span>
+                      <span className="mt-1 block text-caption leading-4 text-gray-500">
                         Count and move physical FJD denominations. Leave unchecked for accounting-only FJD settlement.
                       </span>
                     </span>
@@ -1110,7 +1131,7 @@ export default function BranchTransfer() {
                     type="button"
                     onClick={handleSubmitTransfer}
                     disabled={isSubmitting || totalPieces <= 0 || !isForeignBalanced || (enableCash && !isFjdBalanced) || !fromBranch || !toBranch}
-                    className="w-full py-3.5 px-6 rounded-2xl bg-[#E00000] hover:bg-[#b70000] text-white font-black text-sm shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full py-3.5 px-6 rounded-2xl bg-[#E00000] hover:bg-[#b70000] text-white text-btn-lg font-semibold shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
                   >
                     {isSubmitting ? (
                       <>
@@ -1140,8 +1161,8 @@ export default function BranchTransfer() {
                     <CheckCircle2 size={28} />
                   </div>
                   <div>
-                    <h3 className="text-lg font-black text-gray-900">Branch Transfer Complete</h3>
-                    <p className="text-xs text-gray-500">Transfer completed successfully</p>
+                    <h3 className="text-h2 font-bold text-gray-900">Branch Transfer Complete</h3>
+                    <p className="text-caption text-gray-500">Transfer completed successfully</p>
                   </div>
                 </div>
                 <button
@@ -1156,22 +1177,22 @@ export default function BranchTransfer() {
               {/* Transfer Metrics Overview */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 my-6">
                 <div className="p-3 bg-gray-50 rounded-2xl border border-gray-100">
-                  <span className="text-[10px] uppercase font-bold text-gray-400 block">From</span>
-                  <span className="text-xs font-black text-gray-900 truncate block">{successInfo.from_warehouse}</span>
+                  <span className="text-overline uppercase font-semibold tracking-wider text-gray-400 block">From</span>
+                  <span className="text-label font-bold text-gray-900 truncate block">{successInfo.from_warehouse}</span>
                 </div>
                 <div className="p-3 bg-gray-50 rounded-2xl border border-gray-100">
-                  <span className="text-[10px] uppercase font-bold text-gray-400 block">To</span>
-                  <span className="text-xs font-black text-gray-900 truncate block">{successInfo.to_warehouse}</span>
+                  <span className="text-overline uppercase font-semibold tracking-wider text-gray-400 block">To</span>
+                  <span className="text-label font-bold text-gray-900 truncate block">{successInfo.to_warehouse}</span>
                 </div>
                 <div className="p-3 bg-red-50 rounded-2xl border border-red-100">
-                  <span className="text-[10px] uppercase font-bold text-red-500 block">Foreign Value</span>
-                  <span className="text-xs font-black text-[#E00000]">
+                  <span className="text-overline uppercase font-semibold tracking-wider text-red-500 block">Foreign Value</span>
+                  <span className="text-body font-bold tnum text-[#E00000]">
                     {successInfo.total_foreign_amount?.toFixed(2)} {successInfo.currency}
                   </span>
                 </div>
                 <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-100">
-                  <span className="text-[10px] uppercase font-bold text-emerald-600 block">Local Value</span>
-                  <span className="text-xs font-black text-emerald-900">
+                  <span className="text-overline uppercase font-semibold tracking-wider text-emerald-600 block">Local Value</span>
+                  <span className="text-body font-bold tnum text-emerald-900">
                     ${successInfo.total_local_amount?.toFixed(2)} FJD
                   </span>
                 </div>
@@ -1182,7 +1203,7 @@ export default function BranchTransfer() {
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="px-5 py-2.5 rounded-xl border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl border border-gray-300 text-btn-lg font-semibold text-gray-700 hover:bg-gray-50 flex items-center gap-2 cursor-pointer"
                 >
                   <Printer size={15} />
                   Print Transfer Slip
@@ -1190,7 +1211,7 @@ export default function BranchTransfer() {
                 <button
                   type="button"
                   onClick={() => setSuccessInfo(null)}
-                  className="px-6 py-2.5 rounded-xl bg-[#E00000] hover:bg-[#b70000] text-white text-xs font-black transition-all cursor-pointer"
+                  className="px-6 py-2.5 rounded-xl bg-[#E00000] hover:bg-[#b70000] text-white text-btn-lg font-semibold transition-all cursor-pointer"
                 >
                   Done
                 </button>

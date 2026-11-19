@@ -8,7 +8,7 @@ import Footer from "./layout/Footer";
 function Field({ label, children }) {
   return (
     <div className="space-y-1.5">
-      <label className="block text-xs font-bold tracking-widest uppercase text-gray-500">{label}</label>
+      <label className="block text-label font-semibold text-ink">{label}</label>
       {children}
     </div>
   );
@@ -16,7 +16,7 @@ function Field({ label, children }) {
 
 function InfoCell({ value }) {
   return (
-    <div className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 bg-gray-50 font-medium tracking-wide">
+    <div className="w-full border border-gray-200 rounded-xl px-4 py-3 text-body font-medium text-ink bg-gray-50 tnum">
       {value}
     </div>
   );
@@ -29,7 +29,7 @@ function EditInput({ value, onChange, placeholder }) {
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#E00000] bg-white text-gray-900 placeholder-gray-400 transition"
+      className="w-full border border-gray-300 rounded-xl px-4 py-3 text-body font-medium focus:outline-none focus:ring-2 focus:ring-brand-600 bg-white text-ink placeholder-muted transition tnum"
     />
   );
 }
@@ -96,14 +96,14 @@ export default function SettingsPanel() {
           {/* header */}
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight leading-snug">Settings</h2>
-              <p className="text-gray-500 text-sm mt-1">Manage your profile &amp; workspace</p>
+              <h1 className="text-h1 font-bold text-ink tracking-tight leading-snug">Settings</h1>
+              <p className="text-muted text-body mt-1">Manage your profile &amp; workspace</p>
             </div>
             <div className="relative">
-              <div className="w-14 h-14 rounded-2xl bg-[#E00000] flex items-center justify-center text-white font-black text-lg shadow-lg shadow-[#E00000]/30">
+              <div className="w-14 h-14 rounded-2xl bg-brand-600 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-brand-600/30">
                 {user.avatar}
               </div>
-              <span className="absolute -bottom-1 -right-1 bg-yellow-400 text-gray-900 text-[10px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+              <span className="absolute -bottom-1 -right-1 bg-yellow-400 text-ink text-overline font-semibold px-1.5 py-0.5 rounded-full uppercase tracking-wider">
                 {user.role}
               </span>
             </div>
@@ -113,7 +113,7 @@ export default function SettingsPanel() {
 
           {/* user details */}
           <div className="mb-2">
-            <p className="text-xs font-bold tracking-widest uppercase text-[#E00000] mb-5">User Details</p>
+            <p className="text-overline font-semibold tracking-wider uppercase text-brand-600 mb-5">User Details</p>
             <div className="grid sm:grid-cols-2 gap-5">
               <Field label="Full Name">
                 {editing
@@ -160,7 +160,7 @@ export default function SettingsPanel() {
 
           {/* warehouse & vault */}
           <div>
-            <p className="text-xs font-bold tracking-widest uppercase text-[#E00000] mb-5">Branch &amp; Vault Location</p>
+            <p className="text-overline font-semibold tracking-wider uppercase text-brand-600 mb-5">Branch &amp; Vault Location</p>
             <div className="space-y-4">
               <Field label="Active Branch Location (Cash Counter)">
                 {warehouses && warehouses.length > 0 ? (
@@ -168,10 +168,10 @@ export default function SettingsPanel() {
                     <select
                       value={selectedWarehouse?.warehouse || ""}
                       onChange={(e) => setSelectedWarehouse(warehouses.find((w) => w.warehouse === e.target.value))}
-                      className="w-full appearance-none border border-gray-300 rounded-xl px-4 py-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[#E00000] bg-gray-50 text-gray-900 transition cursor-pointer font-semibold"
+                      className="w-full appearance-none border border-gray-300 rounded-xl px-4 py-3 pr-10 text-body font-medium focus:outline-none focus:ring-2 focus:ring-brand-600 bg-gray-50 text-ink transition cursor-pointer"
                     >
                       {warehouses.map((wh) => (
-                        <option key={wh.warehouse || wh.name} value={wh.warehouse} className="bg-white text-gray-900">
+                        <option key={wh.warehouse || wh.name} value={wh.warehouse} className="bg-white text-ink">
                           {wh.warehouse}
                         </option>
                       ))}
@@ -183,16 +183,16 @@ export default function SettingsPanel() {
                     </div>
                   </div>
                 ) : (
-                  <div className="w-full border border-amber-300 rounded-xl px-4 py-3 text-sm text-amber-800 bg-amber-50 font-semibold flex items-center gap-2">
+                  <div className="w-full border border-amber-300 rounded-xl px-4 py-3 text-label text-amber-800 bg-amber-50 font-normal flex items-center gap-2">
                     <span>⚠️ User is not assigned to any branch location. Please assign a branch in ERPNext.</span>
                   </div>
                 )}
               </Field>
 
               <Field label="Linked Vault Warehouse">
-                <div className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-800 bg-gray-50 font-bold flex items-center justify-between">
+                <div className="w-full border border-gray-200 rounded-xl px-4 py-3 text-body font-medium text-ink bg-gray-50 flex items-center justify-between">
                   <span>{vaultLoading ? "Locating Vault..." : (vaultWarehouse || "No Vault Configured")}</span>
-                  <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                  <span className="text-caption font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                     Secure Vault
                   </span>
                 </div>
@@ -200,13 +200,13 @@ export default function SettingsPanel() {
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2.5">
-              <span className="inline-flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-xs text-gray-600">
+              <span className="inline-flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2 text-caption text-muted font-normal">
                 <span className={`w-2 h-2 rounded-full ${selectedWarehouse?.warehouse ? "bg-green-500 animate-pulse" : "bg-amber-500"}`} />
-                Active Counter:&nbsp;<span className={`font-bold ${selectedWarehouse?.warehouse ? "text-gray-900" : "text-amber-700"}`}>{selectedWarehouse?.warehouse || "No branch location assigned"}</span>
+                Active Counter:&nbsp;<span className={`font-semibold ${selectedWarehouse?.warehouse ? "text-ink" : "text-amber-700"}`}>{selectedWarehouse?.warehouse || "No branch location assigned"}</span>
               </span>
-              <span className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-2 text-xs text-amber-800">
+              <span className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-2 text-caption text-amber-800 font-normal">
                 <span className="w-2 h-2 rounded-full bg-amber-500" />
-                Linked Vault:&nbsp;<span className="font-bold text-gray-900">{vaultWarehouse || "—"}</span>
+                Linked Vault:&nbsp;<span className="font-semibold text-ink">{vaultWarehouse || "—"}</span>
               </span>
             </div>
           </div>

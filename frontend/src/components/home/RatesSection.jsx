@@ -36,7 +36,7 @@ export default function RatesSection() {
 
   return (
     <section className="bg-background-light dark:bg-background-dark py-16 px-6">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-[80%] mx-auto">
 
         <div className="text-center mb-10">
           <h2 className="text-2xl md:text-3xl font-bold">

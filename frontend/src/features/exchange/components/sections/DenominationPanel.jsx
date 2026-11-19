@@ -4,7 +4,7 @@ import { useDenominationCalculator } from '../../hooks/useDenominationCalculator
 
 export const DenominationPanel = ({
   title, subtitle, flag, symbol, currency, notes, coins,
-  targetAmount, onRowsChange, accentColor = '#dc2626', availabilityByDenomination,
+  targetAmount, onRowsChange, accentColor = '#dc2626', availabilityByDenomination, initialRows,
 }) => {
   const {
     rows,
@@ -16,7 +16,7 @@ export const DenominationPanel = ({
     step,
     removeRow,
     reset
-  } = useDenominationCalculator({ currency, targetAmount, notes, coins, onRowsChange, availabilityByDenomination });
+  } = useDenominationCalculator({ currency, targetAmount, notes, coins, onRowsChange, availabilityByDenomination, initialRows });
 
   const statusLabel = isBalanced
     ? 'Balanced'
@@ -27,17 +27,17 @@ export const DenominationPanel = ({
   const statusColor = isBalanced ? accentColor : isOver ? '#d97706' : '#dc2626';
 
   return (
-    <div className="rounded-xl border border-gray-200 overflow-hidden bg-white">
+    <div className="rounded-xl border border-gray-200/70 bg-white overflow-hidden shadow-2xs">
       <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <span className="text-xl">{flag}</span>
           <div>
             <p className="text-sm font-semibold text-gray-800">{title}</p>
-            <p className="text-xs text-gray-400">{subtitle}</p>
+            <p className="text-xs text-gray-600">{subtitle}</p>
           </div>
         </div>
         {targetAmount > 0 && (
-          <span className="text-xs font-semibold text-gray-500 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-md">
+          <span className="text-xs font-semibold text-gray-700 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-md">
             {symbol}{targetAmount.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:4})} {currency}
           </span>
         )}
@@ -45,15 +45,15 @@ export const DenominationPanel = ({
 
       <div className="grid grid-cols-3 divide-x divide-gray-100 border-b border-gray-100 bg-gray-50/50">
         {[
-          { label:'Expected', val: targetAmount||0, color:'#6b7280' },
+          { label:'Expected', val: targetAmount||0, color:'#374151' },
           { label:'Counted',  val: totalDispensed,  color: accentColor },
           { label: isBalanced ? 'Balanced' : isOver ? 'Overage' : 'Shortfall',
             val: Math.abs(difference), color: statusColor,
             prefix: isBalanced ? '' : isOver ? '+' : '-' },
         ].map(({ label, val, color, prefix='' }) => (
           <div key={label} className="flex flex-col items-center py-2.5 px-2">
-            <span className="text-[9px] text-gray-400 uppercase tracking-wider mb-0.5">{label}</span>
-            <span className="text-sm font-semibold" style={{ color }}>
+            <span className="text-overline text-gray-600 font-semibold uppercase tracking-wider mb-0.5">{label}</span>
+            <span className="text-sm font-semibold tnum" style={{ color }}>
               {prefix}{symbol}{val.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:4})}
             </span>
           </div>
@@ -68,14 +68,14 @@ export const DenominationPanel = ({
           {statusLabel}
         </div>
         <button onClick={reset} type="button"
-          className="flex items-center gap-1 text-xs text-gray-400 hover:text-[#E00000] transition-colors">
+          className="flex items-center gap-1 text-xs text-gray-600 hover:text-[#E00000] font-medium transition-colors">
           <RefreshCw size={11} strokeWidth={2} /> Reset
         </button>
       </div>
 
       <div className="grid grid-cols-12 gap-2 px-4 py-1.5 border-b border-gray-100 bg-gray-50/30">
         {[['col-span-4','Denomination'],['col-span-5','Count / Available'],['col-span-2 text-right','Subtotal'],['col-span-1','']].map(([cls,h]) => (
-          <div key={h} className={`${cls} text-[9px] font-semibold text-gray-400 uppercase tracking-wider`}>{h}</div>
+          <div key={h} className={`${cls} text-overline font-semibold text-gray-700 uppercase tracking-wider`}>{h}</div>
         ))}
       </div>
 
@@ -99,9 +99,9 @@ export const DenominationPanel = ({
                   style={active
                     ? { background:`${accentColor}10`, borderColor:`${accentColor}30`, color:accentColor }
                     : { borderColor:'#e5e7eb', color:'#374151' }}>
-                  <span className="opacity-50 text-[10px]">{symbol}</span>
+                  <span className="opacity-50 text-overline">{symbol}</span>
                   {row.denom < 1 ? row.denom.toFixed(2) : row.denom.toLocaleString()}
-                  <span className="ml-0.5 text-[9px] opacity-60">{currency}</span>
+                  <span className="ml-0.5 text-overline opacity-60">{currency}</span>
                 </span>
               </div>
               <div className="col-span-5 flex min-w-0 items-center gap-1">
@@ -115,7 +115,7 @@ export const DenominationPanel = ({
                   style={active
                     ? { borderColor:`${accentColor}50`, background:`${accentColor}06` }
                     : { borderColor:'#e5e7eb' }} />
-                {available !== undefined && <span className="shrink-0 whitespace-nowrap text-[10px] font-bold text-gray-500">/ {Number(available).toLocaleString()}</span>}
+                {available !== undefined && <span className="shrink-0 whitespace-nowrap text-caption font-semibold tnum text-gray-500">/ {Number(available).toLocaleString()}</span>}
                 <button type="button" onClick={() => step(row.id,1)} disabled={available !== undefined && row.count >= Number(available)}
                   className="h-7 w-6 shrink-0 rounded border flex items-center justify-center transition-colors"
                   style={active
@@ -125,7 +125,7 @@ export const DenominationPanel = ({
                 </button>
               </div>
               <div className="col-span-2 text-right min-w-0">
-                <span className="text-sm font-semibold transition-colors"
+                <span className="text-sm font-semibold tnum transition-colors"
                   style={{ color: active ? accentColor : '#e5e7eb' }}>
                   {symbol}{subtotal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
                 </span>

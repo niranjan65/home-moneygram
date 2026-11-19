@@ -23,15 +23,15 @@ export default function WhyChooseUs() {
 
   return (
     <div className="bg-white/80 dark:bg-gray-950 font-sans px-6 md:px-16 py-20 border-t border-gray-100 dark:border-gray-800">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+      <div className="max-w-[80%] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
         
         {/* Left Column: Value Proposition & Feature List */}
         <div className="lg:col-span-6 flex flex-col gap-6">
-          <span className="self-start bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900/60 rounded-full px-4 py-1 text-xs font-bold tracking-widest uppercase text-[#E00000]">
+          <span className="self-start bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900/60 rounded-full px-4 py-1 text-overline font-semibold tracking-wider uppercase text-[#E00000]">
             Why Choose MH Money Express
           </span>
 
-          <h2 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white leading-tight tracking-tight">
+          <h2 className="text-h1 font-bold text-gray-900 dark:text-white leading-tight tracking-tight">
             Secure, Fast &amp; Reliable{" "}
             <span className="text-[#E00000] relative inline-block">
               Foreign Exchange
@@ -43,7 +43,7 @@ export default function WhyChooseUs() {
             For Remitters &amp; Travelers
           </h2>
 
-          <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+          <p className="text-body font-normal text-gray-600 dark:text-gray-400 leading-relaxed">
             MH Money Express provides end-to-end transparency for retail currency exchange and MoneyGram remittances with official ERPNext integration and verified accounting records.
           </p>
 
@@ -54,8 +54,8 @@ export default function WhyChooseUs() {
                   {item.icon}
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-base text-gray-900 dark:text-white">{item.label}</h3>
-                  <p className="text-gray-600 dark:text-gray-400 text-xs mt-1 leading-relaxed">{item.context}</p>
+                  <h3 className="font-bold text-h3 text-gray-900 dark:text-white">{item.label}</h3>
+                  <p className="text-gray-600 dark:text-gray-400 text-caption mt-1 leading-relaxed">{item.context}</p>
                 </div>
               </div>
             ))}
@@ -64,13 +64,13 @@ export default function WhyChooseUs() {
           <div className="flex flex-wrap items-center gap-6 mt-4">
             <Link
               to="/money-transfer"
-              className="bg-[#E00000] hover:bg-[#C50000] text-white font-bold px-7 py-3.5 text-sm rounded-xl transition-all duration-200 shadow-md hover:shadow-xl hover:-translate-y-0.5 flex items-center gap-2 group"
+              className="bg-[#E00000] hover:bg-[#C50000] text-white text-btn-lg font-semibold px-7 py-3.5 rounded-xl transition-all duration-200 shadow-md hover:shadow-xl hover:-translate-y-0.5 flex items-center gap-2 group"
             >
               Get Started Now
               <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
             </Link>
 
-            <div className="flex items-center gap-2.5 text-gray-700 dark:text-gray-300 text-xs font-bold bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-2.5 text-gray-700 dark:text-gray-300 text-caption font-semibold bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700">
               <Headphones size={16} className="text-[#E00000]" />
               <span>Customer Helpdesk Available</span>
             </div>

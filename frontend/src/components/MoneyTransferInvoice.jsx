@@ -136,7 +136,7 @@ export const MoneyTransferInvoiceDocument = ({ invoiceData }) => {
 
   const currency = d.currency ?? 'FJD';
   const company = d.company ?? 'MH MoneyGram';
-  const txnId = d.name || d.transaction_id || '—';
+  const txnId = d.name || '—';
   const postingDate = formatInvoiceDate(d.posting_date || d.creation || d.modified);
   const rawTime = formatInvoiceTime(d.posting_time || d.time, d.posting_date || d.creation || d.modified);
   const generatedAt = postingDate !== '—' ? `${postingDate}${rawTime ? ' ' + rawTime : ''}` : (rawTime || '—');

@@ -13,7 +13,7 @@ const FormInput = ({
   return (
     <div className="space-y-2 w-full">
       {label && (
-        <label className="text-xs uppercase font-bold text-gray-400 block">
+        <label className="text-label font-semibold text-ink block">
           {label}
         </label>
       )}
@@ -25,7 +25,7 @@ const FormInput = ({
         placeholder={placeholder}
         disabled={disabled}
         className={`
-          w-full border rounded-2xl px-5 py-4 text-sm font-semibold
+          w-full border rounded-2xl px-5 py-4 text-body font-medium tnum
           focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]
           transition-all
           ${error ? "border-red-500" : "border-gray-200"}
@@ -35,7 +35,7 @@ const FormInput = ({
       />
 
       {error && (
-        <p className="text-xs text-red-500 font-semibold">{error}</p>
+        <p className="text-label text-danger font-normal">{error}</p>
       )}
     </div>
   );

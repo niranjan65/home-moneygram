@@ -95,7 +95,7 @@ export const SenderCard = () => {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow">
       <div className="px-6 py-4 flex items-center justify-between border-b border-gray-50 bg-gray-50/50">
-        <h3 className="text-gray-900 font-extrabold text-base flex items-center gap-2">
+        <h3 className="text-h3 font-bold text-ink flex items-center gap-2">
           <User size={18} className="text-primary" />
           Teller Information
         </h3>
@@ -108,37 +108,37 @@ export const SenderCard = () => {
 
       <div className="px-6 py-5 flex flex-wrap gap-x-12 gap-y-4">
         <div className="flex flex-col gap-1">
-          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+          <span className="text-overline font-semibold text-muted uppercase tracking-wider">
             Full Name
           </span>
-          <span className="text-sm font-bold text-gray-900">
+          <span className="text-body-value font-medium text-ink">
             {user?.full_name || user?.first_name || "Unknown User"}
           </span>
         </div>
 
         <div className="flex flex-col gap-1">
-          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+          <span className="text-overline font-semibold text-muted uppercase tracking-wider">
             Email Address
           </span>
-          <span className="text-sm font-bold text-gray-900">
+          <span className="text-body-value font-medium text-ink">
             {user?.email || "Not Available"}
           </span>
         </div>
 
         <div className="flex flex-col gap-1">
-          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+          <span className="text-overline font-semibold text-muted uppercase tracking-wider">
             Mobile Number
           </span>
-          <span className="text-sm font-bold text-gray-900">
+          <span className="text-body-value font-medium text-ink">
             {user?.mobile_no || user?.phone || "Not Available"}
           </span>
         </div>
 
         <div className="flex flex-col gap-1">
-          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+          <span className="text-overline font-semibold text-muted uppercase tracking-wider">
             Active Location
           </span>
-          <span className={`text-sm font-bold ${selectedWarehouse?.warehouse ? "text-gray-900" : "text-amber-600"}`}>
+          <span className={`text-body-value font-medium ${selectedWarehouse?.warehouse ? "text-ink" : "text-amber-600"}`}>
             {selectedWarehouse?.warehouse || "No branch location assigned"}
           </span>
         </div>

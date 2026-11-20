@@ -337,10 +337,10 @@ export default function CustomPos() {
   const reload = () => setRefresh(value => value + 1);
 
   useEffect(() => {
-    if (!reviewWarehouse || !managerLocations.some(row => row.warehouse === reviewWarehouse)) {
+    if (!reviewWarehouse || (reviewWarehouse !== "All Locations" && !assignedManagerLocations.some(row => row.warehouse === reviewWarehouse))) {
       setReviewWarehouse(warehouse || managerLocations[0]?.warehouse || "");
     }
-  }, [warehouse, managerLocations, reviewWarehouse]);
+  }, [warehouse, assignedManagerLocations, managerLocations, reviewWarehouse]);
 
   const startClosing = async () => {
     setActionBusy(true); setError("");
@@ -389,7 +389,7 @@ export default function CustomPos() {
     {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-red-800">{error}</div>}
     {!loading && data && warehouse && <>
       {!canOpen && !isClosing && !isReviewing && data.manager && <div className="mb-5 flex flex-wrap gap-2"><Link to="/pos/approvals" className="rounded-lg border bg-white px-4 py-2 text-sm font-semibold">Manager reviews</Link></div>}
-      {isReviewing ? data.manager ? <><div className="mb-4 flex justify-end"><label className="text-xs font-bold uppercase tracking-wider text-gray-500">Filter by location<select value={reviewWarehouse || warehouse || ""} onChange={event => setReviewWarehouse(event.target.value)} className="mt-1 block min-w-72 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold normal-case tracking-normal text-gray-800 outline-none focus:border-[#E00000]">{managerLocations.map(row => <option key={row.warehouse} value={row.warehouse}>{row.warehouse}</option>)}</select></label></div><ManagerReviews key={`reviews-${reviewWarehouse || warehouse}`} warehouse={reviewWarehouse || warehouse} onReviewed={reload} /></> : <div className="rounded-xl bg-white p-6">Only an assigned manager can review exceptions.</div>
+      {isReviewing ? data.manager ? <><div className="mb-4 flex justify-end"><label className="text-xs font-bold uppercase tracking-wider text-gray-500">Filter by location<select value={reviewWarehouse || warehouse || ""} onChange={event => setReviewWarehouse(event.target.value)} className="mt-1 block min-w-72 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold normal-case tracking-normal text-gray-800 outline-none focus:border-[#E00000]"><option value="All Locations">All Locations</option>{assignedManagerLocations.map(row => <option key={row.warehouse} value={row.warehouse}>{row.warehouse}</option>)}</select></label></div><ManagerReviews key={`reviews-${reviewWarehouse || warehouse}`} warehouse={reviewWarehouse || warehouse} onReviewed={reload} /></> : <div className="rounded-xl bg-white p-6">Only an assigned manager can review exceptions.</div>
         : (isClosing || closingRecount) ? (status === "closing" || closingRecount) ? <><div className="mb-4 flex justify-end">{!closingRecount && <button disabled={actionBusy} onClick={cancelClosing} className="rounded-lg border px-4 py-2 text-sm font-semibold text-gray-700 disabled:opacity-50">Cancel closing and resume session</button>}{closingRecount && <p className="text-sm font-bold text-amber-700">Closing recount required. Enter the physical quantities again.</p>}</div><CountForm key={`close-${warehouse}-${data.session?.name || data.session}`} mode="closing" data={data} warehouse={warehouse} onSaved={countSaved} /></>
           : canClose ? <div className="rounded-2xl border bg-white p-6"><h2 className="text-xl font-bold">Close Register</h2><p className="mt-2 text-sm text-gray-600">Start the Close Register process for this location. Transactions pause while it is in progress.</p><button disabled={actionBusy} onClick={startClosing} className="mt-4 rounded-lg bg-[#E00000] px-5 py-2.5 font-bold text-white disabled:opacity-50">{actionBusy ? "Starting…" : "Start Close Register"}</button></div>
             : <div className="rounded-xl bg-white p-6">There is no open cash counter session to close at this location.</div>

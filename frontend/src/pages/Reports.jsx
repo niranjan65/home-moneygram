@@ -3638,13 +3638,13 @@ export default function Reports() {
   return (
     <div>
       <Navbar />
-      <div className="min-h-screen bg-gray-100 font-sans">
+      <div className="min-h-screen bg-page text-ink font-sans transition-colors">
         <div className="max-w-[80%] mx-auto px-4 py-10 flex flex-col gap-6">
 
-          <div className="bg-white rounded-3xl border border-gray-100 shadow-xl p-6 md:p-8 flex flex-col gap-7">
+          <div className="bg-surface rounded-3xl border border-line shadow-xl p-6 md:p-8 flex flex-col gap-7 text-ink">
 
             {/* Section label */}
-            <p className="text-xs font-bold tracking-widest uppercase text-[#E00000]">Reports</p>
+            <p className="text-xs font-bold tracking-widest uppercase text-brand-600">Reports</p>
 
             {/* Tabs */}
             <div className="flex gap-2 flex-wrap">
@@ -3662,10 +3662,10 @@ export default function Reports() {
             </div>
 
             {/* Divider */}
-            <div className="border-t border-gray-100" />
+            <div className="border-t border-line" />
 
             {/* Section label */}
-            <p className="text-xs font-bold tracking-widest uppercase text-[#E00000]">
+            <p className="text-xs font-bold tracking-widest uppercase text-brand-600">
               {sectionLabel[tab]}
             </p>
 

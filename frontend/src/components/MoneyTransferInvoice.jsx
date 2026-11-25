@@ -272,12 +272,12 @@ export const MoneyTransferInvoiceDocument = ({ invoiceData }) => {
                 </div>
               )}
 
-              <div className="grid grid-cols-[85px_1fr] items-baseline gap-2 min-w-0">
+              {/* <div className="grid grid-cols-[85px_1fr] items-baseline gap-2 min-w-0">
                 <span className="text-slate-500 font-medium shrink-0">Email:</span>
                 <span className="font-semibold text-slate-900 break-all [overflow-wrap:anywhere] min-w-0">
                   {contactEmail || '—'}
                 </span>
-              </div>
+              </div> */}
 
               <div className="grid grid-cols-[85px_1fr] items-baseline gap-2">
                 <span className="text-slate-500 font-medium">Mobile:</span>

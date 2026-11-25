@@ -47,27 +47,20 @@ export const ExchangeSection = ({
       <input type="hidden" {...register('exchangeType', { required: 'Please select an Exchange type' })} />
       <ErrorMsg message={errors.exchangeType?.message} />
 
+      <p className="text-caption text-muted">Enter the transaction amount and select currency</p>
       {/* Currency & Amount Card */}
-      <div className="bg-white border-l-2 border-gray-200/80 p-5 pl-4 sm:p-6 sm:pl-6 shadow-2xs">
-        {/* <div className="flex items-start gap-2.5 mb-4">
-          <Coins size={18} className="text-[#E00000] mt-0.5 shrink-0" />
-          <div>
-            <h3 className="text-h3 font-bold text-ink leading-snug">Currency & Amount</h3>
-            <p className="text-caption text-muted mt-0.5">Enter the transaction amount and select currency</p>
-          </div>
-        </div> */}
-
+      <div className="bg-surface">
         {/* Rate Banner */}
         {toCurrency && currentRateDisplay && (
-          <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50/70 border border-gray-100 rounded-xl mb-4.5">
+          <div className="flex items-center justify-between px-4 py-2.5 bg-surface-alt border border-line rounded-xl mb-4.5">
             <div className="flex items-center gap-2">
-              <TrendingUp size={15} className="text-[#E00000] shrink-0" />
+              <TrendingUp size={15} className="text-brand-600 shrink-0" />
               <span className="text-caption text-muted font-normal">Rate:</span>
               <span className="text-body font-bold text-ink tnum">
                 1 {FJD.symbol} = {Number(currentRateDisplay).toFixed(4)} {toCurrency.code}
               </span>
             </div>
-            <span className="text-overline font-semibold text-[#E00000] bg-red-50 border border-red-200/80 px-2 py-0.5 rounded tracking-wide uppercase">
+            <span className="text-overline font-semibold text-brand-600 bg-danger-bg border border-danger-border px-2 py-0.5 rounded tracking-wide uppercase">
               {exchangeType === 'BUY' ? 'BUY RATE' : 'SELL RATE'}
             </span>
           </div>
@@ -77,20 +70,20 @@ export const ExchangeSection = ({
           {/* Column 1: Currency Selector */}
           <div className="flex flex-col gap-2.5">
             <label className="flex items-center gap-1.5 text-label font-semibold text-ink">
-              <Coins size={14} className="text-[#E00000] shrink-0" />
+              <Coins size={14} className="text-brand-600 shrink-0" />
               <span>Currency</span>
-              <span className="text-[#E00000] font-bold">*</span>
+              <span className="text-brand-600 font-bold">*</span>
             </label>
 
             {rateError ? (
-              <div className="flex items-center gap-2 px-3 py-2.5 bg-[#E00000]/5 border border-[#E00000]/20 rounded-lg text-red-600 text-label">
+              <div className="flex items-center gap-2 px-3 py-2.5 bg-danger-bg border border-danger-border rounded-lg text-danger-fg text-label">
                 <AlertCircle size={14} />
                 {rateError}
               </div>
             ) : ratesLoading ? (
-              <div className="h-12 rounded-xl animate-pulse bg-gray-100" />
+              <div className="h-12 rounded-xl animate-pulse bg-chip" />
             ) : availableCurrencies?.length === 0 ? (
-              <div className="flex items-center gap-2 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-label">
+              <div className="flex items-center gap-2 px-3 py-2.5 bg-warning-bg border border-warning-border rounded-lg text-warning-fg text-label">
                 <AlertCircle size={14} />
                 No rates for today — enter manually below
               </div>
@@ -110,24 +103,24 @@ export const ExchangeSection = ({
                 renderOption={(c, isSelected, isHighlighted) => (
                   <div className="flex items-center justify-between w-full">
                     <div className="flex items-center gap-2">
-                      <span className={`font-bold text-body ${isHighlighted ? 'text-[#E00000]' : 'text-gray-900'}`}>
+                      <span className={`font-bold text-body ${isHighlighted ? 'text-brand-600' : 'text-ink'}`}>
                         {c.code}
                       </span>
                       {c.country && (
-                        <span className="text-caption text-gray-400 truncate max-w-[130px]">
+                        <span className="text-caption text-muted truncate max-w-[130px]">
                           {c.country}
                         </span>
                       )}
                     </div>
-                    <span className="text-caption font-semibold px-2 py-0.5 rounded bg-gray-100 text-gray-700 font-mono tnum">
+                    <span className="text-caption font-semibold px-2 py-0.5 rounded bg-chip text-ink font-mono tnum">
                       {exchangeType === 'BUY'
                         ? `Buy: ${Number(c.buyingRate).toFixed(4) ?? '—'}`
                         : `Sell: ${Number(c.sellingRate).toFixed(4) ?? '—'}`}
                     </span>
                   </div>
                 )}
-                className={`w-full min-w-0 box-border bg-white border-2 ${toCurrency ? 'border-[#E00000]' : 'border-gray-200'
-                  } text-ink rounded-xl h-12 px-3.5 pr-14 text-body font-semibold focus:outline-none transition-colors cursor-pointer`}
+                className={`w-full min-w-0 box-border bg-surface border-2 ${toCurrency ? 'border-brand-600' : 'border-line'
+                  } text-ink rounded-xl h-12 px-3.5 pr-14 text-body font-semibold focus:outline-none focus:ring-2 focus:ring-brand-600 transition-colors cursor-pointer`}
               />
             )}
           </div>
@@ -135,13 +128,13 @@ export const ExchangeSection = ({
           {/* Column 2: Amount (Forex) */}
           <div className="flex flex-col gap-2.5">
             <label className="flex items-center gap-1.5 text-label font-semibold text-ink">
-              <Coins size={14} className="text-[#E00000] shrink-0" />
+              <Coins size={14} className="text-brand-600 shrink-0" />
               <span>
                 {exchangeType === 'SELL'
-                  ? `MH Pays (${toCurrency?.code ?? 'Forex'})`
-                  : `MH Receives (${toCurrency?.code ?? 'Forex'})`}
+                  ? `MH Pays`
+                  : `MH Receives`}
               </span>
-              <span className="text-[#E00000] font-bold">*</span>
+              <span className="text-brand-600 font-bold">*</span>
             </label>
 
             <div id="field-sendAmount" className="relative">
@@ -163,8 +156,8 @@ export const ExchangeSection = ({
                   if (Number(sendAmount) > 0) onAmountBlur?.();
                 }}
                 placeholder="Enter amount"
-                className={`w-full min-w-0 box-border bg-white border ${sendAmountError ? 'border-[#E00000]/40 bg-red-50/20' : 'border-gray-200'
-                  } text-ink rounded-xl h-12 px-3.5 pr-14 text-amount-pair font-bold tnum placeholder:text-muted placeholder:font-normal focus:outline-none focus:border-red-500 transition-colors`}
+                className={`w-full min-w-0 box-border bg-surface border ${sendAmountError ? 'border-danger-border bg-danger-bg' : 'border-line'
+                  } text-ink rounded-xl h-12 px-3.5 pr-14 text-amount-pair font-bold tnum placeholder:text-muted placeholder:font-normal focus:outline-none focus:ring-2 focus:ring-brand-600 transition-colors`}
               />
               <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted uppercase tracking-wide pointer-events-none">
                 {toCurrency?.code ?? 'Forex'}
@@ -190,7 +183,7 @@ export const ExchangeSection = ({
             </label>
 
             <div className="relative">
-              <div className="w-full min-w-0 box-border rounded-xl h-12 px-3.5 pr-14 flex items-center justify-between text-amount-pair font-bold tnum border border-gray-200 bg-gray-50/50 text-ink">
+              <div className="w-full min-w-0 box-border rounded-xl h-12 px-3.5 flex items-center justify-between gap-2 text-amount-pair font-bold tnum border border-gray-200 bg-gray-50/50 text-ink">
                 {ratesLoading ? (
                   <span className="text-body font-normal text-muted animate-pulse">Loading…</span>
                 ) : exchangePreview ? (

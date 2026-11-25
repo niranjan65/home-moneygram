@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useMemo } from "react";
 
-const ExchangeContext = createContext(null);
+export const ExchangeContext = createContext(null);
 
 const DEFAULT_CONFIG = {
   serviceRate: 0.02,

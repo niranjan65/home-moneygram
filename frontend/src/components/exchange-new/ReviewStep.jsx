@@ -274,30 +274,16 @@ import {
 import { useExchange } from '../../context/ExchangeContext';
 import { useSettings } from '../../context/SettingsContext';
 
-// ── Red Design Tokens (mirrors ReceiverForm / Summary) ────────────────────────
-const R = {
-  primary: '#dc2626',
-  accent: '#ef4444',
-  bright: '#f87171',
-  dark: '#7f1d1d',
-  deeper: '#450a0a',
-  soft: '#fff1f2',
-  muted: '#ffe4e6',
-  orange: '#f97316',
-};
-
-const gradHero = `linear-gradient(135deg, ${R.deeper} 0%, ${R.dark} 50%, ${R.primary} 100%)`;
-const gradBtn = `linear-gradient(135deg, ${R.accent} 0%, ${R.primary} 60%, ${R.dark} 100%)`;
-const gradCard = `linear-gradient(135deg, ${R.soft} 0%, #fff 100%)`;
+// ── Theme Design Tokens ────────────────────────────────────────────────────────
 
 // ── Group Card component (one card per group) ──────────────────────────────────
 const SummaryGroupCard = ({ icon: Icon, title, subtitle, badge, children }) => (
-  <div className="rounded-2xl border border-gray-200/90 bg-white shadow-xs overflow-hidden">
-    <div className="px-5 py-3.5 bg-gray-50/70 border-b border-gray-100 flex items-center justify-between">
+  <div className="rounded-2xl border border-line bg-surface shadow-card overflow-hidden">
+    <div className="px-5 py-3.5 bg-surface-alt border-b border-line flex items-center justify-between">
       <div className="flex items-center gap-2.5">
         {Icon && (
-          <div className="w-8 h-8 rounded-xl bg-white border border-gray-200 flex items-center justify-center flex-shrink-0 shadow-2xs">
-            <Icon size={14} className="text-red-600" strokeWidth={2.3} />
+          <div className="w-8 h-8 rounded-xl bg-surface border border-line flex items-center justify-center flex-shrink-0 shadow-2xs">
+            <Icon size={14} className="text-brand-600" strokeWidth={2.3} />
           </div>
         )}
         <div>
@@ -461,18 +447,18 @@ export const ReviewStep = ({
     if (norm.includes('high')) {
       return {
         text: level,
-        className: 'bg-red-100 text-red-800 border border-red-200',
+        className: 'bg-danger-bg text-danger-fg border border-danger-border',
       };
     }
     if (norm.includes('med')) {
       return {
         text: level,
-        className: 'bg-amber-100 text-amber-800 border border-amber-200',
+        className: 'bg-warning-bg text-warning-fg border border-warning-border',
       };
     }
     return {
       text: level,
-      className: 'bg-emerald-100 text-emerald-800 border border-emerald-200',
+      className: 'bg-success-bg text-success-fg border border-success-border',
     };
   };
 
@@ -482,8 +468,8 @@ export const ReviewStep = ({
       ? (isBuy ? 'BUY (Dealer Sells Forex)' : 'SELL (Dealer Buys Forex)')
       : (isBuy ? 'BUY (Customer Sells Forex)' : 'SELL (Customer Buys Forex)'),
     className: isBuy
-      ? 'bg-blue-50 text-blue-700 border border-blue-200'
-      : 'bg-purple-50 text-purple-700 border border-purple-200',
+      ? 'bg-info-bg text-info-fg border border-info-border'
+      : 'bg-brand-50 text-brand-700 border border-brand-200',
   };
 
   const fjdAmount = data.receiverGets ?? receiverGets ?? 0;
@@ -499,66 +485,79 @@ export const ReviewStep = ({
   return (
     <div className="flex flex-col gap-6">
 
-      {/* ── Page heading ── */}
-      <div className="text-center flex flex-col items-center gap-2">
-        <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-1 shadow-md"
-          style={{ background: gradBtn }}>
-          <CheckCircle2 size={22} className="text-white" strokeWidth={2} />
-        </div>
-        <h1 className="text-h1 font-bold text-ink tracking-tight">
-          Review Exchange Details
-        </h1>
-        <p className="text-muted text-body max-w-sm">
-          Please review the information below carefully before confirming your transaction.
-        </p>
-      </div>
+
 
       {/* ── Main card ── */}
-      <div className="rounded-3xl overflow-hidden shadow-xl border border-red-100"
-        style={{ boxShadow: `0 20px 60px ${R.primary}18` }}>
+      <div className="rounded-3xl overflow-hidden shadow-xl border border-line bg-surface shadow-brand-600/10">
 
         {/* ── Hero: Customer Receives ── */}
-        <div className="relative overflow-hidden px-8 pt-8 pb-10" style={{ background: gradHero }}>
+        <div className="relative overflow-hidden px-8 pt-8 pb-10 bg-gradient-to-br from-brand-950 via-brand-800 to-brand-600 dark:from-brand-50 dark:via-brand-200 dark:to-brand-600">
 
           {/* Edit button */}
-          <button onClick={onEdit}
-            className="absolute z-25 top-5 right-5 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-label font-semibold transition-all hover:opacity-80"
-            style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', color: 'white' }}>
+          <button
+            onClick={onEdit}
+            className="absolute z-25 top-5 right-5 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-label font-semibold transition-all hover:opacity-80 bg-white/15 border border-white/20 text-white cursor-pointer"
+          >
             <Edit2 size={13} strokeWidth={2.5} />
             Edit
           </button>
 
+          {/* ── Page heading ── */}
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-1 shadow-md bg-gradient-to-br from-brand-500 via-brand-600 to-brand-800 shadow-brand-600/20">
+              <CheckCircle2 size={22} className="text-white" strokeWidth={2} />
+            </div>
+            <div className="flex-grow">
+              <h1 className="text-h1 font-bold text-white tracking-tight">
+                Review Exchange Details
+              </h1>
+              <p className="text-gray-300 dark:text-gray-700 text-body">
+                Please review the information below carefully before confirming your transaction.
+              </p>
+            </div>
+          </div>
+
           {/* Content */}
-          <div className="relative text-center flex flex-col items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl"
-              style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.18)' }}>
-              <Sparkles size={12} className="text-red-200" />
+          <div className="">
+            {/* <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 border border-white/20">
+              <Sparkles size={12} className="text-brand-200 dark:text-brand-800" />
               <span className="text-overline font-semibold text-white/90 uppercase tracking-wider">
                 {exchangeType === 'BUY' ? 'MH Receives' : (isDealer ? 'Dealer Receives' : 'Customer Receives')}
               </span>
-            </div>
-
-            <div className="flex items-baseline gap-3">
-              <span className="text-display font-bold text-white tracking-tight leading-none tnum">
-                {fmt(sendAmount)}
-              </span>
-              <span className="text-amount font-bold text-red-200">{senderCurrency}</span>
-            </div>
+              </div> */}
 
             {exchangeRate > 0 && (
-              <div className="flex items-center gap-2 px-4 py-2 rounded-full"
-                style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.18)' }}>
-                <TrendingUp size={13} className="text-red-200" />
+              <div className="my-2 flex items-center gap-2 px-4 py-2 rounded-md bg-white/10 border border-white/20">
+                <TrendingUp size={13} className="text-brand-200 dark:text-brand-800" />
                 <span className="text-white/90 text-caption font-semibold tnum">
                   {isDealer ? 'Agreed Dealer Rate:' : 'Rate:'} 1 FJD = {exchangeRate.toFixed(4)} {senderCurrency}
                 </span>
               </div>
             )}
+
+            <div className='flex items-center gap-2 justify-between pt-4'>
+              <div className='grow'>
+                <strong className='text-white'>{exchangeType === 'BUY' ? 'Forex Received by MH' : (isDealer ? 'Forex Paid to Dealer' : 'Forex Paid to Customer')}</strong>
+                <p className='text-white'>{fmt(sendAmount)}&nbsp;{senderCurrency}</p>
+              </div>
+              <div>&rarr;</div>
+              <div className='grow text-right'>
+                <strong className='text-white'>{exchangeType === 'BUY' ? (isDealer ? 'FJD Paid to Dealer' : 'FJD Paid to Customer') : (isDealer ? 'FJD Received from Dealer' : 'FJD Received from Customer')}</strong>
+                <p className='text-white'>{fmt(fjdAmount)} FJD</p>
+              </div>
+            </div>
+
+            {/* <div className="flex items-baseline gap-3">
+              <span className="text-display font-bold text-white tracking-tight leading-none tnum">
+                {fmt(sendAmount)}
+              </span>
+              <span className="text-amount font-bold text-brand-200 dark:text-brand-800">{senderCurrency}</span>
+            </div> */}
           </div>
         </div>
 
         {/* ── Breakdown body: Grouped Cards ── */}
-        <div className="bg-gray-50/50 px-6 md:px-8 py-6 flex flex-col gap-4">
+        <div className="bg-surface-alt/50 px-6 md:px-8 py-6 flex flex-col gap-4">
 
           {/* Group 1: Exchange Details Card */}
           <SummaryGroupCard
@@ -710,76 +709,64 @@ export const ReviewStep = ({
           </SummaryGroupCard>
 
           {/* Final amount strip */}
-          <div className="mt-2 relative overflow-hidden rounded-2xl px-5 py-4"
-            style={{ background: gradBtn, boxShadow: `0 8px 32px ${R.primary}44` }}>
-
+          <div className="mt-2 relative overflow-hidden rounded-2xl px-5 py-4 bg-gradient-to-r from-brand-500 via-brand-600 to-brand-700 shadow-lg shadow-brand-600/25">
             <div className="relative flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-1.5 mb-1">
-                  <CheckCircle2 size={12} className="text-red-200" strokeWidth={3} />
-                  <span className="text-red-100 text-overline font-semibold uppercase tracking-wider">
+                  <CheckCircle2 size={12} className="text-brand-100 dark:text-brand-950" strokeWidth={3} />
+                  <span className="text-brand-100 dark:text-brand-950 text-overline font-semibold uppercase tracking-wider">
                     Total {exchangeType === 'BUY' ? 'Forex Received' : 'Forex Paid'}
                   </span>
                 </div>
-                <p className="text-red-100/90 text-caption font-medium">
+                <p className="text-brand-100/90 dark:text-brand-950/90 text-caption font-medium">
                   Net Settlement: <span className="font-bold text-white tnum">FJ$ {fmt(fjdAmount)}</span>
                 </p>
               </div>
               <div className="text-white font-bold text-display tracking-tight text-right tnum">
-                {fmt(sendAmount)} <span className="text-h2 text-red-200">{senderCurrency}</span>
+                {fmt(sendAmount)} <span className="text-h2 text-brand-100 dark:text-brand-950">{senderCurrency}</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* ── Footer actions ── */}
-        <div className="px-6 md:px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-4"
-          style={{ background: R.soft, borderTop: `1.5px solid ${R.muted}` }}>
+        <div className="px-6 md:px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-4 bg-surface border-t border-line">
 
           {/* Security badge */}
-          <div className="flex items-center gap-2 px-4 py-2 rounded-xl"
-            style={{ background: 'white', border: `1px solid ${R.muted}` }}>
-            <ShieldCheck size={15} style={{ color: R.primary }} strokeWidth={2.5} />
-            <span className="text-overline font-semibold uppercase tracking-wider" style={{ color: R.dark }}>
+          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-danger-bg border border-danger-border">
+            <ShieldCheck size={15} className="text-danger-fg" strokeWidth={2.5} />
+            <span className="text-overline font-semibold uppercase tracking-wider text-danger-fg">
               Encrypted &amp; Secure
             </span>
           </div>
 
           {/* Buttons */}
           <div className="flex items-center gap-3">
-            <button onClick={onCancel}
-              className="px-6 py-3 rounded-2xl text-btn-lg font-semibold border-2 text-gray-500 bg-white transition-all hover:border-red-200 hover:text-red-500"
-              style={{ borderColor: R.muted }}>
+            <button
+              onClick={onCancel}
+              className="px-6 py-3 rounded-2xl text-btn-lg font-semibold border border-line bg-surface text-muted transition-all hover:bg-surface-alt hover:text-ink hover:border-line-strong active:scale-95 cursor-pointer"
+            >
               Cancel
             </button>
 
             <button
               onClick={handleConfirm}
               disabled={isSubmitting}
-              className="flex items-center gap-2.5 px-8 py-3 rounded-2xl text-btn-lg font-semibold text-white transition-all active:scale-95 group"
-              style={{
-                background: gradBtn,
-                boxShadow: `0 8px 24px ${R.primary}44`,
-                opacity: isSubmitting ? 0.7 : 1,
-                cursor: isSubmitting ? 'not-allowed' : 'pointer',
-              }}
+              className="flex items-center gap-2.5 px-8 py-3 rounded-2xl text-btn-lg font-semibold text-white transition-all active:scale-95 group bg-gradient-to-r from-brand-500 via-brand-600 to-brand-700 shadow-md shadow-brand-600/25 hover:opacity-95 disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
             >
               {isSubmitting ? (
                 <>
-                  <span style={{
-                    width: '16px', height: '16px', borderRadius: '50%',
-                    border: '2.5px solid rgba(255,255,255,0.35)',
-                    borderTopColor: '#fff',
-                    animation: 'spin 0.7s linear infinite',
-                    display: 'inline-block', flexShrink: 0,
-                  }} />
+                  <span className="w-4 h-4 rounded-full border-2 border-white/35 border-t-white animate-spin inline-block shrink-0" />
                   Processing…
                 </>
               ) : (
                 <>
                   Confirm Transaction
-                  <ArrowRight size={17} strokeWidth={2.5}
-                    className="group-hover:translate-x-1 transition-transform" />
+                  <ArrowRight
+                    size={17}
+                    strokeWidth={2.5}
+                    className="group-hover:translate-x-1 transition-transform"
+                  />
                 </>
               )}
             </button>
@@ -791,11 +778,10 @@ export const ReviewStep = ({
       {/* ── No Warehouse Modal ── */}
       {showNoWarehouseModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl p-7 max-w-sm w-full mx-4">
+          <div className="bg-surface border border-line rounded-2xl shadow-2xl p-7 max-w-sm w-full mx-4">
             <div className="flex items-start gap-4">
-              <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: `${R.primary}15` }}>
-                <MapPin size={20} style={{ color: R.primary }} />
+              <div className="w-11 h-11 rounded-xl bg-danger-bg border border-danger-border flex items-center justify-center shrink-0">
+                <MapPin size={20} className="text-danger-fg" />
               </div>
               <div className="flex-1">
                 <h3 className="text-h2 font-bold text-ink mb-1">Location Not Selected</h3>
@@ -803,16 +789,18 @@ export const ReviewStep = ({
                   No location is set. Please select the default Location in Settings first, then continue.
                 </p>
               </div>
-              <button onClick={() => setShowNoWarehouseModal(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors mt-0.5">
+              <button
+                onClick={() => setShowNoWarehouseModal(false)}
+                className="text-muted hover:text-ink transition-colors mt-0.5 cursor-pointer"
+              >
                 <X size={18} />
               </button>
             </div>
             <div className="mt-5 flex justify-end">
               <button
                 onClick={() => setShowNoWarehouseModal(false)}
-                className="px-6 py-2.5 rounded-xl text-label font-semibold text-white transition-all hover:opacity-90"
-                style={{ background: gradBtn }}>
+                className="px-6 py-2.5 rounded-xl text-label font-semibold text-white transition-all hover:opacity-90 bg-gradient-to-r from-brand-500 via-brand-600 to-brand-700 shadow-md shadow-brand-600/20 active:scale-95 cursor-pointer"
+              >
                 OK, Got it
               </button>
             </div>

@@ -10,6 +10,7 @@ import { getCustomerById, createCustomer, updateCustomer, fetchNewCustomerId, up
 import { fetchCustomerLastTransaction, extractMoneyTransferPrefill } from "../features/exchange/api/lastTransaction";
 import DocumentUploadTable from "../components/money-transfer-new/DocumentUploadTable";
 import TransactionTabBar from "../components/common/TransactionTabBar";
+import BoardRatesBar from "../components/common/BoardRatesBar";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import {
@@ -39,11 +40,36 @@ import { CustomerPhotoCard } from "../components/money-transfer-new/CustomerPhot
 import { CurrencyInput } from "../components/common/CurrencyInput";
 import { useBaseCurrency } from "../hooks/useDenomination";
 import { useCountries } from "../hooks/useCountry";
-import { useERPNextRates } from "../hooks/useERPNextRates";
 import { buildApiUrl, getFetchOptions } from "../features/exchange/config/erpConfig";
 import { useSettings } from "../context/SettingsContext";
 import { validateStockAvailability } from "../hooks/useStockValidation";
 import { useLocation, Link, useNavigate } from "react-router-dom";
+
+// ── Initial Compliance Fields (RBF Compliance Review) ─────────────────────────
+export const INITIAL_COMPLIANCE_FIELDS = {
+  rbf_purpose: "",
+  rbf_documents: [],
+  rbf_source_of_funds: "",
+  source_of_funds: "",
+  rbf_nationality_type: "",
+  nationality_type: "",
+  rbf_nationality: "",
+  nationality: "",
+  rbf_other_nationality: "",
+  other_nationality: "",
+  rbf_residency_status: "",
+  residency_status: "",
+  rbf_beneficiary_reference: "",
+  rbf_student_reference: "",
+  rbf_family_reference: "",
+  rbf_invoice_reference: "",
+  rbf_approval: "",
+  tf_form_reference: "",
+  imported_funds_available_fjd: "",
+  passport_endorsement_completed: 0,
+  passport_endorsed: 0,
+  sanctions_acknowledged_references: "",
+};
 
 // ── ID Expiry Calculation Helper ──────────────────────────────────────────────
 export const getIdExpiryStatus = (rawDate) => {
@@ -582,8 +608,8 @@ function CustomerAutocompleteInput({
         className={
           inputStyle
             ? `${inputStyle} pr-10`
-            : `w-full min-w-0 box-border bg-white border ${hasError ? "border-[#E00000]/40 bg-red-50/30" : "border-gray-200"
-            } text-gray-900 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#E00000] focus:bg-white placeholder:text-gray-400 transition-all duration-200 pr-10`
+            : `w-full min-w-0 box-border bg-surface border ${hasError ? "border-danger-border bg-danger-bg" : "border-line"
+            } text-ink rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-surface placeholder:text-muted transition-all duration-200 pr-10`
         }
         value={query}
         disabled={disabled}
@@ -604,24 +630,24 @@ function CustomerAutocompleteInput({
         onChange={(e) => handleQueryChange(e.target.value)}
         onKeyDown={handleKeyDown}
       />
-      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none">
         {loading ? (
-          <RefreshCw size={14} className="animate-spin text-[#E00000]" />
+          <RefreshCw size={14} className="animate-spin text-brand-600" />
         ) : (
           <Search size={14} />
         )}
       </div>
 
       {isOpen && (
-        <div className="absolute left-0 top-full mt-1.5 w-full min-w-full bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in duration-100">
-          <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between text-[11px] text-gray-500 font-medium">
-            <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-gray-500">
+        <div className="absolute left-0 top-full mt-1.5 w-full min-w-full bg-surface border border-line rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in duration-100">
+          <div className="px-3.5 py-2 bg-surface-alt border-b border-line flex items-center justify-between text-[11px] text-muted font-medium">
+            <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-muted">
               {searchField === "phone" ? (
-                <Phone size={12} className="text-[#E00000]" />
+                <Phone size={12} className="text-brand-600" />
               ) : searchField === "id" ? (
-                <Hash size={12} className="text-[#E00000]" />
+                <Hash size={12} className="text-brand-600" />
               ) : (
-                <User size={12} className="text-[#E00000]" />
+                <User size={12} className="text-brand-600" />
               )}
               {searchField === "phone"
                 ? "Matching Customers by Phone"
@@ -631,24 +657,24 @@ function CustomerAutocompleteInput({
               ({visibleCustomers.length})
             </span>
             {loading ? (
-              <span className="flex items-center gap-1 text-gray-600 text-[10px] font-medium">
-                <RefreshCw size={10} className="animate-spin text-gray-600" /> Searching…
+              <span className="flex items-center gap-1 text-muted text-[10px] font-medium">
+                <RefreshCw size={10} className="animate-spin text-muted" /> Searching…
               </span>
             ) : (
-              <span className="text-[10px] text-gray-600 font-medium">Select to auto-populate</span>
+              <span className="text-[10px] text-muted font-medium">Select to auto-populate</span>
             )}
           </div>
 
-          <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+          <div className="max-h-64 overflow-y-auto divide-y divide-line">
             {loading && visibleCustomers.length === 0 ? (
-              <div className="px-4 py-5 text-center text-xs text-gray-600 flex items-center justify-center gap-2">
-                <RefreshCw size={13} className="animate-spin text-gray-600" />
+              <div className="px-4 py-5 text-center text-xs text-muted flex items-center justify-center gap-2">
+                <RefreshCw size={13} className="animate-spin text-muted" />
                 <span>Searching customer records…</span>
               </div>
             ) : visibleCustomers.length === 0 ? (
-              <div className="px-4 py-4 text-center text-xs text-gray-600">
-                <p className="font-semibold text-gray-800">No matching customer found</p>
-                <p className="text-[11px] text-gray-600 mt-0.5">
+              <div className="px-4 py-4 text-center text-xs text-muted">
+                <p className="font-semibold text-ink">No matching customer found</p>
+                <p className="text-[11px] text-muted mt-0.5">
                   Try searching by Phone number, Customer ID, Name or ID number
                 </p>
               </div>
@@ -669,18 +695,18 @@ function CustomerAutocompleteInput({
                     }}
                     onMouseEnter={() => setHighlightedIndex(idx)}
                     className={`px-3.5 py-2.5 cursor-pointer transition-colors flex items-center justify-between ${isHighlighted
-                      ? "bg-red-50 text-[#E00000]"
-                      : "hover:bg-gray-50 text-gray-800"
+                      ? "bg-danger-bg text-brand-600"
+                      : "hover:bg-chip text-ink"
                       }`}
                   >
                     <div className="truncate pr-2 flex-1 min-w-0">
                       <div
-                        className={`text-xs ${isHighlighted ? "font-bold text-[#E00000]" : "font-medium text-gray-900"
+                        className={`text-xs ${isHighlighted ? "font-bold text-brand-600" : "font-medium text-ink"
                           } truncate flex items-center gap-2`}
                       >
                         {searchField === "id" ? (
                           <>
-                            <span className="font-mono text-[11px] font-bold px-1.5 py-0.5 bg-red-100 text-[#E00000] rounded">
+                            <span className="font-mono text-[11px] font-bold px-1.5 py-0.5 bg-danger-bg text-brand-600 rounded">
                               {cId}
                             </span>
                             <span className="font-semibold">{name}</span>
@@ -688,23 +714,23 @@ function CustomerAutocompleteInput({
                         ) : (
                           <>
                             <span>{name}</span>
-                            <span className="font-mono text-overline font-semibold px-1.5 py-0.5 bg-gray-100 rounded text-gray-800">
+                            <span className="font-mono text-overline font-semibold px-1.5 py-0.5 bg-chip rounded text-muted">
                               {cId}
                             </span>
                           </>
                         )}
                         {customerExp.isExpired && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-overline font-semibold bg-red-100 text-danger border border-red-300 shrink-0">
-                            <span className="w-1.5 h-1.5 rounded-full bg-danger animate-pulse"></span>
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-overline font-semibold bg-danger-bg text-danger-fg border border-danger-border shrink-0">
+                            <span className="w-1.5 h-1.5 rounded-full bg-danger-fg animate-pulse"></span>
                             Expired ID
                           </span>
                         )}
                       </div>
                       <div className="text-caption text-muted font-mono truncate mt-0.5 flex items-center flex-wrap gap-x-2">
                         {phoneNum ? (
-                          <strong className="text-gray-800">📞 {phoneNum}</strong>
+                          <strong className="text-ink">📞 {phoneNum}</strong>
                         ) : (
-                          <span className="italic text-gray-500">No phone attached</span>
+                          <span className="italic text-muted">No phone attached</span>
                         )}
                         {c.custom_date_of_birth ? <span>• DOB: {c.custom_date_of_birth}</span> : null}
                         {idNum ? <span>• ID: {idNum}</span> : null}
@@ -742,30 +768,6 @@ const MoneyTransferNew = () => {
   console.log("🚨🚨🚨 NEW MONEY TRANSFER FILE IS RUNNING 🚨🚨🚨");
   const { uploadFile } = useERPFileUpload();
   const loginUser = useUser();
-  const ratesData = useERPNextRates();
-
-  const boardCurrencies = useMemo(() => {
-    if (ratesData?.availableCurrencies && ratesData.availableCurrencies.length > 0) {
-      return ratesData.availableCurrencies.map(c => {
-        const rate = (c.sellingRate ?? c.buyingRate);
-        return {
-          code: c.code,
-          rate: rate ? Number(rate).toFixed(4) : '—',
-        };
-      });
-    }
-    return [
-      { code: 'USD', rate: '2.2410' },
-      { code: 'AUD', rate: '1.4590' },
-      { code: 'NZD', rate: '1.3320' },
-      { code: 'EUR', rate: '2.4350' },
-      { code: 'GBP', rate: '2.8240' },
-      { code: 'CAD', rate: '1.6210' },
-      { code: 'JPY', rate: '0.0148' },
-      { code: 'SGD', rate: '1.6820' },
-      { code: 'CNY', rate: '0.3120' },
-    ];
-  }, [ratesData?.availableCurrencies]);
 
   const { potOptions, loading: potLoading, error: potError } = useAppConfiguration();
   const [metaFields, setMetaFields] = useState([]);
@@ -779,6 +781,22 @@ const MoneyTransferNew = () => {
   const [splitLegs, setSplitLegs] = useState([]);
   const [splitConsent, setSplitConsent] = useState(false);
   const [successInfo, setSuccessInfo] = useState(null);
+  const successAlertRef = useRef(null);
+
+  // Automatically scroll to the success alert banner when backend responds
+  useEffect(() => {
+    if (successInfo) {
+      const scrollTimer = setTimeout(() => {
+        const el = successAlertRef.current || document.getElementById("success-info-banner");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        } else {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      }, 100);
+      return () => clearTimeout(scrollTimer);
+    }
+  }, [successInfo]);
   const [fieldErrors, setFieldErrors] = useState({});
   const [submitError, setSubmitError] = useState("");
   const [complianceAssessment, setComplianceAssessment] = useState(null);
@@ -932,19 +950,63 @@ const MoneyTransferNew = () => {
   const denomStatusRef = useRef({ total: 0, target: 0 });
   const denomErrorRef = useRef(null);
 
+  const [availabilityByDenomination, setAvailabilityByDenomination] = useState({});
+
+  useEffect(() => {
+    const warehouseName = selectedWarehouse?.warehouse;
+    if (!warehouseName || !baseCurrencyData) {
+      setAvailabilityByDenomination({});
+      return;
+    }
+
+    const allItems = [
+      ...((baseCurrencyData.notes || []).map((denom, i) => baseCurrencyData.notes_name?.[i]).filter(Boolean).map(item_code => ({ item_code, requested_qty: 0 }))),
+      ...((baseCurrencyData.coins || []).map((denom, i) => baseCurrencyData.coins_name?.[i]).filter(Boolean).map(item_code => ({ item_code, requested_qty: 0 }))),
+    ];
+    if (allItems.length === 0) {
+      setAvailabilityByDenomination({});
+      return;
+    }
+
+    let active = true;
+    validateStockAvailability(allItems, warehouseName, loginUser)
+      .then(res => {
+        if (!active || !res?.qtyMap) return;
+        const avail = {};
+        (baseCurrencyData.notes || []).forEach((denom, i) => {
+          const code = baseCurrencyData.notes_name?.[i];
+          if (code) {
+            avail[String(Number(denom))] = Math.max(0, Number(res.qtyMap[code] ?? 0));
+          }
+        });
+        (baseCurrencyData.coins || []).forEach((denom, i) => {
+          const code = baseCurrencyData.coins_name?.[i];
+          if (code) {
+            avail[String(Number(denom))] = Math.max(0, Number(res.qtyMap[code] ?? 0));
+          }
+        });
+        setAvailabilityByDenomination(avail);
+      })
+      .catch(err => {
+        console.error('[MoneyTransfer Stock Availability Fetch Error]', err);
+        if (active) setAvailabilityByDenomination({});
+      });
+
+    return () => { active = false; };
+  }, [
+    selectedWarehouse?.warehouse,
+    baseCurrencyData?.currency,
+    baseCurrencyData?.notes_name?.join(','),
+    baseCurrencyData?.coins_name?.join(','),
+    loginUser,
+  ]);
+
   const [customerLookupDone, setCustomerLookupDone] = useState(false);
   const [customerFound, setCustomerFound] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerImageFile, setCustomerImageFile] = useState(null);
   const [customerImageUrl, setCustomerImageUrl] = useState("");
   const requestPrefillAppliedRef = useRef(false);
-
-  const focusAmountField = useCallback(() => {
-    setTimeout(() => {
-      const el = document.getElementById("input-transfer-amount") || document.querySelector("#field-amount input");
-      el?.focus();
-    }, 50);
-  }, []);
 
   const resetForm = useCallback((newType, preserveAmount = true) => {
     const transferField = metaFields.find((f) => f.fieldname === "transfer_type");
@@ -961,6 +1023,7 @@ const MoneyTransferNew = () => {
       risk_level: "",
       oet_code: "18",
       documents: [],
+      ...INITIAL_COMPLIANCE_FIELDS,
       ...(preserveAmount && prev?.amount ? { amount: prev.amount } : {}),
     }));
     setSelectedCustomer(null);
@@ -1272,22 +1335,28 @@ const MoneyTransferNew = () => {
 
   const idAttachment = form.document_upload || form.custom_government_document || null;
   const additionalAttachment = form.upload_additional_info || null;
-  const documentRows = (Array.isArray(form.documents) && form.documents.length > 0)
+  const documentRows = Array.isArray(form.documents)
     ? form.documents
     : [
       ...(idAttachment ? [{
+        document_category: "Proof of Identity",
         document_type: form.government_id_type || form.custom_government_id || "Passport",
         document_number: form.government_id_number || form.passport_number || "",
         issue_date: form.id_issue_date || form.custom_id_issue_date || "",
         expiry_date: form.id_expiry_date || form.custom_id_expiry_date || "",
         issue_country: form.id_issue_country || form.custom_id_issue_country || "",
         attachment: idAttachment,
+        file_name: typeof idAttachment === "string" ? idAttachment.split("/").pop() : "document.pdf",
         notes: "",
+        isAutoFilled: true,
       }] : []),
       ...(additionalAttachment ? [{
+        document_category: "Other",
         document_type: "Other",
         attachment: additionalAttachment,
+        file_name: typeof additionalAttachment === "string" ? additionalAttachment.split("/").pop() : "document.pdf",
         notes: "",
+        isAutoFilled: true,
       }] : []),
     ];
 
@@ -1301,6 +1370,11 @@ const MoneyTransferNew = () => {
         document_upload: rows.find((r) => r.attachment)?.attachment || "",
         upload_additional_info: rows.find((r) => r.document_type === "Additional Info" || r.document_type === "Other")?.attachment || "",
       };
+
+      if (!primaryIdDoc) {
+        next.document_upload = "";
+        next.custom_government_document = "";
+      }
 
       if (primaryIdDoc) {
         if (primaryIdDoc.document_type) {
@@ -1487,18 +1561,49 @@ const MoneyTransferNew = () => {
   }, [customerFields, transactionFields, identityFields, senderReceiverFields, complianceFields, otherFields]);
 
   const inputStyle =
-    "w-full min-w-0 box-border bg-gray-50 border border-gray-200 text-ink rounded-xl px-4 py-3 text-body font-medium tnum focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-white placeholder:text-muted transition-all duration-200";
+    "w-full min-w-0 box-border bg-surface border border-line text-ink rounded-xl px-4 py-3 text-body font-medium tnum focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-surface placeholder:text-muted transition-all duration-200";
 
   const getInputStyle = (fieldname, extra = "") => {
     const hasError = Boolean(fieldErrors && fieldErrors[fieldname]);
     const errorClasses = hasError
-      ? "border-red-400 bg-red-50/20 ring-1 ring-red-400 focus:ring-red-500"
-      : "border-gray-200 focus:ring-[#E00000]";
+      ? "border-danger-border bg-danger-bg ring-1 ring-danger-fg focus:ring-danger-fg"
+      : "border-line focus:ring-brand-600";
     return `${inputStyle} ${errorClasses} ${extra}`.trim();
   };
 
   const labelStyle =
     "text-label font-semibold text-ink mb-1.5 block";
+
+  const formatLocalDate = (date) => {
+    if (!date) return "";
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  };
+
+  const formatDate = (date) => {
+    if (!date) return null;
+    const d = new Date(date);
+    if (isNaN(d.getTime())) {
+      console.error("❌ Invalid date:", date);
+      return null;
+    }
+    return d.toISOString().split("T")[0];
+  };
+
+  const isFutureDate = (dateVal) => {
+    if (!dateVal) return false;
+    let str = "";
+    if (dateVal instanceof Date) {
+      if (isNaN(dateVal.getTime())) return false;
+      str = formatLocalDate(dateVal);
+    } else if (typeof dateVal === "string") {
+      str = dateVal.trim().split("T")[0].split(" ")[0];
+    }
+    const todayStr = formatLocalDate(new Date());
+    return Boolean(str && str > todayStr);
+  };
 
   const handleChange = (key, value) => {
     // Clear error for this field if user modifies it
@@ -1509,13 +1614,26 @@ const MoneyTransferNew = () => {
       return next;
     });
 
+    if (key === "dob") {
+      if (isFutureDate(value)) {
+        setFieldErrors((prev) => ({
+          ...prev,
+          dob: "Date of birth must be today or any past date.",
+        }));
+      }
+    }
+
     if (key === "full_name") {
       selectedFromDropdownRef.current = false;
       setCustomerFound(false);
+      setCustomerImageUrl("");
+      setCustomerImageFile(null);
+      setComplianceAssessment(null);
       setForm((prev) => ({
         ...prev,
         customer: "",
         [key]: value,
+        ...INITIAL_COMPLIANCE_FIELDS,
       }));
     } else {
       setForm((prev) => ({
@@ -1706,30 +1824,6 @@ const MoneyTransferNew = () => {
       value: opt,
     }));
   };
-
-
-  const formatLocalDate = (date) => {
-    if (!date) return "";
-
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const d = String(date.getDate()).padStart(2, "0");
-
-    return `${y}-${m}-${d}`;
-  };
-
-  const formatDate = (date) => {
-    if (!date) return null;
-
-    const d = new Date(date);
-
-    if (isNaN(d.getTime())) {
-      console.error("❌ Invalid date:", date);
-      return null;
-    }
-
-    return d.toISOString().split("T")[0];
-  };
   // useEffect(() => {
   //   const fetchCustomer = async () => {
   //     if (!form.full_name || !form.dob) return;
@@ -1792,7 +1886,6 @@ const MoneyTransferNew = () => {
   // ── Handle customer selected from autocomplete dropdown ───────────────────
   const handleSelectCustomer = async (c) => {
     if (!c || (c?.customer_group || "").trim().toLowerCase() === "dealer") return;
-    focusAmountField();
     const nameVal = c.custom_full_name || c.customer_name || c.full_name || c.name || "";
     const custId = c.custom_customer_id || c.customer_id || c.name || "";
     const phoneVal = c.mobile_no || c.phone_number || c.phone || c.custom_contact_number || c.contact_number || "";
@@ -1811,52 +1904,67 @@ const MoneyTransferNew = () => {
     setSelectedCustomer(c);
     setCustomerFound(true);
     setCustomerLookupDone(true);
+    setComplianceAssessment(null);
     if (existingImg) {
       setCustomerImageUrl(existingImg);
+      setCustomerImageFile(null);
+    } else {
+      setCustomerImageUrl("");
       setCustomerImageFile(null);
     }
 
     const existingDoc = c.custom_government_document || c.document_upload || "";
 
-    // Immediately populate all fields from selected customer into form
+    // Immediately populate all fields from selected customer into form (preserving amount section)
     setForm((prev) => ({
       ...prev,
-      amount: "",
+      ...INITIAL_COMPLIANCE_FIELDS,
       full_name: nameVal,
       custom_full_name: nameVal,
       customer: c.name,
       customer_id: custId,
       phone_number: phoneVal,
       contact_number: phoneVal,
-      dob: c.custom_date_of_birth || c.dob || prev.dob || "",
-      custom_date_of_birth: c.custom_date_of_birth || c.dob || prev.custom_date_of_birth || "",
-      passport_number: c.custom_passport_number || prev.passport_number || "",
-      custom_passport_number: c.custom_passport_number || prev.custom_passport_number || "",
-      document_upload: existingDoc || prev.document_upload || "",
-      custom_government_document: existingDoc || prev.custom_government_document || "",
+      dob: c.custom_date_of_birth || c.dob || "",
+      custom_date_of_birth: c.custom_date_of_birth || c.dob || "",
+      passport_number: c.custom_passport_number || "",
+      custom_passport_number: c.custom_passport_number || "",
+      document_upload: existingDoc || "",
+      custom_government_document: existingDoc || "",
       documents: existingDoc ? [{
+        document_category: "Proof of Identity",
         document_type: govIdType || "Passport",
         document_number: govIdNumber || "",
         issue_date: c.custom_id_issue_date || c.id_issue_date || "",
         expiry_date: c.custom_id_expiry_date || c.id_expiry_date || "",
         issue_country: c.custom_id_issue_country || c.id_issue_country || "",
         attachment: existingDoc,
+        file_name: typeof existingDoc === "string" ? existingDoc.split("/").pop() : "document.pdf",
         notes: "",
-      }] : (prev.documents && prev.documents.length > 0 ? prev.documents : []),
-      custom_government_id: govIdType || prev.custom_government_id || "",
-      government_id_type: govIdType || prev.government_id_type || "",
-      government_id_number: govIdNumber || prev.government_id_number || "",
-      country: c.custom_country || prev.country || "",
-      city: c.custom_city || prev.city || "",
-      stateprovince: c.custom_id_issue_stateprovince || c.custom_state_province || prev.stateprovince || "",
-      email: c.email_id || c.custom_email || prev.email || "",
-      occupation: c.custom_occupation || prev.occupation || "",
-      tin_number: c.custom_tin_number || prev.tin_number || "",
-      id_issue_date: c.custom_id_issue_date || prev.id_issue_date || "",
-      id_expiry_date: c.custom_id_expiry_date || prev.id_expiry_date || "",
-      id_issue_country: c.custom_id_issue_country || prev.id_issue_country || "",
-      id_issue_state: c.custom_id_issue_stateprovince || prev.id_issue_state || "",
-      risk_level: c.custom_risk_level || c.risk_level || prev.risk_level || "Low",
+        isAutoFilled: true,
+      }] : [],
+      custom_government_id: govIdType || "",
+      government_id_type: govIdType || "",
+      government_id_number: govIdNumber || "",
+      country: c.custom_country || "",
+      city: c.custom_city || "",
+      stateprovince: c.custom_id_issue_stateprovince || c.custom_state_province || "",
+      email: c.email_id || c.custom_email || "",
+      occupation: c.custom_occupation || "",
+      tin_number: c.custom_tin_number || "",
+      id_issue_date: c.custom_id_issue_date || "",
+      id_expiry_date: c.custom_id_expiry_date || "",
+      id_issue_country: c.custom_id_issue_country || "",
+      id_issue_state: c.custom_id_issue_stateprovince || "",
+      risk_level: c.custom_risk_level || c.risk_level || "Low",
+      receiver_name: "",
+      receiver_address: "",
+      receiver_address_line_2: "",
+      receiver_city: "",
+      receiver_stateprovince: "",
+      receiver_postal_code: "",
+      receiver_country: "",
+      destination_country: "",
     }));
 
     try {
@@ -1869,8 +1977,8 @@ const MoneyTransferNew = () => {
         const resolvedId = customer.custom_customer_id || customer.customer_id || customer.name || custId;
 
         // Fetch existing customer photo if present
-        const existingImg = customer.image || customer.custom_image || "";
-        setCustomerImageUrl(existingImg || c.image || c.custom_image || "");
+        const existingImg = customer.image || customer.custom_image || c.image || c.custom_image || "";
+        setCustomerImageUrl(existingImg || "");
         setCustomerImageFile(null);
 
         setForm((prev) => {
@@ -1895,97 +2003,83 @@ const MoneyTransferNew = () => {
             dob:
               customer.custom_date_of_birth ||
               customer.dob ||
-              prev.dob ||
               "",
             custom_date_of_birth:
               customer.custom_date_of_birth ||
               customer.dob ||
-              prev.custom_date_of_birth ||
               "",
             passport_number:
               customer.custom_passport_number ||
               customer.passport_number ||
-              prev.passport_number ||
               "",
             custom_passport_number:
               customer.custom_passport_number ||
               customer.passport_number ||
-              prev.custom_passport_number ||
               "",
             document_upload: docUrl,
             custom_government_document: docUrl,
             documents: docUrl ? [{
+              document_category: "Proof of Identity",
               document_type: finalGovId,
               document_number: finalGovIdNum,
-              issue_date: customer.custom_id_issue_date || customer.id_issue_date || prev.id_issue_date || "",
-              expiry_date: customer.custom_id_expiry_date || customer.id_expiry_date || prev.id_expiry_date || "",
-              issue_country: customer.custom_id_issue_country || customer.id_issue_country || prev.id_issue_country || "",
+              issue_date: customer.custom_id_issue_date || customer.id_issue_date || "",
+              expiry_date: customer.custom_id_expiry_date || customer.id_expiry_date || "",
+              issue_country: customer.custom_id_issue_country || customer.id_issue_country || "",
               attachment: docUrl,
+              file_name: typeof docUrl === "string" ? docUrl.split("/").pop() : "document.pdf",
               notes: "",
-            }] : (prev.documents && prev.documents.length > 0 ? prev.documents : []),
+              isAutoFilled: true,
+            }] : [],
             custom_government_id:
               customer.custom_government_id ||
               customer.government_id_type ||
-              prev.custom_government_id ||
               "",
             government_id_type:
               customer.custom_government_id ||
               customer.government_id_type ||
-              prev.government_id_type ||
               "",
             government_id_number:
               customer.custom_passport_number ||
               customer.custom_drivers_licence_number ||
               customer.custom_tin_number ||
               customer.custom_voter_id_number ||
-              prev.government_id_number ||
               "",
-            customer: customer.name,
             country:
               customer.custom_country ||
               customer.country ||
-              prev.country ||
               "",
             address:
               customer.custom_address ||
               customer.address ||
-              prev.address ||
               "",
             city:
               customer.custom_city ||
               customer.city ||
-              prev.city ||
               "",
             stateprovince:
               customer.custom_state_province ||
               customer.custom_stateprovince ||
               customer.stateprovince ||
-              prev.stateprovince ||
               "",
             postal_code:
               customer.custom_postal_code ||
               customer.postal_code ||
-              prev.postal_code ||
               "",
             email:
               customer.custom_email ||
               customer.email ||
-              prev.email ||
               "",
             contact_number:
               customer.custom_contact_number ||
               customer.contact_number ||
-              prev.contact_number ||
               "",
             gender:
               customer.custom_gender ||
               customer.gender ||
-              prev.gender ||
               "",
             occupation:
               customer.custom_occupation ||
               customer.occupation ||
-              prev.occupation ||
               "",
             phone_number:
               customer.mobile_no ||
@@ -1994,34 +2088,30 @@ const MoneyTransferNew = () => {
               customer.custom_contact_number ||
               customer.contact_number ||
               phoneVal ||
-              prev.phone_number ||
               "",
             tin_number:
               customer.custom_tin_number ||
               customer.tin_number ||
-              prev.tin_number ||
               "",
             id_issue_date:
               customer.custom_id_issue_date ||
               customer.id_issue_date ||
-              prev.id_issue_date ||
               "",
             id_expiry_date:
               customer.custom_id_expiry_date ||
               customer.id_expiry_date ||
-              prev.id_expiry_date ||
               "",
             risk_level:
               customer.custom_risk_level ||
               customer.risk_level ||
-              prev.risk_level ||
               "Low",
           };
         });
 
         // Fetch customer's last transaction and auto-fill form (skipping amount, reference_number, remarks)
         try {
-          const lastTxResult = await fetchCustomerLastTransaction(customer || c, "Money Transfer");
+          const activeTransferType = form.transfer_type || "Send";
+          const lastTxResult = await fetchCustomerLastTransaction(customer || c, "Money Transfer", activeTransferType);
           if (lastTxResult?.data) {
             const prefill = extractMoneyTransferPrefill(lastTxResult.data);
             setForm((prev) => ({
@@ -2149,19 +2239,19 @@ const MoneyTransferNew = () => {
         // =====================================================
         if (customer?.name) {
           console.log("✅ CUSTOMER FOUND:", customer);
-          focusAmountField();
 
           setCustomerFound(true);
           setCustomerLookupDone(true);
+          setComplianceAssessment(null);
 
           // Fetch existing customer photo if present
           const existingImg = customer.image || customer.custom_image || "";
-          setCustomerImageUrl(existingImg);
+          setCustomerImageUrl(existingImg || "");
           setCustomerImageFile(null);
 
           setForm((prev) => ({
             ...prev,
-            amount: "",
+            ...INITIAL_COMPLIANCE_FIELDS,
             full_name:
               customer.custom_full_name ||
               customer.full_name ||
@@ -2204,13 +2294,16 @@ const MoneyTransferNew = () => {
               "",
 
             documents: (customer.custom_government_document || customer.document_upload) ? [{
+              document_category: "Proof of Identity",
               document_type: customer.custom_government_id || customer.government_id_type || "Passport",
               document_number: customer.custom_passport_number || customer.custom_drivers_licence_number || customer.custom_tin_number || customer.custom_voter_id_number || prev.government_id_number || "",
               issue_date: customer.custom_id_issue_date || customer.id_issue_date || prev.id_issue_date || "",
               expiry_date: customer.custom_id_expiry_date || customer.id_expiry_date || prev.id_expiry_date || "",
               issue_country: customer.custom_id_issue_country || customer.id_issue_country || prev.id_issue_country || "",
               attachment: customer.custom_government_document || customer.document_upload,
+              file_name: typeof (customer.custom_government_document || customer.document_upload) === "string" ? (customer.custom_government_document || customer.document_upload).split("/").pop() : "document.pdf",
               notes: "",
+              isAutoFilled: true,
             }] : (prev.documents && prev.documents.length > 0 ? prev.documents : []),
 
             custom_government_id:
@@ -2306,6 +2399,26 @@ const MoneyTransferNew = () => {
 
           }));
 
+          try {
+            const activeTransferType = form.transfer_type || "Send";
+            const lastTxResult = await fetchCustomerLastTransaction(customer, "Money Transfer", activeTransferType);
+            if (lastTxResult?.data) {
+              const prefill = extractMoneyTransferPrefill(lastTxResult.data);
+              setForm((prev) => ({
+                ...prev,
+                ...prefill,
+                amount: prev.amount,
+                transfer_type: prev.transfer_type,
+                documents:
+                  prefill.documents && prefill.documents.length > 0
+                    ? prefill.documents
+                    : (prev.documents && prev.documents.length > 0 ? prev.documents : []),
+              }));
+            }
+          } catch (txErr) {
+            console.warn("Could not prefill last transaction in fetchCustomer:", txErr);
+          }
+
           return;
         }
 
@@ -2318,11 +2431,12 @@ const MoneyTransferNew = () => {
         if (!customerImageFile) {
           setCustomerImageUrl("");
         }
+        setComplianceAssessment(null);
 
         setForm((prev) => ({
           ...prev,
-
           customer: "",
+          ...INITIAL_COMPLIANCE_FIELDS,
         }));
 
         setCustomerLookupDone(true);
@@ -2335,7 +2449,8 @@ const MoneyTransferNew = () => {
          * returning null, treat that as a new customer.
          */
         setCustomerFound(false);
-        setForm((prev) => ({ ...prev, customer: "" }));
+        setComplianceAssessment(null);
+        setForm((prev) => ({ ...prev, customer: "", ...INITIAL_COMPLIANCE_FIELDS }));
         setCustomerLookupDone(true);
       }
     };
@@ -2645,11 +2760,19 @@ const MoneyTransferNew = () => {
         currency,
         transfer: transferWithDetails,
         message: `Your transfer of ${currency} ${formattedAmount} has been securely processed. Your transaction ${transfer.name} is confirmed.`,
+        contact_mobile: form.phone_number
       });
 
       resetForm();
       setCurrencyDenominationRows([]);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      setTimeout(() => {
+        const el = successAlertRef.current || document.getElementById("success-info-banner");
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        } else {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      }, 100);
     } catch (err) {
       console.error(err);
       setSubmitError(err.message || "Error processing transfer. Please try again.");
@@ -2776,7 +2899,7 @@ const MoneyTransferNew = () => {
         const num = Number(val);
         filled = !Number.isNaN(num) && num > 0;
       } else if (f.fieldname === "dob") {
-        filled = Boolean(val && formatDate(val));
+        filled = Boolean(val && formatDate(val) && !isFutureDate(val));
       } else if (f.fieldname === "oet_code") {
         filled = Boolean(val && String(val).trim());
       } else if (f.fieldtype === "Check") {
@@ -2813,7 +2936,7 @@ const MoneyTransferNew = () => {
           const num = Number(val);
           filled = !Number.isNaN(num) && num > 0;
         } else if (fieldname === "dob") {
-          filled = Boolean(val && formatDate(val));
+          filled = Boolean(val && formatDate(val) && !isFutureDate(val));
         } else {
           filled = val !== undefined && val !== null && String(val).trim() !== "";
         }
@@ -2863,12 +2986,12 @@ const MoneyTransferNew = () => {
   }, [usableFields, form, currencyDenominationRows, shouldShowField, documentRows]);
 
   const clearCustomerDetails = () => {
-    focusAmountField();
     setSelectedCustomer(null);
     setCustomerFound(false);
     setCustomerLookupDone(false);
     setCustomerImageFile(null);
     setCustomerImageUrl("");
+    setComplianceAssessment(null);
     const transferField = metaFields.find((f) => f.fieldname === "transfer_type");
     const defaultType =
       transferField?.options
@@ -2885,7 +3008,6 @@ const MoneyTransferNew = () => {
 
     setForm((prev) => ({
       ...prev,
-      amount: "",
       customer: "",
       customer_id: "",
       full_name: "",
@@ -2916,6 +3038,7 @@ const MoneyTransferNew = () => {
       id_issue_state: "",
       risk_level: "",
       documents: [],
+      ...INITIAL_COMPLIANCE_FIELDS,
     }));
   };
 
@@ -3243,11 +3366,20 @@ const MoneyTransferNew = () => {
         }
       }
 
-      if (field.fieldtype === "Date" && !formatDate(value)) {
-        errors[field.fieldname] = `${field.label || "Date"} is required.`;
+      if (field.fieldtype === "Date") {
+        if (!formatDate(value)) {
+          errors[field.fieldname] = `${field.label || "Date"} is required.`;
+        } else if (field.fieldname === "dob" && isFutureDate(value)) {
+          errors[field.fieldname] = "Date of birth must be today or any past date.";
+        }
       }
     });
 
+    if (!form.dob || !String(form.dob).trim()) {
+      errors.dob = "Date of birth is required.";
+    } else if (isFutureDate(form.dob)) {
+      errors.dob = "Date of birth must be today or any past date.";
+    }
     if (!form.phone_number || !String(form.phone_number).trim()) {
       errors.phone_number = "Phone number is required.";
     }
@@ -3330,7 +3462,7 @@ const MoneyTransferNew = () => {
             ? "Currency Denomination"
             : firstField);
 
-      setSubmitError(`Please fill in the required field: ${fieldLabel}.`);
+      setSubmitError(errors[firstField] || `Please fill in the required field: ${fieldLabel}.`);
       scrollToErrorField(firstField);
       return false;
     }
@@ -3498,8 +3630,10 @@ const MoneyTransferNew = () => {
                   } else if (selectedCustomer && val !== (selectedCustomer.custom_full_name || selectedCustomer.customer_name || selectedCustomer.full_name)) {
                     setSelectedCustomer(null);
                     setCustomerFound(false);
-                    focusAmountField();
-                    setForm((prev) => ({ ...prev, customer: "", amount: "" }));
+                    setCustomerImageUrl("");
+                    setCustomerImageFile(null);
+                    setComplianceAssessment(null);
+                    setForm((prev) => ({ ...prev, customer: "", ...INITIAL_COMPLIANCE_FIELDS }));
                   }
                 }}
                 onSelectCustomer={handleSelectCustomer}
@@ -3508,7 +3642,6 @@ const MoneyTransferNew = () => {
                 loginUser={loginUser}
                 searchField="name"
                 placeholder="Type customer name, or search by ID, phone, govt ID..."
-                inputStyle={`${getInputStyle(field.fieldname)} bg-white`}
               />
               {renderFieldError(field.fieldname)}
             </div>
@@ -3528,8 +3661,10 @@ const MoneyTransferNew = () => {
                   } else if (selectedCustomer && val !== (selectedCustomer.phone_number || selectedCustomer.mobile_no || selectedCustomer.phone)) {
                     setSelectedCustomer(null);
                     setCustomerFound(false);
-                    focusAmountField();
-                    setForm((prev) => ({ ...prev, customer: "", amount: "" }));
+                    setCustomerImageUrl("");
+                    setCustomerImageFile(null);
+                    setComplianceAssessment(null);
+                    setForm((prev) => ({ ...prev, customer: "", ...INITIAL_COMPLIANCE_FIELDS }));
                   }
                 }}
                 onSelectCustomer={handleSelectCustomer}
@@ -3838,18 +3973,18 @@ const MoneyTransferNew = () => {
 
   const isFormLocked = Boolean(successInfo);
   return (
-    <div className="money-transfer-new min-h-screen flex flex-col bg-[#F4F5F7] text-[#14171F]">
+    <div className="money-transfer-new min-h-screen flex flex-col bg-page text-ink transition-colors">
       <style>{`
         .money-transfer-new {
-          background: #F4F5F7;
+          background-color: var(--color-page);
           min-height: 100vh;
-          font-family: Inter, system-ui, -apple-system, sans-serif;
-          color: #14171F;
+          font-family: var(--font-sans);
+          color: var(--color-ink);
         }
         .money-transfer-new .card {
-          background: #fff;
-          border: 1px solid #E3E6EB;
-          border-radius: 16px;
+          background-color: var(--color-surface);
+          border: 1px solid var(--color-line);
+          border-radius: var(--radius-card);
         }
         .money-transfer-new .lbl {
           display: block;
@@ -3858,30 +3993,30 @@ const MoneyTransferNew = () => {
           font-weight: 600;
           letter-spacing: normal;
           text-transform: none;
-          color: #14171F;
+          color: var(--color-ink);
           margin-bottom: 6px;
         }
         .money-transfer-new .inp {
           width: 100%;
           height: 48px;
-          border: 1px solid #BFC5CE;
-          border-radius: 10px;
+          border: 1px solid var(--color-line-strong);
+          border-radius: var(--radius-input);
           padding: 0 14px;
-          font: 500 15px / 22px Inter, system-ui, -apple-system, sans-serif;
+          font: 500 15px / 22px var(--font-sans);
           font-variant-numeric: tabular-nums;
-          color: #14171F;
-          background: #fff;
+          color: var(--color-ink);
+          background-color: var(--color-surface);
           box-sizing: border-box;
           transition: border-color .15s, box-shadow .15s;
         }
         .money-transfer-new .inp:focus {
           outline: none;
-          border-color: #C8102E;
-          box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.12);
+          border-color: var(--color-brand-600);
+          box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.15);
         }
         .money-transfer-new .sec {
           padding: 28px;
-          border-bottom: 1px solid #E3E6EB;
+          border-bottom: 1px solid var(--color-line);
         }
         .money-transfer-new .h {
           display: flex;
@@ -3891,14 +4026,14 @@ const MoneyTransferNew = () => {
           font-size: 18px;
           line-height: 24px;
           font-weight: 700;
-          color: #14171F;
+          color: var(--color-ink);
         }
         .money-transfer-new .n {
           width: 28px;
           height: 28px;
           border-radius: 50%;
-          background: #14171F;
-          color: #fff;
+          background-color: var(--color-ink);
+          color: var(--color-surface);
           font-size: 13px;
           line-height: 18px;
           font-weight: 700;
@@ -3931,31 +4066,31 @@ const MoneyTransferNew = () => {
           font-size: 13px;
           line-height: 18px;
           font-weight: 600;
-          background: #EEF0F3;
-          color: #2C323D;
+          background-color: var(--color-chip);
+          color: var(--color-ink-soft);
         }
         .money-transfer-new .ok {
-          background: #E3F3EA;
-          color: #0B5A33;
+          background-color: var(--color-success-bg);
+          color: var(--color-success-fg);
         }
         .money-transfer-new .warn {
-          background: #FFF3D6;
-          color: #7A4B00;
+          background-color: var(--color-warning-bg);
+          color: var(--color-warning-fg);
         }
         .money-transfer-new .opt {
-          border: 1.5px solid #CDD2DA;
+          border: 1.5px solid var(--color-line-strong);
           border-radius: 12px;
           padding: 16px;
-          background: #fff;
+          background-color: var(--color-surface);
           cursor: pointer;
           transition: all .15s;
         }
         .money-transfer-new .opt:hover {
-          border-color: #BFC5CE;
+          border-color: var(--color-brand-600);
         }
         .money-transfer-new .opt.sel {
-          border-color: #C8102E;
-          background: #FDF1F3;
+          border-color: var(--color-brand-600);
+          background-color: var(--color-brand-50);
         }
         .money-transfer-new .row {
           display: flex;
@@ -3964,22 +4099,24 @@ const MoneyTransferNew = () => {
           line-height: 22px;
           font-weight: 400;
           padding: 8px 0;
+          border-bottom: 1px solid var(--color-line-subtle);
         }
         .money-transfer-new .row span:first-child {
-          color: #4A5160;
+          color: var(--color-muted);
         }
         .money-transfer-new .row span:last-child {
           font-weight: 500;
           font-variant-numeric: tabular-nums;
+          color: var(--color-ink);
         }
         .money-transfer-new .btn {
           height: 52px;
           padding: 0 28px;
           border-radius: 12px;
           border: 0;
-          background: #C8102E;
+          background-color: var(--color-brand-600);
           color: #fff;
-          font: 600 16px / 24px Inter, system-ui, -apple-system, sans-serif;
+          font: 600 16px / 24px var(--font-sans);
           cursor: pointer;
           transition: all .15s;
           display: inline-flex;
@@ -3988,27 +4125,27 @@ const MoneyTransferNew = () => {
           gap: 8px;
         }
         .money-transfer-new .btn:hover:not(:disabled) {
-          background: #a60d26;
+          background-color: var(--color-brand-700);
         }
         .money-transfer-new .btn:disabled {
           opacity: 0.5;
           cursor: not-allowed;
         }
         .money-transfer-new .ghost {
-          background: #fff;
-          color: #14171F;
-          border: 1px solid #BFC5CE;
+          background-color: var(--color-surface);
+          color: var(--color-ink);
+          border: 1px solid var(--color-line-strong);
         }
         .money-transfer-new .ghost:hover:not(:disabled) {
-          background: #F4F5F7;
+          background-color: var(--color-surface-alt);
         }
         .money-transfer-new .tab {
           height: 50px;
           padding: 0 28px;
           border: 0;
           background: transparent;
-          font: 600 16px / 24px Inter, system-ui, -apple-system, sans-serif;
-          color: #4A5160;
+          font: 600 16px / 24px var(--font-sans);
+          color: var(--color-muted);
           border-radius: 12px;
           cursor: pointer;
           transition: all .15s;
@@ -4018,7 +4155,7 @@ const MoneyTransferNew = () => {
           text-decoration: none;
         }
         .money-transfer-new .tab.on {
-          background: #C8102E;
+          background-color: var(--color-brand-600);
           color: #fff;
         }
         .money-transfer-new .chk {
@@ -4029,13 +4166,13 @@ const MoneyTransferNew = () => {
           line-height: 20px;
           font-weight: 600;
           padding: 6px 0;
-          color: #14171F;
+          color: var(--color-ink);
         }
         .money-transfer-new .dot {
           width: 18px;
           height: 18px;
           border-radius: 50%;
-          background: #0B7A44;
+          background-color: var(--color-success);
           flex: none;
           display: grid;
           place-items: center;
@@ -4044,34 +4181,8 @@ const MoneyTransferNew = () => {
           line-height: 16px;
         }
         .money-transfer-new .dot.o {
-          background: #fff;
-          border: 2px solid #BFC5CE;
-        }
-        @keyframes boardRateMarquee {
-          0% {
-            transform: translateX(0);
-          }
-          100% {
-            transform: translateX(-50%);
-          }
-        }
-        .money-transfer-new .marquee-container {
-          overflow: hidden;
-          position: relative;
-          width: 100%;
-          min-width: 0;
-          mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
-          -webkit-mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
-        }
-        .money-transfer-new .marquee-track {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          width: max-content;
-          animation: boardRateMarquee 40s linear infinite;
-        }
-        .money-transfer-new .marquee-track:hover {
-          animation-play-state: paused;
+          background-color: var(--color-surface);
+          border: 2px solid var(--color-line-strong);
         }
         @media (max-width: 1024px) {
           .money-transfer-new .main-layout {
@@ -4087,59 +4198,7 @@ const MoneyTransferNew = () => {
 
 
           {/* Top Board Rates Bar with Scrolling Marquee */}
-          <div
-            className="card"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "16px",
-              padding: "12px 20px 24px 20px",
-              fontSize: "14px",
-              overflow: "hidden",
-              marginBottom: "0px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                whiteSpace: "nowrap",
-                flexShrink: 0,
-                paddingRight: "14px",
-                borderRight: "1.5px solid #E3E6EB",
-              }}
-            >
-              <strong style={{ fontSize: "14px", color: "#14171F" }}>
-                Board rates · 1 unit in FJD
-              </strong>
-            </div>
-
-            <div className="marquee-container">
-              <div className="marquee-track">
-                {boardCurrencies.map((c, idx) => (
-                  <span
-                    key={`curr-1-${c.code}-${idx}`}
-                    className="chip"
-                    style={{ flexShrink: 0, whiteSpace: "nowrap", gap: "6px" }}
-                  >
-                    <strong style={{ color: "#14171F" }}>{c.code}</strong>
-                    <span style={{ color: "#4A5160" }}>{c.rate}</span>
-                  </span>
-                ))}
-                {boardCurrencies.map((c, idx) => (
-                  <span
-                    key={`curr-2-${c.code}-${idx}`}
-                    className="chip"
-                    style={{ flexShrink: 0, whiteSpace: "nowrap", gap: "6px" }}
-                  >
-                    <strong style={{ color: "#14171F" }}>{c.code}</strong>
-                    <span style={{ color: "#4A5160" }}>{c.rate}</span>
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
+          <BoardRatesBar exchangeType="SELL" />
 
           {/* Service Mode Navigation Tabs */}
           <TransactionTabBar
@@ -4167,7 +4226,23 @@ const MoneyTransferNew = () => {
 
               {/* Success Info Banner */}
               {successInfo && (
-                <div style={{ padding: "16px 28px", background: "#E3F3EA", color: "#0B5A33", borderBottom: "1px solid #E3E6EB", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
+                <div
+                  ref={successAlertRef}
+                  id="success-info-banner"
+                  role="status"
+                  aria-live="polite"
+                  style={{
+                    padding: "16px 28px",
+                    background: "var(--color-success-bg, #E3F3EA)",
+                    color: "var(--color-success-fg, #0B5A33)",
+                    borderBottom: "1px solid var(--color-line, #E3E6EB)",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: "12px",
+                  }}
+                >
                   <div>
                     <strong>Transfer Complete!</strong> {successInfo.message || `Transaction ID: ${successInfo.transaction}`}
                     <div style={{ fontSize: "12px", marginTop: "4px" }}>
@@ -4197,7 +4272,17 @@ const MoneyTransferNew = () => {
 
               {/* Submit Error Banner */}
               {submitError && (
-                <div style={{ padding: "14px 28px", background: "#FDF1F3", color: "#C8102E", borderBottom: "1px solid #E3E6EB", fontSize: "14px" }}>
+                <div
+                  id="submit-error-banner"
+                  role="alert"
+                  style={{
+                    padding: "14px 28px",
+                    background: "var(--color-danger-bg, #FDF1F3)",
+                    color: "var(--color-danger-fg, #C8102E)",
+                    borderBottom: "1px solid var(--color-line, #E3E6EB)",
+                    fontSize: "14px",
+                  }}
+                >
                   {submitError}
                 </div>
               )}
@@ -4314,8 +4399,10 @@ const MoneyTransferNew = () => {
                           ) {
                             setSelectedCustomer(null);
                             setCustomerFound(false);
-                            clearCustomerDetails();
-                            setForm((prev) => ({ ...prev, full_name: val }));
+                            setCustomerImageUrl("");
+                            setCustomerImageFile(null);
+                            setComplianceAssessment(null);
+                            setForm((prev) => ({ ...prev, customer: "", full_name: val, ...INITIAL_COMPLIANCE_FIELDS }));
                           }
                         }}
                         onSelectCustomer={handleSelectCustomer}
@@ -4323,7 +4410,7 @@ const MoneyTransferNew = () => {
                         loginUser={loginUser}
                         searchField="name"
                         placeholder="Type customer name, or search by ID, phone, govt ID..."
-                        inputStyle={`${getInputStyle("full_name")} bg-white`}
+                        inputStyle={getInputStyle("full_name")}
                         hasError={Boolean(fieldErrors?.full_name)}
                       />
                       {renderFieldError("full_name")}
@@ -4345,6 +4432,8 @@ const MoneyTransferNew = () => {
                           ) {
                             setSelectedCustomer(null);
                             setCustomerFound(false);
+                            setComplianceAssessment(null);
+                            setForm((prev) => ({ ...prev, customer: "", ...INITIAL_COMPLIANCE_FIELDS }));
                           }
                         }}
                         placeholder="+679 992 7399"
@@ -4360,8 +4449,9 @@ const MoneyTransferNew = () => {
                       </span>
                       <input
                         type="date"
-                        className="inp"
-                        value={form.dob || ""}
+                        className={`inp ${fieldErrors?.dob ? "!border-danger ring-1 ring-danger" : ""}`}
+                        value={form.dob ? String(form.dob).split("T")[0].split(" ")[0] : ""}
+                        max={formatLocalDate(new Date())}
                         onChange={(e) => handleChange("dob", e.target.value)}
                       />
                       {renderFieldError("dob")}
@@ -4541,11 +4631,12 @@ const MoneyTransferNew = () => {
                   {/* Supporting Compliance Documents Component */}
                   <div style={{ marginTop: "16px" }}>
                     <RbfComplianceSection
+                      key={`rbf-${form.customer || (customerFound ? form.customer_id : "") || form.full_name || "new"}`}
                       transactionType="MONEY_TRANSFER"
                       fjdAmount={Number(form.amount || 0)}
                       exchangeType={form.transfer_type || "Send"}
                       currency="FJD"
-                      customerId={form.customer_id || form.customer}
+                      customerId={form.customer || (customerFound ? form.customer_id : "")}
                       recipientName={form.receiver_name}
                       value={form}
                       onChange={setForm}
@@ -4584,6 +4675,8 @@ const MoneyTransferNew = () => {
                           coins={baseCurrencyData.coins}
                           targetAmount={parseFloat(form.amount || 0)}
                           onRowsChange={handleDenominationRowsChange}
+                          availabilityByDenomination={availabilityByDenomination}
+                          enforceStockLimit={form.transfer_type === "Receive"}
                           accentColor="#C8102E"
                         />
                       ) : (
@@ -4601,7 +4694,7 @@ const MoneyTransferNew = () => {
                 </div>
 
                 {/* ── CARD FOOTER / ACTIONS BAR (transfer.html style) ── */}
-                <div style={{ padding: "20px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#FAFAFB", borderTop: "1px solid #E3E6EB", flexWrap: "wrap", gap: "12px" }}>
+                <div style={{ padding: "20px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--color-surface-alt)", borderTop: "1px solid var(--color-line)", flexWrap: "wrap", gap: "12px" }}>
                   <button
                     type="button"
                     onClick={handleClearForm}
@@ -4644,6 +4737,7 @@ const MoneyTransferNew = () => {
                 }}
                 disabled={isFormLocked}
                 customerFound={Boolean(customerLookupDone && customerFound && form.customer)}
+                isSavedPhoto={Boolean(customerImageUrl && !customerImageFile && (form.customer || customerFound))}
               />
 
               {/* CARD 2: SUMMARY */}

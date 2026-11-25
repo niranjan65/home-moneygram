@@ -5,6 +5,7 @@ import TransactionTabBar from "../components/common/TransactionTabBar";
 import { useSettings } from "../context/SettingsContext";
 import { useUser } from "../context/UserContext";
 import { sessionAxios as axios } from "../api/sessionClient.js";
+import { CurrencyInput } from "../components/common/CurrencyInput";
 import {
   ArrowLeftRight,
   ArrowRight,
@@ -171,8 +172,8 @@ function CredSlider({ onConfirm, disabled, amount, currency = "FJD", loading, cu
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         className={`relative h-13 rounded-2xl overflow-hidden p-1 flex items-center transition-all duration-300 border ${disabled
-            ? "bg-gray-100 border-gray-200 opacity-60 cursor-not-allowed"
-            : "bg-gray-900 border-gray-800 shadow-md"
+          ? "bg-gray-100 border-gray-200 opacity-60 cursor-not-allowed"
+          : "bg-gray-900 border-gray-800 shadow-md"
           }`}
       >
         {/* Glow fill */}
@@ -618,36 +619,18 @@ export default function VaultTransfer() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
+    <div className="min-h-screen bg-page flex flex-col font-sans text-ink transition-colors">
       <Navbar />
 
       <main className="flex-grow py-8 px-4 sm:px-6 lg:px-8 xl:px-12 max-w-[80%] mx-auto w-full">
         {/* Service Mode Navigation Tabs */}
         <TransactionTabBar activeTab="OPERATIONAL" className="mb-6" />
 
-        {/* ── Transfer Sub-Navigation Tabs ── */}
-        <div className="flex items-center gap-1.5 mb-6 p-1 bg-gray-200/70 rounded-2xl w-fit">
-          <Link
-            to="/vault-transfer"
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-label font-semibold transition-all bg-white text-gray-900 shadow-xs"
-          >
-            <Landmark size={15} className="text-[#E00000]" />
-            <span>Vault Transfer</span>
-          </Link>
-          <Link
-            to="/branch-transfer"
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-label font-semibold transition-all text-gray-600 hover:text-gray-900"
-          >
-            <Truck size={15} className="text-gray-400" />
-            <span>Branch Transfer</span>
-          </Link>
-        </div>
-
         {/* ── Page Header ─────────────────────────────────────────────────── */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-gray-900 text-h1 font-bold tracking-tight leading-tight">
-              Vault <span className="text-[#E00000] italic">Transfer</span>
+            <h1 className="text-ink text-h1 font-bold tracking-tight leading-tight">
+              Vault <span className="text-brand-600 italic">Transfer</span>
             </h1>
             {/* <p className="text-gray-500 text-body mt-1">
               Transfer physical cash notes and coins between Cash Counter and Vault in both directions.
@@ -661,8 +644,8 @@ export default function VaultTransfer() {
                 type="button"
                 onClick={() => handleToggleMode("SINGLE")}
                 className={`px-3.5 py-2 rounded-xl text-label font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${transferMode === "SINGLE"
-                    ? "bg-gray-900 text-white shadow-xs font-bold"
-                    : "text-gray-600 hover:text-gray-900"
+                  ? "bg-gray-900 text-white shadow-xs font-bold"
+                  : "text-gray-600 hover:text-gray-900"
                   }`}
               >
                 <DollarSign size={13} className={transferMode === "SINGLE" ? "text-white" : "text-gray-400"} />
@@ -673,8 +656,8 @@ export default function VaultTransfer() {
                 type="button"
                 onClick={() => handleToggleMode("BULK")}
                 className={`px-3.5 py-2 rounded-xl text-label font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${transferMode === "BULK"
-                    ? "bg-[#E00000] text-white shadow-xs font-bold"
-                    : "text-gray-600 hover:text-gray-900"
+                  ? "bg-[#E00000] text-white shadow-xs font-bold"
+                  : "text-gray-600 hover:text-gray-900"
                   }`}
               >
                 <Layers size={13} className={transferMode === "BULK" ? "text-white" : "text-gray-400"} />
@@ -696,8 +679,8 @@ export default function VaultTransfer() {
                 type="button"
                 onClick={() => setDirection("VAULT_TO_COUNTER")}
                 className={`px-3.5 py-2 rounded-xl text-label font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${direction === "VAULT_TO_COUNTER"
-                    ? "bg-[#E00000] text-white shadow-sm font-bold"
-                    : "text-gray-600 hover:text-gray-900"
+                  ? "bg-[#E00000] text-white shadow-sm font-bold"
+                  : "text-gray-600 hover:text-gray-900"
                   }`}
               >
                 <span>🏦 Vault &rarr; 🏪 Counter</span>
@@ -708,8 +691,8 @@ export default function VaultTransfer() {
                 type="button"
                 onClick={() => setDirection("COUNTER_TO_VAULT")}
                 className={`px-3.5 py-2 rounded-xl text-label font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${direction === "COUNTER_TO_VAULT"
-                    ? "bg-[#E00000] text-white shadow-sm font-bold"
-                    : "text-gray-600 hover:text-gray-900"
+                  ? "bg-[#E00000] text-white shadow-sm font-bold"
+                  : "text-gray-600 hover:text-gray-900"
                   }`}
               >
                 <span>🏪 Counter &rarr; 🏦 Vault</span>
@@ -753,10 +736,10 @@ export default function VaultTransfer() {
                       type="button"
                       onClick={() => handleSelectCurrency(c.code)}
                       className={`px-4 py-2.5 rounded-xl text-label font-semibold transition-all shrink-0 cursor-pointer border flex items-center gap-1.5 ${isActive
-                          ? "bg-[#E00000] text-white border-[#E00000] shadow-sm"
-                          : countedUnits > 0
-                            ? "bg-red-50 text-gray-900 border-red-300 font-bold"
-                            : "bg-gray-50 text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-100"
+                        ? "bg-[#E00000] text-white border-[#E00000] shadow-sm"
+                        : countedUnits > 0
+                          ? "bg-red-50 text-gray-900 border-red-300 font-bold"
+                          : "bg-gray-50 text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-100"
                         }`}
                     >
                       <span>{c.code}</span>
@@ -846,10 +829,10 @@ export default function VaultTransfer() {
                             <div
                               key={item.item_code}
                               className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${count > 0
-                                  ? "bg-red-50/40 border-red-200 shadow-2xs"
-                                  : outOfStock
-                                    ? "bg-gray-50 border-gray-100 opacity-60"
-                                    : "bg-white border-gray-200 hover:border-gray-300"
+                                ? "bg-red-50/40 border-red-200 shadow-2xs"
+                                : outOfStock
+                                  ? "bg-gray-50 border-gray-100 opacity-60"
+                                  : "bg-white border-gray-200 hover:border-gray-300"
                                 }`}
                             >
                               <div className="flex items-center justify-between">
@@ -869,8 +852,8 @@ export default function VaultTransfer() {
                                 <div className="text-right">
                                   <span
                                     className={`text-caption font-semibold px-2 py-0.5 rounded-full inline-block ${maxAvail > 0
-                                        ? "bg-green-50 text-green-700 border border-green-200"
-                                        : "bg-gray-100 text-gray-400"
+                                      ? "bg-green-50 text-green-700 border border-green-200"
+                                      : "bg-gray-100 text-gray-400"
                                       }`}
                                   >
                                     Available: {maxAvail}
@@ -905,9 +888,8 @@ export default function VaultTransfer() {
                                     -
                                   </button>
 
-                                  <input
-                                    type="number"
-                                    min="0"
+                                  <CurrencyInput
+                                    allowDecimals={false}
                                     max={maxAvail}
                                     value={count === 0 ? "" : count}
                                     placeholder="0"
@@ -952,10 +934,10 @@ export default function VaultTransfer() {
                             <div
                               key={item.item_code}
                               className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${count > 0
-                                  ? "bg-amber-50/40 border-amber-200 shadow-2xs"
-                                  : outOfStock
-                                    ? "bg-gray-50 border-gray-100 opacity-60"
-                                    : "bg-white border-gray-200 hover:border-gray-300"
+                                ? "bg-amber-50/40 border-amber-200 shadow-2xs"
+                                : outOfStock
+                                  ? "bg-gray-50 border-gray-100 opacity-60"
+                                  : "bg-white border-gray-200 hover:border-gray-300"
                                 }`}
                             >
                               <div className="flex items-center justify-between">
@@ -974,8 +956,8 @@ export default function VaultTransfer() {
                                 <div className="text-right">
                                   <span
                                     className={`text-caption font-semibold px-2 py-0.5 rounded-full inline-block ${maxAvail > 0
-                                        ? "bg-green-50 text-green-700 border border-green-200"
-                                        : "bg-gray-100 text-gray-400"
+                                      ? "bg-green-50 text-green-700 border border-green-200"
+                                      : "bg-gray-100 text-gray-400"
                                       }`}
                                   >
                                     Available: {maxAvail}
@@ -1010,9 +992,8 @@ export default function VaultTransfer() {
                                     -
                                   </button>
 
-                                  <input
-                                    type="number"
-                                    min="0"
+                                  <CurrencyInput
+                                    allowDecimals={false}
                                     max={maxAvail}
                                     value={count === 0 ? "" : count}
                                     placeholder="0"

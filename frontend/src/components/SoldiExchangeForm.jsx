@@ -3,6 +3,7 @@ import CurrencyDropdown from "./home/CurrencyDropdown";
 import { currencies } from "../data/currencies";
 import { Link } from "react-router-dom";
 import { ArrowRight, RefreshCw } from "lucide-react";
+import { CurrencyInput } from "./common/CurrencyInput";
 
 export default function SoldiExchangeForm() {
   const [amount, setAmount] = useState(1);
@@ -46,7 +47,7 @@ export default function SoldiExchangeForm() {
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-3xl p-8 md:p-10 shadow-2xl border border-red-100 dark:border-gray-800 mt-6 relative z-20">
+    <div className="w-full max-w-4xl mx-auto bg-white/95 dark:bg-[#181B24]/95 backdrop-blur-xl rounded-3xl p-8 md:p-10 shadow-2xl border border-red-100 dark:border-line mt-6 relative z-20">
       <div className="text-center mb-8">
         <span className="inline-block bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-900/40 rounded-full px-4 py-1 text-overline font-semibold text-[#E00000] uppercase tracking-wider mb-2">
           Live Currency Calculator
@@ -54,7 +55,7 @@ export default function SoldiExchangeForm() {
         <h2 className="text-h1 font-bold text-gray-900 dark:text-white leading-snug tracking-tight">
           Calculate Your Exchange in Real-Time
         </h2>
-        <p className="text-gray-500 dark:text-gray-400 text-body font-normal mt-1">
+        <p className="text-gray-500 dark:text-[#D1D5DB] text-body font-normal mt-1">
           Accurate mid-market rates powered by MH Money Express daily pricing
         </p>
       </div>
@@ -62,17 +63,15 @@ export default function SoldiExchangeForm() {
       <div className="grid md:grid-cols-3 gap-6 items-end">
         {/* From Section */}
         <div className="space-y-3">
-          <label className="block text-label font-semibold text-gray-700 dark:text-gray-300">
+          <label className="block text-label font-semibold text-gray-700 dark:text-[#E2E8F0]">
             You Send
           </label>
-          <input
-            type="number"
-            min="0"
+          <CurrencyInput
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="w-full border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-amount-pair font-bold tnum text-gray-900 dark:text-white bg-gray-50 dark:bg-gray-800/80 focus:outline-none focus:ring-2 focus:ring-[#E00000] focus:border-transparent transition"
+            className="w-full border border-gray-200 dark:border-line rounded-xl px-4 py-3 text-amount-pair font-bold tnum text-gray-900 dark:text-white bg-gray-50 dark:bg-[#202430] focus:outline-none focus:ring-2 focus:ring-[#E00000] focus:border-transparent transition"
           />
-          <div className="text-gray-900">
+          <div className="text-gray-900 dark:text-white">
             <CurrencyDropdown
               selected={fromCurrency}
               onSelect={setFromCurrency}
@@ -93,16 +92,16 @@ export default function SoldiExchangeForm() {
 
         {/* To Section */}
         <div className="space-y-3">
-          <label className="block text-label font-semibold text-gray-700 dark:text-gray-300">
+          <label className="block text-label font-semibold text-gray-700 dark:text-[#E2E8F0]">
             Receiver Gets (Estimated)
           </label>
           <input
             type="text"
             value={loading ? "Calculating..." : convertedAmount}
             readOnly
-            className="w-full border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 text-amount-pair font-bold tnum text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-800/50 focus:outline-none"
+            className="w-full border border-gray-200 dark:border-line rounded-xl px-4 py-3 text-amount-pair font-bold tnum text-gray-900 dark:text-white bg-gray-100 dark:bg-[#202430]/70 focus:outline-none"
           />
-          <div className="text-gray-900">
+          <div className="text-gray-900 dark:text-white">
             <CurrencyDropdown
               selected={toCurrency}
               onSelect={setToCurrency}
@@ -113,7 +112,7 @@ export default function SoldiExchangeForm() {
 
       {/* Exchange Rate Info & CTAs */}
       {rate && !loading && (
-        <div className="mt-8 pt-6 border-t border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="mt-8 pt-6 border-t border-gray-100 dark:border-line flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-center sm:text-left">
             <h3 className="text-h3 font-bold text-gray-900 dark:text-white tnum">
               1.00 {fromCurrency.code} = {rate.toFixed(4)} {toCurrency.code}
@@ -134,7 +133,7 @@ export default function SoldiExchangeForm() {
             </Link>
             <Link
               to="/money-transfer"
-              className="inline-flex items-center gap-2 bg-gray-900 dark:bg-gray-800 hover:bg-black text-white text-btn-lg font-semibold px-6 py-2.5 rounded-xl transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
+              className="inline-flex items-center gap-2 bg-gray-900 dark:bg-[#202430] hover:bg-black dark:hover:bg-[#272C3A] text-white text-btn-lg font-semibold px-6 py-2.5 rounded-xl transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 border border-transparent dark:border-line"
             >
               Money Transfer
               <ArrowRight size={14} />

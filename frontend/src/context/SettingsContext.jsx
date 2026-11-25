@@ -41,7 +41,36 @@ export function SettingsProvider({ children }) {
       localStorage.removeItem("selected_warehouse");
     }
   };
-  const [theme, setTheme] = useState("dark");
+  const [theme, setThemeState] = useState(() => {
+    try {
+      const stored = localStorage.getItem("app_theme");
+      if (stored === "dark" || stored === "light") return stored;
+      return "light";
+    } catch {
+      return "light";
+    }
+  });
+
+  const setTheme = (newTheme) => {
+    const val = typeof newTheme === "function" ? newTheme(theme) : newTheme;
+    setThemeState(val);
+    try {
+      localStorage.setItem("app_theme", val);
+    } catch (e) {
+      console.error("Failed to save theme:", e);
+    }
+  };
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === "dark") {
+      root.classList.add("dark");
+      root.setAttribute("data-theme", "dark");
+    } else {
+      root.classList.remove("dark");
+      root.setAttribute("data-theme", "light");
+    }
+  }, [theme]);
 
   useEffect(() => {
     if (loginUser?.user) {

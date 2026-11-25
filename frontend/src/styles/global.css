@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @font-face {
   font-family: 'Inter';
   src: url('/Inter.ttf') format('truetype');
@@ -8,126 +10,536 @@
   font-display: swap;
 }
 
-@theme {
-  --color-primary: #e83030;
-  --color-background-light: #f6f8f7;
-  --color-background-dark: #112117;
-  --font-inter: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+:root {
+  /* Layout & Surface */
+  --theme-page: #F4F5F7;
+  --theme-surface: #FFFFFF;
+  --theme-surface-alt: #F8F9FA;
+  --theme-surface-elevated: #FFFFFF;
 
-  /* ---------- Font ---------- */
+  /* Typography / Ink */
+  --theme-ink: #14171F;
+  --theme-ink-soft: #2C323D;
+  --theme-muted: #5B6270;
+  --theme-muted-light: #8F97A3;
+
+  /* Lines & Borders */
+  --theme-line: #E3E6EB;
+  --theme-line-strong: #BFC5CE;
+  --theme-line-subtle: #F0F2F5;
+
+  /* Interactive & Chips */
+  --theme-chip: #EEF0F3;
+  --theme-chip-hover: #E2E5EA;
+
+  /* Brand Shades */
+  --theme-brand-50: #FDF1F3;
+  --theme-brand-100: #FADDE2;
+  --theme-brand-200: #F6BAC4;
+  --theme-brand-300: #EE8B9A;
+  --theme-brand-400: #E5576D;
+  --theme-brand-500: #D82C47;
+  --theme-brand-600: #C8102E;
+  --theme-brand-700: #9E0C24;
+  --theme-brand-800: #7A0A1D;
+  --theme-brand-900: #540714;
+  --theme-brand-950: #30040B;
+
+  /* Status Tokens */
+  --theme-success: #0B7A44;
+  --theme-success-fg: #0B5A33;
+  --theme-success-bg: #E3F3EA;
+  --theme-success-border: #B6E5CB;
+
+  --theme-warning: #D97706;
+  --theme-warning-fg: #7A4B00;
+  --theme-warning-bg: #FFF3D6;
+  --theme-warning-border: #FFE082;
+
+  --theme-danger: #C8102E;
+  --theme-danger-fg: #9E0C24;
+  --theme-danger-bg: #FDF1F3;
+  --theme-danger-border: #F8B4BD;
+
+  --theme-info: #2563EB;
+  --theme-info-fg: #1D4ED8;
+  --theme-info-bg: #EFF6FF;
+  --theme-info-border: #BFDBFE;
+
+  /* Brand & Accent Tokens */
+  --theme-brand: #E00000;
+  --theme-accent: #b5f000;
+  --theme-accent-fg: #14171F;
+
+  /* Custom Theme Gray Scale (Light) */
+  --theme-gray-50: #F8F9FA;
+  --theme-gray-100: #F1F3F6;
+  --theme-gray-200: #E3E6EB;
+  --theme-gray-300: #CDD2DA;
+  --theme-gray-400: #9CA3AF;
+  --theme-gray-500: #6B7280;
+  --theme-gray-600: #4A5160;
+  --theme-gray-700: #2C323D;
+  --theme-gray-800: #1E232E;
+  --theme-gray-900: #14171F;
+  --theme-gray-950: #0B0D12;
+
+  /* Custom Theme Slate Scale (Light) */
+  --theme-slate-50: #F8FAFC;
+  --theme-slate-100: #F1F5F9;
+  --theme-slate-200: #E2E8F0;
+  --theme-slate-300: #CBD5E1;
+  --theme-slate-400: #94A3B8;
+  --theme-slate-500: #64748B;
+  --theme-slate-600: #475569;
+  --theme-slate-700: #334155;
+  --theme-slate-800: #1E293B;
+  --theme-slate-900: #0F172A;
+  --theme-slate-950: #020617;
+
+  /* Custom Theme Red Scale (Light) */
+  --theme-red-50: #FEF2F2;
+  --theme-red-100: #FEE2E2;
+  --theme-red-200: #FECACA;
+  --theme-red-300: #FCA5A5;
+  --theme-red-400: #F87171;
+  --theme-red-500: #EF4444;
+  --theme-red-600: #DC2626;
+  --theme-red-700: #B91C1C;
+  --theme-red-800: #991B1B;
+  --theme-red-900: #7F1D1D;
+  --theme-red-950: #450A0A;
+
+  /* Custom Theme Amber / Yellow Scale (Light) */
+  --theme-amber-50: #FFFBEB;
+  --theme-amber-100: #FEF3C7;
+  --theme-amber-200: #FDE68A;
+  --theme-amber-300: #FCD34D;
+  --theme-amber-400: #FBBF24;
+  --theme-amber-500: #F59E0B;
+  --theme-amber-600: #D97706;
+  --theme-amber-700: #B45309;
+  --theme-amber-800: #92400E;
+  --theme-amber-900: #78350F;
+  --theme-amber-950: #451A03;
+
+  /* Custom Theme Emerald / Green Scale (Light) */
+  --theme-emerald-50: #ECFDF5;
+  --theme-emerald-100: #D1FAE5;
+  --theme-emerald-200: #A7F3D0;
+  --theme-emerald-300: #6EE7B7;
+  --theme-emerald-400: #34D399;
+  --theme-emerald-500: #10B981;
+  --theme-emerald-600: #059669;
+  --theme-emerald-700: #047857;
+  --theme-emerald-800: #065F46;
+  --theme-emerald-900: #064E3B;
+  --theme-emerald-950: #022C22;
+
+  /* Custom Theme Blue Scale (Light) */
+  --theme-blue-50: #EFF6FF;
+  --theme-blue-100: #DBEAFE;
+  --theme-blue-200: #BFDBFE;
+  --theme-blue-300: #93C5FD;
+  --theme-blue-400: #60A5FA;
+  --theme-blue-500: #3B82F6;
+  --theme-blue-600: #2563EB;
+  --theme-blue-700: #1D4ED8;
+  --theme-blue-800: #1E40AF;
+  --theme-blue-900: #1E3A8A;
+  --theme-blue-950: #172554;
+}
+
+.dark {
+  /* Layout & Surface */
+  --theme-page: #0F1117;
+  --theme-surface: #181B24;
+  --theme-surface-alt: #202430;
+  --theme-surface-elevated: #272C3A;
+
+  /* Typography / Ink */
+  --theme-ink: #F3F4F6;
+  --theme-ink-soft: #D1D5DB;
+  --theme-muted: #9CA3AF;
+  --theme-muted-light: #6B7280;
+
+  /* Lines & Borders */
+  --theme-line: #2A303F;
+  --theme-line-strong: #3F475A;
+  --theme-line-subtle: #1C202A;
+
+  /* Interactive & Chips */
+  --theme-chip: #222634;
+  --theme-chip-hover: #2C3242;
+
+  /* Brand Shades (Calibrated for Dark Backgrounds) */
+  --theme-brand: #FF453A;
+  --theme-brand-50: #250B10;
+  --theme-brand-100: #3D1219;
+  --theme-brand-200: #591B25;
+  --theme-brand-300: #7A2433;
+  --theme-brand-400: #A13044;
+  --theme-brand-500: #CF2845;
+  --theme-brand-600: #E52E4C;
+  --theme-brand-700: #ED5A72;
+  --theme-brand-800: #F48A9B;
+  --theme-brand-900: #FABDC6;
+  --theme-brand-950: #FDE8EC;
+
+  /* Accent Token */
+  --theme-accent: #c4ff1a;
+  --theme-accent-fg: #0B0D12;
+
+  /* Status Tokens */
+  --theme-success: #22C55E;
+  --theme-success-fg: #4ADE80;
+  --theme-success-bg: #0A301C;
+  --theme-success-border: #155E38;
+
+  --theme-warning: #F59E0B;
+  --theme-warning-fg: #FBBF24;
+  --theme-warning-bg: #382600;
+  --theme-warning-border: #6B4900;
+
+  --theme-danger: #EF4444;
+  --theme-danger-fg: #F87171;
+  --theme-danger-bg: #380C14;
+  --theme-danger-border: #6E1624;
+
+  --theme-info: #3B82F6;
+  --theme-info-fg: #60A5FA;
+  --theme-info-bg: #0C2340;
+  --theme-info-border: #1D4ED8;
+
+  /* Custom Theme Gray Scale (Dark Inversion) */
+  --theme-gray-50: #12151C;
+  --theme-gray-100: #181B24;
+  --theme-gray-200: #222633;
+  --theme-gray-300: #313645;
+  --theme-gray-400: #4E5568;
+  --theme-gray-500: #737B8E;
+  --theme-gray-600: #9CA3AF;
+  --theme-gray-700: #D1D5DB;
+  --theme-gray-800: #E5E7EB;
+  --theme-gray-900: #F3F4F6;
+  --theme-gray-950: #FFFFFF;
+
+  /* Custom Theme Slate Scale (Dark Inversion) */
+  --theme-slate-50: #0F172A;
+  --theme-slate-100: #1E293B;
+  --theme-slate-200: #273449;
+  --theme-slate-300: #334155;
+  --theme-slate-400: #64748B;
+  --theme-slate-500: #94A3B8;
+  --theme-slate-600: #CBD5E1;
+  --theme-slate-700: #E2E8F0;
+  --theme-slate-800: #F1F5F9;
+  --theme-slate-900: #F8FAFC;
+  --theme-slate-950: #FFFFFF;
+
+  /* Custom Theme Red Scale (Dark Calibrated) */
+  --theme-red-50: #2A0E13;
+  --theme-red-100: #3D1219;
+  --theme-red-200: #591B25;
+  --theme-red-300: #7A2433;
+  --theme-red-400: #A13044;
+  --theme-red-500: #EF4444;
+  --theme-red-600: #F87171;
+  --theme-red-700: #FCA5A5;
+  --theme-red-800: #FECACA;
+  --theme-red-900: #FEE2E2;
+  --theme-red-950: #FEF2F2;
+
+  /* Custom Theme Amber Scale (Dark Calibrated) */
+  --theme-amber-50: #2E1F03;
+  --theme-amber-100: #451A03;
+  --theme-amber-200: #613007;
+  --theme-amber-300: #8C470D;
+  --theme-amber-400: #B45309;
+  --theme-amber-500: #D97706;
+  --theme-amber-600: #F59E0B;
+  --theme-amber-700: #FBBF24;
+  --theme-amber-800: #FCD34D;
+  --theme-amber-900: #FDE68A;
+  --theme-amber-950: #FFFBEB;
+
+  /* Custom Theme Emerald Scale (Dark Calibrated) */
+  --theme-emerald-50: #06231A;
+  --theme-emerald-100: #093729;
+  --theme-emerald-200: #0C4E3A;
+  --theme-emerald-300: #10684E;
+  --theme-emerald-400: #059669;
+  --theme-emerald-500: #10B981;
+  --theme-emerald-600: #34D399;
+  --theme-emerald-700: #6EE7B7;
+  --theme-emerald-800: #A7F3D0;
+  --theme-emerald-900: #D1FAE5;
+  --theme-emerald-950: #ECFDF5;
+
+  /* Custom Theme Blue Scale (Dark Calibrated) */
+  --theme-blue-50: #0B1C38;
+  --theme-blue-100: #102A54;
+  --theme-blue-200: #163B75;
+  --theme-blue-300: #1C4D9A;
+  --theme-blue-400: #2563EB;
+  --theme-blue-500: #3B82F6;
+  --theme-blue-600: #60A5FA;
+  --theme-blue-700: #93C5FD;
+  --theme-blue-800: #BFDBFE;
+  --theme-blue-900: #DBEAFE;
+  --theme-blue-950: #EFF6FF;
+}
+
+@theme {
+  --color-primary: var(--theme-brand-600);
+  --color-brand: var(--theme-brand);
+  --color-accent: var(--theme-accent);
+  --color-accent-fg: var(--theme-accent-fg);
+  --color-background-light: var(--theme-page);
+  --color-background-dark: var(--theme-page);
+
+  --font-inter: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
-  /* ---------- Type scale (size / line height / weight) ----------
-     Rules: nothing smaller than 12px, no real content below 13px.
-     Errors and warnings: 14px minimum (text-label).
-     Weights: 400, 600, 700 (500 for typed values).
-     Tabular numerals (tnum) on amounts, rates, and table numbers. */
+  /* ---------- Type scale (size / line height / weight) ---------- */
   --text-display: 2.5rem;
-  /* 36px / 40px, 700 - Total customer pays */
   --text-display--line-height: 2.5rem;
   --text-display--font-weight: 700;
 
   --text-h1: 2rem;
-  /* 28px / 36px, 700 - Page title */
   --text-h1--line-height: 2.25rem;
   --text-h1--font-weight: 700;
 
   --text-amount: 1.75rem;
-  /* 28px / 36px, 700 - Main amount input */
   --text-amount--line-height: 2.25rem;
   --text-amount--font-weight: 700;
 
   --text-amount-pair: 1.5rem;
-  /* 24px / 32px, 700 - Exchange pair inputs */
   --text-amount-pair--line-height: 2rem;
   --text-amount-pair--font-weight: 700;
 
   --text-h2: 1.5rem;
-  /* 20px / 28px, 700 - Card and dialog titles */
   --text-h2--line-height: 1.75rem;
   --text-h2--font-weight: 700;
 
   --text-h3: 1.125rem;
-  /* 18px / 24px, 700 - Numbered section headings */
   --text-h3--line-height: 1.5rem;
   --text-h3--font-weight: 700;
 
   --text-btn-lg: 1rem;
-  /* 16px / 24px, 600 - Mode tabs, main CTA */
+  --text-btn-md: 0.75rem;
+  --text-btn-sm: 0.5rem;
   --text-btn-lg--line-height: 1.5rem;
   --text-btn-lg--font-weight: 600;
 
   --text-body: 1.1875rem;
-  /* 15px / 22px, 400 - Input values, summary rows, alerts */
   --text-body--line-height: 1.375rem;
   --text-body--font-weight: 400;
 
   --text-body-value: 1.1875rem;
-  /* 15px / 22px, 500 - Typed input values */
   --text-body-value--line-height: 1.375rem;
   --text-body-value--font-weight: 500;
 
   --text-label: 1.125rem;
-  /* 14px / 20px, 600 - Field labels, nav, tables, small buttons */
   --text-label--line-height: 1.25rem;
   --text-label--font-weight: 600;
 
   --text-caption: 1.0625rem;
-  /* 13px / 18px - Helper text, chips */
   --text-caption--line-height: 1.125rem;
 
   --text-overline: 0.75rem;
-  /* 12px / 16px, 600, uppercase - Rare group labels */
   --text-overline--line-height: 1rem;
   --text-overline--letter-spacing: 0.04em;
   --text-overline--font-weight: 600;
 
-  /* ---------- Colours ---------- */
-  --color-brand-50: #FDF1F3;
-  --color-brand-100: #FADDE2;
-  --color-brand-600: #C8102E;
-  /* primary */
-  --color-brand-700: #9E0C24;
-  /* hover / selected text */
+  /* ---------- Semantic Dynamic Colours ---------- */
+  --color-page: var(--theme-page);
+  --color-surface: var(--theme-surface);
+  --color-surface-alt: var(--theme-surface-alt);
+  --color-surface-elevated: var(--theme-surface-elevated);
 
-  --color-ink: #14171F;
-  /* main text */
-  --color-ink-soft: #2C323D;
-  --color-muted: #5B6270;
-  /* helper text, placeholders */
-  --color-line: #E3E6EB;
-  /* card and divider borders */
-  --color-line-strong: #BFC5CE;
-  /* input borders */
-  --color-page: #F4F5F7;
-  /* app background */
-  --color-surface: #FFFFFF;
-  --color-surface-alt: #FAFAFB;
-  --color-chip: #EEF0F3;
+  --color-ink: var(--theme-ink);
+  --color-ink-soft: var(--theme-ink-soft);
+  --color-muted: var(--theme-muted);
+  --color-muted-light: var(--theme-muted-light);
 
-  --color-success: #0B7A44;
-  --color-success-fg: #0B5A33;
-  --color-success-bg: #E3F3EA;
-  --color-warning-fg: #7A4B00;
-  --color-warning-bg: #FFF3D6;
-  --color-danger: #C8102E;
-  --color-danger-bg: #FDF1F3;
+  --color-line: var(--theme-line);
+  --color-line-strong: var(--theme-line-strong);
+  --color-line-subtle: var(--theme-line-subtle);
+
+  --color-chip: var(--theme-chip);
+  --color-chip-hover: var(--theme-chip-hover);
+
+  --color-brand-50: var(--theme-brand-50);
+  --color-brand-100: var(--theme-brand-100);
+  --color-brand-200: var(--theme-brand-200);
+  --color-brand-300: var(--theme-brand-300);
+  --color-brand-400: var(--theme-brand-400);
+  --color-brand-500: var(--theme-brand-500);
+  --color-brand-600: var(--theme-brand-600);
+  --color-brand-700: var(--theme-brand-700);
+  --color-brand-800: var(--theme-brand-800);
+  --color-brand-900: var(--theme-brand-900);
+  --color-brand-950: var(--theme-brand-950);
+
+  --color-success: var(--theme-success);
+  --color-success-fg: var(--theme-success-fg);
+  --color-success-bg: var(--theme-success-bg);
+  --color-success-border: var(--theme-success-border);
+
+  --color-warning: var(--theme-warning);
+  --color-warning-fg: var(--theme-warning-fg);
+  --color-warning-bg: var(--theme-warning-bg);
+  --color-warning-border: var(--theme-warning-border);
+
+  --color-danger: var(--theme-danger);
+  --color-danger-fg: var(--theme-danger-fg);
+  --color-danger-bg: var(--theme-danger-bg);
+  --color-danger-border: var(--theme-danger-border);
+
+  --color-info: var(--theme-info);
+  --color-info-fg: var(--theme-info-fg);
+  --color-info-bg: var(--theme-info-bg);
+  --color-info-border: var(--theme-info-border);
+
+  /* Override Gray palette to map to custom theme-gray tokens */
+  --color-gray-50: var(--theme-gray-50);
+  --color-gray-100: var(--theme-gray-100);
+  --color-gray-200: var(--theme-gray-200);
+  --color-gray-300: var(--theme-gray-300);
+  --color-gray-400: var(--theme-gray-400);
+  --color-gray-500: var(--theme-gray-500);
+  --color-gray-600: var(--theme-gray-600);
+  --color-gray-700: var(--theme-gray-700);
+  --color-gray-800: var(--theme-gray-800);
+  --color-gray-900: var(--theme-gray-900);
+  --color-gray-950: var(--theme-gray-950);
+
+  /* Override Slate palette to map to custom theme-slate tokens */
+  --color-slate-50: var(--theme-slate-50);
+  --color-slate-100: var(--theme-slate-100);
+  --color-slate-200: var(--theme-slate-200);
+  --color-slate-300: var(--theme-slate-300);
+  --color-slate-400: var(--theme-slate-400);
+  --color-slate-500: var(--theme-slate-500);
+  --color-slate-600: var(--theme-slate-600);
+  --color-slate-700: var(--theme-slate-700);
+  --color-slate-800: var(--theme-slate-800);
+  --color-slate-900: var(--theme-slate-900);
+  --color-slate-950: var(--theme-slate-950);
+
+  /* Override Zinc & Neutral palettes to map to custom theme-gray tokens */
+  --color-zinc-50: var(--theme-gray-50);
+  --color-zinc-100: var(--theme-gray-100);
+  --color-zinc-200: var(--theme-gray-200);
+  --color-zinc-300: var(--theme-gray-300);
+  --color-zinc-400: var(--theme-gray-400);
+  --color-zinc-500: var(--theme-gray-500);
+  --color-zinc-600: var(--theme-gray-600);
+  --color-zinc-700: var(--theme-gray-700);
+  --color-zinc-800: var(--theme-gray-800);
+  --color-zinc-900: var(--theme-gray-900);
+  --color-zinc-950: var(--theme-gray-950);
+
+  --color-neutral-50: var(--theme-gray-50);
+  --color-neutral-100: var(--theme-gray-100);
+  --color-neutral-200: var(--theme-gray-200);
+  --color-neutral-300: var(--theme-gray-300);
+  --color-neutral-400: var(--theme-gray-400);
+  --color-neutral-500: var(--theme-gray-500);
+  --color-neutral-600: var(--theme-gray-600);
+  --color-neutral-700: var(--theme-gray-700);
+  --color-neutral-800: var(--theme-gray-800);
+  --color-neutral-900: var(--theme-gray-900);
+  --color-neutral-950: var(--theme-gray-950);
+
+  /* Override Red palette to map to custom theme-red tokens */
+  --color-red-50: var(--theme-red-50);
+  --color-red-100: var(--theme-red-100);
+  --color-red-200: var(--theme-red-200);
+  --color-red-300: var(--theme-red-300);
+  --color-red-400: var(--theme-red-400);
+  --color-red-500: var(--theme-red-500);
+  --color-red-600: var(--theme-red-600);
+  --color-red-700: var(--theme-red-700);
+  --color-red-800: var(--theme-red-800);
+  --color-red-900: var(--theme-red-900);
+  --color-red-950: var(--theme-red-950);
+
+  /* Override Amber / Yellow palettes to map to custom theme-amber tokens */
+  --color-amber-50: var(--theme-amber-50);
+  --color-amber-100: var(--theme-amber-100);
+  --color-amber-200: var(--theme-amber-200);
+  --color-amber-300: var(--theme-amber-300);
+  --color-amber-400: var(--theme-amber-400);
+  --color-amber-500: var(--theme-amber-500);
+  --color-amber-600: var(--theme-amber-600);
+  --color-amber-700: var(--theme-amber-700);
+  --color-amber-800: var(--theme-amber-800);
+  --color-amber-900: var(--theme-amber-900);
+  --color-amber-950: var(--theme-amber-950);
+
+  --color-yellow-50: var(--theme-amber-50);
+  --color-yellow-100: var(--theme-amber-100);
+  --color-yellow-200: var(--theme-amber-200);
+  --color-yellow-300: var(--theme-amber-300);
+  --color-yellow-400: var(--theme-amber-400);
+  --color-yellow-500: var(--theme-amber-500);
+  --color-yellow-600: var(--theme-amber-600);
+  --color-yellow-700: var(--theme-amber-700);
+  --color-yellow-800: var(--theme-amber-800);
+  --color-yellow-900: var(--theme-amber-900);
+  --color-yellow-950: var(--theme-amber-950);
+
+  /* Override Emerald / Green palettes to map to custom theme-emerald tokens */
+  --color-emerald-50: var(--theme-emerald-50);
+  --color-emerald-100: var(--theme-emerald-100);
+  --color-emerald-200: var(--theme-emerald-200);
+  --color-emerald-300: var(--theme-emerald-300);
+  --color-emerald-400: var(--theme-emerald-400);
+  --color-emerald-500: var(--theme-emerald-500);
+  --color-emerald-600: var(--theme-emerald-600);
+  --color-emerald-700: var(--theme-emerald-700);
+  --color-emerald-800: var(--theme-emerald-800);
+  --color-emerald-900: var(--theme-emerald-900);
+  --color-emerald-950: var(--theme-emerald-950);
+
+  --color-green-50: var(--theme-emerald-50);
+  --color-green-100: var(--theme-emerald-100);
+  --color-green-200: var(--theme-emerald-200);
+  --color-green-300: var(--theme-emerald-300);
+  --color-green-400: var(--theme-emerald-400);
+  --color-green-500: var(--theme-emerald-500);
+  --color-green-600: var(--theme-emerald-600);
+  --color-green-700: var(--theme-emerald-700);
+  --color-green-800: var(--theme-emerald-800);
+  --color-green-900: var(--theme-emerald-900);
+  --color-green-950: var(--theme-emerald-950);
+
+  /* Override Blue palette to map to custom theme-blue tokens */
+  --color-blue-50: var(--theme-blue-50);
+  --color-blue-100: var(--theme-blue-100);
+  --color-blue-200: var(--theme-blue-200);
+  --color-blue-300: var(--theme-blue-300);
+  --color-blue-400: var(--theme-blue-400);
+  --color-blue-500: var(--theme-blue-500);
+  --color-blue-600: var(--theme-blue-600);
+  --color-blue-700: var(--theme-blue-700);
+  --color-blue-800: var(--theme-blue-800);
+  --color-blue-900: var(--theme-blue-900);
+  --color-blue-950: var(--theme-blue-950);
 
   /* ---------- Radius ---------- */
   --radius-input: 0.625rem;
-  /* 10px */
   --radius-btn: 0.75rem;
-  /* 12px */
   --radius-card: 1rem;
-  /* 16px */
 
   /* ---------- Shadow ---------- */
-  --shadow-card: 0 1px 2px rgb(20 23 31 / 0.06);
-  --shadow-sheet: 0 8px 24px rgb(20 23 31 / 0.12);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.08);
+  --shadow-sheet: 0 8px 24px rgb(0 0 0 / 0.16);
 
   /* ---------- Layout ---------- */
   --container-app: 77.5rem;
-  /* 1240px */
 }
 
 @layer base {
@@ -257,7 +669,6 @@ textarea {
 /* Custom Scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
-
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -265,18 +676,13 @@ textarea {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: var(--color-line-strong);
   border-radius: 10px;
 }
 
 .dark .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #374151;
+  background: var(--color-line-strong);
 }
-
-
-
-
-
 
 .dob-picker-wrapper {
   position: relative;
@@ -308,43 +714,44 @@ textarea {
 
 .react-datepicker {
   font-family: inherit;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--color-line);
   border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-sheet);
   overflow: hidden;
 }
 
 .react-datepicker__header {
-  background: #fff;
-  border-bottom: 1px solid #f3f4f6;
+  background: var(--color-surface-alt);
+  border-bottom: 1px solid var(--color-line);
   padding: 12px 0 8px;
 }
 
 .react-datepicker__current-month {
   font-size: 13px;
   font-weight: 600;
-  color: #111827;
+  color: var(--color-ink);
 }
 
 .react-datepicker__navigation-icon::before {
-  border-color: #9ca3af;
+  border-color: var(--color-muted);
 }
 
 .react-datepicker__navigation:hover .react-datepicker__navigation-icon::before {
-  border-color: #E00000;
+  border-color: var(--color-brand-600);
 }
 
 .react-datepicker__day-name {
   font-size: 11px;
   font-weight: 600;
-  color: #9ca3af;
+  color: var(--color-muted);
   text-transform: uppercase;
   width: 2rem;
 }
 
 .react-datepicker__day {
   font-size: 12px;
-  color: #374151;
+  color: var(--color-ink-soft);
   width: 2rem;
   line-height: 2rem;
   border-radius: 6px;
@@ -352,13 +759,13 @@ textarea {
 }
 
 .react-datepicker__day:hover {
-  background: #fef2f2;
-  color: #E00000;
+  background: var(--color-brand-50);
+  color: var(--color-brand-600);
 }
 
 .react-datepicker__day--selected,
 .react-datepicker__day--keyboard-selected {
-  background: #E00000 !important;
+  background: var(--color-brand-600) !important;
   color: #fff !important;
   font-weight: 600;
   border-radius: 6px;
@@ -366,11 +773,11 @@ textarea {
 
 .react-datepicker__day--today {
   font-weight: 700;
-  color: #E00000;
+  color: var(--color-brand-600);
 }
 
 .react-datepicker__day--outside-month {
-  color: #d1d5db;
+  color: var(--color-muted-light);
 }
 
 .react-datepicker__triangle {
@@ -389,3 +796,54 @@ input[type=number] {
   -moz-appearance: textfield;
   appearance: textfield;
 }
+
+/* Universal input focus protection for dark theme */
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):focus,
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):focus,
+html[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):focus,
+[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):focus,
+html.dark select:focus,
+.dark select:focus,
+html[data-theme="dark"] select:focus,
+[data-theme="dark"] select:focus,
+html.dark textarea:focus,
+.dark textarea:focus,
+html[data-theme="dark"] textarea:focus,
+[data-theme="dark"] textarea:focus {
+  background-color: var(--color-surface) !important;
+  color: var(--color-ink) !important;
+}
+
+/* Browser autofill styling in dark mode */
+html.dark input:-webkit-autofill,
+html.dark input:-webkit-autofill:hover, 
+html.dark input:-webkit-autofill:focus,
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover, 
+.dark input:-webkit-autofill:focus,
+html[data-theme="dark"] input:-webkit-autofill,
+html[data-theme="dark"] input:-webkit-autofill:hover, 
+html[data-theme="dark"] input:-webkit-autofill:focus,
+[data-theme="dark"] input:-webkit-autofill,
+[data-theme="dark"] input:-webkit-autofill:hover, 
+[data-theme="dark"] input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--color-ink) !important;
+  -webkit-box-shadow: 0 0 0px 1000px var(--color-surface) inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Universal dark theme support for white surfaces & containers */
+html.dark .bg-white:not([data-keep-white]),
+.dark .bg-white:not([data-keep-white]),
+html[data-theme="dark"] .bg-white:not([data-keep-white]),
+[data-theme="dark"] .bg-white:not([data-keep-white]) {
+  background-color: var(--color-surface);
+}
+
+/* Universal text safety for dark theme */
+html.dark .text-black:not([data-keep-black]),
+.dark .text-black:not([data-keep-black]),
+html[data-theme="dark"] .text-black:not([data-keep-black]),
+[data-theme="dark"] .text-black:not([data-keep-black]) {
+  color: var(--color-ink);
+}

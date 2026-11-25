@@ -35,19 +35,19 @@ export default function SoldiRatesSection() {
     <div className="w-full max-w-[80%] mx-auto px-6 md:px-12 py-16">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-10">
         <div>
-          <span className="inline-block bg-white/90 border border-red-200 shadow-xs rounded-full px-4 py-1 text-overline font-semibold tracking-wider uppercase text-[#E00000] mb-2">
+          <span className="inline-block bg-surface border border-line shadow-xs rounded-full px-4 py-1 text-overline font-semibold tracking-wider uppercase text-brand-600 mb-2">
             Live Master Forex Rates
           </span>
-          <h2 className="text-h1 font-bold text-gray-900 leading-tight tracking-tight m-0">
+          <h2 className="text-h1 font-bold text-ink leading-tight tracking-tight m-0">
             Official Buying &amp; Selling{" "}
-            <span className="text-[#E00000] relative inline-block">
+            <span className="text-brand-600 relative inline-block">
               Daily Rates
               <svg className="absolute -bottom-1 left-0 w-full" height="6" viewBox="0 0 120 6" fill="none">
-                <path d="M0 5 Q30 1 60 3 Q90 5 120 2" stroke="#E00000" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+                <path d="M0 5 Q30 1 60 3 Q90 5 120 2" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" fill="none" />
               </svg>
             </span>
           </h2>
-          <p className="text-caption text-gray-600 mt-1 font-normal flex items-center gap-1.5">
+          <p className="text-caption text-muted dark:text-[#D1D5DB] mt-1 font-normal flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             Base: 1 FJD (Fijian Dollar) · Auto-updated every 60s from ERPNext
           </p>
@@ -60,39 +60,39 @@ export default function SoldiRatesSection() {
             placeholder="Search currency or country..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="px-4 py-2.5 rounded-xl border border-gray-200 bg-white/95 text-gray-900 placeholder-gray-400 text-body font-normal focus:outline-none focus:ring-2 focus:ring-[#E00000] focus:border-transparent transition-all w-full md:w-64 shadow-xs"
+            className="px-4 py-2.5 rounded-xl border border-line bg-surface text-ink placeholder-muted text-body font-normal focus:outline-none focus:border-brand-600 transition-all w-full md:w-64 shadow-xs"
           />
         </div>
       </div>
 
       {loading && (
-        <div className="bg-white/80 rounded-3xl p-12 text-center shadow-lg border border-red-100">
-          <p className="text-body font-semibold text-gray-600">Loading real-time currency rates from vault master...</p>
+        <div className="bg-surface rounded-3xl p-12 text-center shadow-lg border border-line">
+          <p className="text-body font-semibold text-muted dark:text-[#D1D5DB]">Loading real-time currency rates from vault master...</p>
         </div>
       )}
 
       {/* Table */}
       {!loading && (
-        <div className="overflow-x-auto bg-white/95 rounded-3xl shadow-2xl border border-red-100 custom-scrollbar">
-          <table className="w-full text-body text-gray-800">
-            <thead className="bg-gradient-to-r from-red-50/80 via-white to-red-50/80 border-b border-gray-200">
+        <div className="overflow-x-auto bg-surface rounded-3xl shadow-2xl border border-line custom-scrollbar">
+          <table className="w-full text-body text-ink">
+            <thead className="bg-surface-alt border-b border-line">
               <tr>
-                <th className="px-6 py-4 text-left text-overline font-semibold text-gray-900 tracking-wider uppercase">Currency</th>
-                <th className="px-6 py-4 text-left text-overline font-semibold text-gray-900 tracking-wider uppercase">Country</th>
-                <th className="px-6 py-4 text-center text-overline font-semibold text-gray-900 tracking-wider uppercase">
-                  MH Buys At <span className="block text-overline text-gray-500 font-normal">Customer Sells Forex</span>
+                <th className="px-6 py-4 text-left text-overline font-semibold text-ink tracking-wider uppercase">Currency</th>
+                <th className="px-6 py-4 text-left text-overline font-semibold text-ink tracking-wider uppercase">Country</th>
+                <th className="px-6 py-4 text-center text-overline font-semibold text-ink tracking-wider uppercase">
+                  MH Buys At <span className="block text-overline text-muted dark:text-[#9CA3AF] font-normal">Customer Sells Forex</span>
                 </th>
-                <th className="px-6 py-4 text-center text-overline font-semibold text-gray-900 tracking-wider uppercase">
-                  MH Sells At <span className="block text-overline text-gray-500 font-normal">Customer Buys Forex</span>
+                <th className="px-6 py-4 text-center text-overline font-semibold text-ink tracking-wider uppercase">
+                  MH Sells At <span className="block text-overline text-muted dark:text-[#9CA3AF] font-normal">Customer Buys Forex</span>
                 </th>
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-line">
               {filteredCurrencies.map((item, index) => (
                 <tr
                   key={item.name || index}
-                  className="hover:bg-red-50/40 transition-colors duration-150"
+                  className="hover:bg-surface-alt/60 transition-colors duration-150"
                 >
                   <td className="px-6 py-4 text-left">
                     <div className="flex items-center gap-3">
@@ -102,28 +102,28 @@ export default function SoldiRatesSection() {
                             .slice(0, 2)
                             .toLowerCase()}.png`}
                           alt={item.currency_name}
-                          className="w-7 h-5 object-cover rounded shadow-xs border border-gray-200 shrink-0"
+                          className="w-7 h-5 object-cover rounded shadow-xs border border-line shrink-0"
                           onError={(e) => { e.target.style.display = "none"; }}
                         />
                       )}
-                      <span className="font-bold text-gray-900 tracking-wide text-body">
+                      <span className="font-bold text-ink tracking-wide text-body">
                         {item.currency_name}
                       </span>
                     </div>
                   </td>
 
-                  <td className="px-6 py-4 text-left text-gray-700 font-normal">
+                  <td className="px-6 py-4 text-left text-ink-soft dark:text-[#D1D5DB] font-normal">
                     {item.country || "—"}
                   </td>
 
                   <td className="px-6 py-4 text-center">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-caption font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 tnum">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-caption font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30 tnum">
                       {item.buying_price ? Number(item.buying_price).toFixed(4) : "—"}
                     </span>
                   </td>
 
                   <td className="px-6 py-4 text-center">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-caption font-semibold bg-amber-50 text-amber-800 border border-amber-200 tnum">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-caption font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/30 tnum">
                       {item.selling_price ? Number(item.selling_price).toFixed(4) : "—"}
                     </span>
                   </td>
@@ -135,7 +135,7 @@ export default function SoldiRatesSection() {
       )}
 
       {!loading && lastUpdated && (
-        <p className="text-caption text-gray-500 mt-4 text-center font-normal">
+        <p className="text-caption text-muted dark:text-[#9CA3AF] mt-4 text-center font-normal">
           Master rates last synchronized at {lastUpdated.toLocaleTimeString()}
         </p>
       )}

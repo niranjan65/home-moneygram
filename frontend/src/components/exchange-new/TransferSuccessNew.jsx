@@ -20,10 +20,10 @@ const modalOverlay = {
 };
 
 const modalDialog = {
-  background: '#fff',
-  border: '1px solid #E3E6EB',
+  background: 'var(--color-surface, #fff)',
+  border: '1px solid var(--color-line, #E3E6EB)',
   borderRadius: '16px',
-  boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+  boxShadow: 'var(--shadow-sheet, 0 20px 40px rgba(0,0,0,0.15))',
   width: '100%',
   maxWidth: '440px',
   padding: '24px',
@@ -126,7 +126,9 @@ export const TransferSuccessNew = ({
     ...(data || {}),
     ...(apiDoc || {}),
     ...(invoiceData || {}),
+    customer_name: data?.selectedCustomer?.custom_full_name || (data?.firstName + data?.lastName) || ""
   };
+  console.info('cusotmer full name: ', data)
 
   const exchangeType = (
     finalData?.exchangeType ||
@@ -266,7 +268,7 @@ export const TransferSuccessNew = ({
     const denomSource = isBuy
       ? (data?.senderDenominationRows || data?.receiverDenominationRows || [])
       : (data?.receiverDenominationRows || data?.senderDenominationRows || []);
-    
+
     rows = denomSource
       .filter(item => (item.count || item.qty) > 0)
       .map(item => {
@@ -450,39 +452,42 @@ export const TransferSuccessNew = ({
       <style>{`
         .ts-new-root {
           width: 100%;
-          font-family: Inter, system-ui, -apple-system, sans-serif;
-          color: #14171F;
+          font-family: var(--font-sans, Inter, system-ui, -apple-system, sans-serif);
+          color: var(--color-ink, #14171F);
         }
         .ts-new-root * {
           box-sizing: border-box;
         }
         .ts-new-root .card {
-          background: #fff;
-          border: 1px solid #E3E6EB;
-          border-radius: 16px;
+          background: var(--color-surface, #fff);
+          border: 1px solid var(--color-line, #E3E6EB);
+          border-radius: var(--radius-card, 16px);
         }
         .ts-new-root .cap {
           font-size: 13px;
-          color: #5B6270;
+          color: var(--color-muted, #5B6270);
           display: block;
           margin-bottom: 4px;
         }
         .ts-new-root .v {
           font-size: 15px;
           font-weight: 600;
+          color: var(--color-ink, #14171F);
           white-space: nowrap;
           font-variant-numeric: tabular-nums;
         }
         .ts-new-root .th {
           font-size: 13px;
           font-weight: 600;
-          color: #5B6270;
+          color: var(--color-muted, #5B6270);
           padding: 12px 20px;
-          background: #FAFAFB;
+          background: var(--color-surface-alt, #FAFAFB);
+          border-bottom: 1px solid var(--color-line, #E3E6EB);
         }
         .ts-new-root .td {
           padding: 16px 20px;
           font-size: 15px;
+          color: var(--color-ink, #14171F);
           font-variant-numeric: tabular-nums;
         }
         .ts-new-root .row {
@@ -493,7 +498,7 @@ export const TransferSuccessNew = ({
           font-size: 15px;
         }
         .ts-new-root .row span:first-child {
-          color: #4A5160;
+          color: var(--color-muted, #4A5160);
         }
         .ts-new-root .chip {
           display: inline-flex;
@@ -503,25 +508,32 @@ export const TransferSuccessNew = ({
           border-radius: 999px;
           font-size: 13px;
           font-weight: 600;
-          background: #EEF0F3;
-          color: #2C323D;
+          background: var(--color-chip, #EEF0F3);
+          color: var(--color-ink-soft, #2C323D);
         }
         .ts-new-root .chip.ok {
-          background: #E3F3EA;
-          color: #0B5A33;
+          background: var(--color-success-bg, #E3F3EA);
+          color: var(--color-success-fg, #0B5A33);
+          border: 1px solid var(--color-success-border, transparent);
         }
         .ts-new-root .chip.warn {
-          background: #FFF3D6;
-          color: #7A4B00;
+          background: var(--color-warning-bg, #FFF3D6);
+          color: var(--color-warning-fg, #7A4B00);
+          border: 1px solid var(--color-warning-border, transparent);
+        }
+        .ts-new-root .chip.danger {
+          background: var(--color-danger-bg, #FDF1F3);
+          color: var(--color-danger-fg, #9E0C24);
+          border: 1px solid var(--color-danger-border, transparent);
         }
         .ts-new-root .btn {
           height: 48px;
           padding: 0 24px;
-          border-radius: 12px;
+          border-radius: var(--radius-btn, 12px);
           border: 0;
-          background: #C8102E;
+          background: var(--color-brand-600, #C8102E);
           color: #fff;
-          font: 600 15px Inter, system-ui, sans-serif;
+          font: 600 15px var(--font-sans, Inter, system-ui, sans-serif);
           cursor: pointer;
           transition: opacity .15s, background .15s;
           display: inline-flex;
@@ -529,21 +541,22 @@ export const TransferSuccessNew = ({
           justify-content: center;
         }
         .ts-new-root .btn:hover {
-          opacity: 0.92;
+          background: var(--color-brand-700, #9E0C24);
+          opacity: 0.95;
         }
         .ts-new-root .btn.ghost {
-          background: #fff;
-          color: #14171F;
-          border: 1px solid #BFC5CE;
+          background: var(--color-surface, #fff);
+          color: var(--color-ink, #14171F);
+          border: 1px solid var(--color-line-strong, #BFC5CE);
         }
         .ts-new-root .btn.ghost:hover {
-          background: #F4F5F7;
+          background: var(--color-surface-alt, #F4F5F7);
         }
         .ts-new-root .lnk {
           border: 0;
           background: none;
-          font: 600 14px Inter, system-ui, sans-serif;
-          color: #C8102E;
+          font: 600 14px var(--font-sans, Inter, system-ui, sans-serif);
+          color: var(--color-danger-fg, #C8102E);
           padding: 8px;
           cursor: pointer;
         }
@@ -552,7 +565,7 @@ export const TransferSuccessNew = ({
         }
         .ts-new-root .help {
           font-size: 13px;
-          color: #5B6270;
+          color: var(--color-muted, #5B6270);
           margin-top: 6px;
         }
         @media (max-width: 960px) {
@@ -568,10 +581,10 @@ export const TransferSuccessNew = ({
           <div style={modalDialog} role="dialog" aria-modal="true">
             {modalVariant === 'confirm' && (
               <>
-                <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: 700, color: '#14171F' }}>
+                <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: 700, color: 'var(--color-ink, #14171F)' }}>
                   Cancel this exchange?
                 </h3>
-                <p style={{ margin: '0 0 20px 0', fontSize: '14px', color: '#5B6270', lineHeight: 1.5 }}>
+                <p style={{ margin: '0 0 20px 0', fontSize: '14px', color: 'var(--color-muted, #5B6270)', lineHeight: 1.5 }}>
                   This will cancel the transaction document and reverse the currency exchange in the system. This action cannot be undone.
                 </p>
                 <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
@@ -599,15 +612,15 @@ export const TransferSuccessNew = ({
 
             {modalVariant === 'success' && (
               <>
-                <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#E3F3EA', color: '#0B5A33', display: 'grid', placeItems: 'center', margin: '0 0 12px 0' }}>
+                <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: 'var(--color-success-bg, #E3F3EA)', color: 'var(--color-success-fg, #0B5A33)', border: '1px solid var(--color-success-border, transparent)', display: 'grid', placeItems: 'center', margin: '0 0 12px 0' }}>
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 </div>
-                <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: 700, color: '#14171F' }}>
+                <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: 700, color: 'var(--color-ink, #14171F)' }}>
                   Exchange cancelled
                 </h3>
-                <p style={{ margin: '0 0 20px 0', fontSize: '14px', color: '#5B6270' }}>
+                <p style={{ margin: '0 0 20px 0', fontSize: '14px', color: 'var(--color-muted, #5B6270)' }}>
                   The exchange has been cancelled successfully.
                 </p>
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -625,10 +638,10 @@ export const TransferSuccessNew = ({
 
             {modalVariant === 'error' && (
               <>
-                <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: 700, color: '#C8102E' }}>
+                <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: 700, color: 'var(--color-danger, #C8102E)' }}>
                   Cancellation failed
                 </h3>
-                <p style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#5B6270' }}>
+                <p style={{ margin: '0 0 12px 0', fontSize: '14px', color: 'var(--color-muted, #5B6270)' }}>
                   {modalError || 'An error occurred while cancelling the transaction.'}
                 </p>
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -658,8 +671,8 @@ export const TransferSuccessNew = ({
             alignItems: 'center',
             gap: '20px',
             padding: '24px 28px',
-            background: isCancelled ? '#FDF1F3' : '#F1FAF5',
-            borderColor: isCancelled ? '#F87171' : '#BFE3CE',
+            background: isCancelled ? 'var(--color-danger-bg)' : 'var(--color-success-bg)',
+            borderColor: isCancelled ? 'var(--color-danger-border)' : 'var(--color-success-border)',
           }}
         >
           <div
@@ -667,7 +680,7 @@ export const TransferSuccessNew = ({
               width: '56px',
               height: '56px',
               borderRadius: '50%',
-              background: isCancelled ? '#C8102E' : '#0B7A44',
+              background: isCancelled ? 'var(--color-danger)' : 'var(--color-success)',
               display: 'grid',
               placeItems: 'center',
               flex: 'none',
@@ -686,20 +699,19 @@ export const TransferSuccessNew = ({
           </div>
 
           <div style={{ flex: 1 }}>
-            <h1 style={{ margin: 0, fontSize: '28px', lineHeight: '36px', fontWeight: 700 }}>
+            <h1 style={{ margin: 0, fontSize: '28px', lineHeight: '36px', fontWeight: 700, color: 'var(--color-ink)' }}>
               {isCancelled ? 'Exchange cancelled' : 'Exchange complete'}
             </h1>
-            <div style={{ fontSize: '14px', color: '#2C323D', marginTop: '2px' }}>
+            <div style={{ fontSize: '14px', color: 'var(--color-ink-soft)', marginTop: '2px' }}>
               {isBuy ? 'Buy forex' : 'Sell forex'} · {foreignCurrency} · recorded at {txnDate}
             </div>
           </div>
 
           <span
-            className={`chip ${isCancelled ? 'warn' : 'ok'}`}
+            className={`chip ${isCancelled ? 'danger' : 'ok'}`}
             style={{
               height: '36px',
               fontSize: '14px',
-              ...(isCancelled ? { background: '#FDF1F3', color: '#9E0C24' } : {}),
             }}
           >
             {isCancelled ? 'Cancelled' : 'Paid in cash'}
@@ -725,7 +737,7 @@ export const TransferSuccessNew = ({
                 display: 'grid',
                 gridTemplateColumns: '1.5fr 1.2fr 1fr 1fr',
                 gap: '20px',
-                borderBottom: '1px solid #E3E6EB',
+                borderBottom: '1px solid var(--color-line)',
               }}
             >
               <div>
@@ -758,7 +770,7 @@ export const TransferSuccessNew = ({
                     className="td"
                     style={{
                       fontWeight: 600,
-                      borderBottom: idx < rows.length - 1 ? '1px solid #F4F5F7' : 'none',
+                      borderBottom: idx < rows.length - 1 ? '1px solid var(--color-line-subtle)' : 'none',
                     }}
                   >
                     {row.label}
@@ -767,7 +779,7 @@ export const TransferSuccessNew = ({
                     className="td"
                     style={{
                       textAlign: 'right',
-                      borderBottom: idx < rows.length - 1 ? '1px solid #F4F5F7' : 'none',
+                      borderBottom: idx < rows.length - 1 ? '1px solid var(--color-line-subtle)' : 'none',
                     }}
                   >
                     {row.qty}
@@ -777,7 +789,7 @@ export const TransferSuccessNew = ({
                     style={{
                       textAlign: 'right',
                       fontWeight: 600,
-                      borderBottom: idx < rows.length - 1 ? '1px solid #F4F5F7' : 'none',
+                      borderBottom: idx < rows.length - 1 ? '1px solid var(--color-line-subtle)' : 'none',
                     }}
                   >
                     {localCurrency} {fmt(row.amount, 2)}
@@ -790,7 +802,7 @@ export const TransferSuccessNew = ({
             <div
               style={{
                 padding: '20px 28px',
-                borderTop: '1px solid #E3E6EB',
+                borderTop: '1px solid var(--color-line)',
                 display: 'flex',
                 justifyContent: 'space-between',
                 gap: '24px',
@@ -799,8 +811,8 @@ export const TransferSuccessNew = ({
               }}
             >
               {/* Rate Used */}
-              <div style={{ fontSize: '13px', color: '#4A5160', lineHeight: '20px' }}>
-                <strong style={{ color: '#14171F', fontSize: '14px' }}>Rate used</strong>
+              <div style={{ fontSize: '13px', color: 'var(--color-muted)', lineHeight: '20px' }}>
+                <strong style={{ color: 'var(--color-ink)', fontSize: '14px' }}>Rate used</strong>
                 <br />
                 {exchangeRate > 0 ? (
                   <span>1 FJD = {foreignCurrency} {fmtRate(exchangeRate)}</span>
@@ -821,7 +833,7 @@ export const TransferSuccessNew = ({
                     {roundingVal >= 0 ? '+' : '-'}{localCurrency} {fmt(Math.abs(roundingVal), 2)}
                   </strong>
                 </div>
-                <div style={{ borderTop: '1px solid #E3E6EB', margin: '8px 0 0 0', paddingTop: '12px' }}>
+                <div style={{ borderTop: '1px solid var(--color-line)', margin: '8px 0 0 0', paddingTop: '12px' }}>
                   <span className="cap">
                     {isBuy
                       ? `${partyLabel} received`
@@ -832,7 +844,7 @@ export const TransferSuccessNew = ({
                       fontSize: '36px',
                       lineHeight: '40px',
                       fontWeight: 700,
-                      color: '#C8102E',
+                      color: 'var(--color-brand-600)',
                       whiteSpace: 'nowrap',
                       fontVariantNumeric: 'tabular-nums',
                     }}
@@ -856,6 +868,7 @@ export const TransferSuccessNew = ({
                   fontSize: '36px',
                   lineHeight: '40px',
                   fontWeight: 700,
+                  color: 'var(--color-ink)',
                   fontVariantNumeric: 'tabular-nums',
                 }}
               >
@@ -961,12 +974,12 @@ export const TransferSuccessNew = ({
                   className="lnk"
                   onClick={handleCancelClick}
                   disabled={isCancelling}
-                  style={{ color: '#9E0C24' }}
+                  style={{ color: 'var(--color-danger-fg)' }}
                 >
                   Cancel this exchange
                 </button>
               ) : (
-                <span style={{ color: '#5B6270' }}>This exchange has been cancelled</span>
+                <span style={{ color: 'var(--color-muted)' }}>This exchange has been cancelled</span>
               )}
             </div>
           </aside>
@@ -975,7 +988,7 @@ export const TransferSuccessNew = ({
         {/* ── Help Footer ── */}
         <div className="help" style={{ textAlign: 'center', marginTop: '24px' }}>
           Need help with this exchange?{' '}
-          <a href="#" style={{ color: '#9E0C24', fontWeight: 600 }}>
+          <a href="#" style={{ color: 'var(--color-brand-600)', fontWeight: 600 }}>
             Contact support
           </a>
         </div>

@@ -212,10 +212,10 @@ export default function ComboBox({
         <div
           ref={listRef}
           role="listbox"
-          className="absolute left-0 top-full mt-1.5 w-full min-w-[280px] bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden max-h-60 overflow-y-auto divide-y divide-gray-50 animate-in fade-in duration-100"
+          className="absolute left-0 top-full mt-1.5 w-full min-w-[280px] bg-surface border border-line rounded-xl shadow-xl z-50 overflow-hidden max-h-60 overflow-y-auto divide-y divide-line animate-in fade-in duration-100"
         >
           {filteredOptions.length === 0 ? (
-            <div className="px-3.5 py-4 text-caption text-gray-500 text-center">
+            <div className="px-3.5 py-4 text-caption text-muted text-center">
               No matching options found
             </div>
           ) : (
@@ -237,10 +237,10 @@ export default function ComboBox({
                   onMouseEnter={() => setHighlightedIndex(idx)}
                   className={`px-3.5 py-2.5 cursor-pointer text-body-value transition-colors flex items-center justify-between ${
                     isHighlighted
-                      ? 'bg-red-50 text-[#E00000]'
+                      ? 'bg-danger-bg text-brand-600'
                       : isSelected
-                      ? 'bg-gray-50 font-semibold text-gray-900'
-                      : 'hover:bg-gray-50 text-gray-700'
+                      ? 'bg-chip font-semibold text-ink'
+                      : 'hover:bg-chip text-ink'
                   }`}
                 >
                   <div className="flex-1 min-w-0 pr-2">
@@ -253,7 +253,7 @@ export default function ComboBox({
                   {isSelected && (
                     <Check
                       size={14}
-                      className="text-[#E00000] shrink-0 ml-1.5"
+                      className="text-brand-600 shrink-0 ml-1.5"
                     />
                   )}
                 </div>

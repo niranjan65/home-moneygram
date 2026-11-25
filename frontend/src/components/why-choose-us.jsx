@@ -22,7 +22,7 @@ export default function WhyChooseUs() {
   ];
 
   return (
-    <div className="bg-white/80 dark:bg-gray-950 font-sans px-6 md:px-16 py-20 border-t border-gray-100 dark:border-gray-800">
+    <div className="bg-white/80 dark:bg-[#0F1117] font-sans px-6 md:px-16 py-20 border-t border-gray-100 dark:border-line">
       <div className="max-w-[80%] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
         
         {/* Left Column: Value Proposition & Feature List */}
@@ -43,19 +43,19 @@ export default function WhyChooseUs() {
             For Remitters &amp; Travelers
           </h2>
 
-          <p className="text-body font-normal text-gray-600 dark:text-gray-400 leading-relaxed">
+          <p className="text-body font-normal text-gray-600 dark:text-[#D1D5DB] leading-relaxed">
             MH Money Express provides end-to-end transparency for retail currency exchange and MoneyGram remittances with official ERPNext integration and verified accounting records.
           </p>
 
           <div className="flex flex-col gap-4 mt-2">
             {items.map((item, idx) => (
-              <div key={idx} className="flex items-start gap-4 p-4 rounded-2xl bg-gray-50 dark:bg-gray-900/60 border border-gray-100 dark:border-gray-800/80">
+              <div key={idx} className="flex items-start gap-4 p-4 rounded-2xl bg-gray-50 dark:bg-[#181B24] border border-gray-100 dark:border-line">
                 <div className="h-12 w-12 bg-red-100 dark:bg-red-950/80 rounded-2xl flex items-center justify-center shrink-0 shadow-xs">
                   {item.icon}
                 </div>
                 <div>
                   <h3 className="font-bold text-h3 text-gray-900 dark:text-white">{item.label}</h3>
-                  <p className="text-gray-600 dark:text-gray-400 text-caption mt-1 leading-relaxed">{item.context}</p>
+                  <p className="text-gray-600 dark:text-[#D1D5DB] text-caption mt-1 leading-relaxed">{item.context}</p>
                 </div>
               </div>
             ))}
@@ -70,7 +70,7 @@ export default function WhyChooseUs() {
               <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
             </Link>
 
-            <div className="flex items-center gap-2.5 text-gray-700 dark:text-gray-300 text-caption font-semibold bg-gray-100 dark:bg-gray-800 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-2.5 text-gray-700 dark:text-[#F3F4F6] text-caption font-semibold bg-gray-100 dark:bg-[#181B24] px-4 py-3 rounded-xl border border-gray-200 dark:border-line">
               <Headphones size={16} className="text-[#E00000]" />
               <span>Customer Helpdesk Available</span>
             </div>
@@ -83,7 +83,7 @@ export default function WhyChooseUs() {
             <div className="absolute -inset-2 bg-gradient-to-r from-red-600 to-amber-500 rounded-3xl blur-xl opacity-20 group-hover:opacity-30 transition duration-500" />
             <img 
               src={whychooseus} 
-              className="relative w-full max-w-lg rounded-3xl shadow-2xl object-cover border-4 border-white dark:border-gray-800" 
+              className="relative w-full max-w-lg rounded-3xl shadow-2xl object-cover border-4 border-white dark:border-line" 
               alt="Why Choose MH Money Express" 
             />
           </div>

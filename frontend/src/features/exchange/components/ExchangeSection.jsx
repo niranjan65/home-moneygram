@@ -1,6 +1,7 @@
 import React from "react";
 import { useFormContext } from "react-hook-form";
 import { useExchangeCalculator } from "../../../hooks/useExchangeCalculator";
+import { CurrencyInput } from "../../../components/common/CurrencyInput";
 
 
 export const ExchangeSection = ({
@@ -46,11 +47,10 @@ export const ExchangeSection = ({
         <label className="text-xs text-gray-500">
           Amount
         </label>
-        <input
-          type="number"
+        <CurrencyInput
           value={sendAmount || ""}
           onChange={(e) =>
-            setValue("sendAmount", Number(e.target.value))
+            setValue("sendAmount", e.target.value)
           }
           className="input mt-1"
         />
@@ -61,11 +61,10 @@ export const ExchangeSection = ({
         <label className="text-xs text-gray-500">
           Rate
         </label>
-        <input
-          type="number"
+        <CurrencyInput
           value={rate || ""}
           onChange={(e) =>
-            setValue("rate", Number(e.target.value))
+            setValue("rate", e.target.value)
           }
           className="input mt-1"
         />

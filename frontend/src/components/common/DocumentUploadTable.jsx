@@ -69,7 +69,7 @@ export const DOCUMENT_CATEGORIES = [
 const PILL_OPTIONS = [
   { label: 'Passport', value: 'Passport', category: 'Proof of Identity', requiresDocNum: true, requiresExpiry: true },
   { label: 'Driver’s licence', value: "Driver's Licence", category: 'Proof of Identity', requiresDocNum: true, requiresExpiry: true },
-  { label: 'National ID', value: 'National ID Card', category: 'Proof of Identity', requiresDocNum: true, requiresExpiry: true },
+  { label: 'Voter ID', value: 'Voter ID Card', category: 'Proof of Identity', requiresDocNum: true, requiresExpiry: true },
   { label: 'Proof of address', value: 'Proof of Address', category: 'Proof of Address', requiresDocNum: false, requiresExpiry: false },
   { label: 'Other', value: 'Other', category: 'Travel & Supporting', requiresDocNum: false, requiresExpiry: false },
 ];
@@ -204,6 +204,20 @@ export default function DocumentUploadTable({
 
   // Open modal to edit existing document
   const handleOpenEditModal = (row, index) => {
+    // Disallow editing of auto-filled documents
+    const isAutoFilledDoc = Boolean(
+      row?.isAutoFilled === true ||
+      row?.is_autofilled === true ||
+      row?.isAutofilled === true ||
+      row?.autofilled === true ||
+      (row?.isAutoFilled !== false &&
+        typeof row?.attachment === 'string' &&
+        row?.attachment.trim() &&
+        !row?.attachment.startsWith('blob:') &&
+        !row?.isNewUpload)
+    );
+    if (isAutoFilledDoc) return;
+
     setEditingIndex(index);
     // Find matching pill or fallback
     const pill = PILL_OPTIONS.find((p) => p.value === row.document_type || p.label === row.document_type);
@@ -257,14 +271,14 @@ export default function DocumentUploadTable({
           const uploadedUrl = await erpUploadFile(file, { isPrivate: 1 });
           const updated = rows.map((r, i) =>
             i === activeCameraIndex
-              ? { ...r, attachment: uploadedUrl || file, file_name: file.name }
+              ? { ...r, attachment: uploadedUrl || file, file_name: file.name, isAutoFilled: false, isNewUpload: true }
               : r
           );
           onChange(updated);
         } catch (_) {
           const updated = rows.map((r, i) =>
             i === activeCameraIndex
-              ? { ...r, attachment: file, file_name: file.name }
+              ? { ...r, attachment: file, file_name: file.name, isAutoFilled: false, isNewUpload: true }
               : r
           );
           onChange(updated);
@@ -275,6 +289,20 @@ export default function DocumentUploadTable({
   };
 
   const handleRemoveRow = (index) => {
+    const targetRow = (rows || [])[index];
+    const isAutoFilled = Boolean(
+      targetRow?.isAutoFilled === true ||
+      targetRow?.is_autofilled === true ||
+      targetRow?.isAutofilled === true ||
+      targetRow?.autofilled === true ||
+      (targetRow?.isAutoFilled !== false &&
+        typeof targetRow?.attachment === 'string' &&
+        targetRow?.attachment.trim() &&
+        !targetRow?.attachment.startsWith('blob:') &&
+        !targetRow?.isNewUpload)
+    );
+    if (isAutoFilled) return;
+
     if (typeof onChange === 'function') {
       const nextRows = (rows || []).filter((_, i) => i !== index);
       onChange(nextRows);
@@ -335,6 +363,8 @@ export default function DocumentUploadTable({
         attachment: attachmentUrl,
         file_name: finalFileName,
         notes: notes.trim(),
+        isAutoFilled: false,
+        isNewUpload: true,
       };
 
       if (editingIndex !== null && editingIndex >= 0) {
@@ -387,29 +417,29 @@ export default function DocumentUploadTable({
 
   return (
     <div id="exchange-documents" className="w-full min-w-0">
-      {/* Scoped CSS Styles to guarantee 100% fidelity to new-document-layout.html */}
+      {/* Scoped CSS Styles to guarantee 100% fidelity with theme-aware custom variables */}
       <style>{`
-        .doc-card { background: #fff; border: 1px solid #E3E6EB; border-radius: 16px; }
-        .doc-l { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; color: #14171F; font-family: Inter, system-ui, sans-serif; }
-        .doc-l i { font-style: normal; font-weight: 400; color: #5B6270; }
-        .doc-l b { color: #C8102E; }
-        .doc-inp { width: 100%; height: 48px; border: 1px solid #BFC5CE; border-radius: 10px; padding: 0 14px; font: 500 15px Inter, system-ui, sans-serif; color: #14171F; background: #fff; outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
-        .doc-inp:focus { border-color: #C8102E; box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.1); }
-        .doc-help { font-size: 13px; color: #5B6270; margin-top: 6px; font-family: Inter, system-ui, sans-serif; }
-        .doc-chip { display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 600; background: #EEF0F3; color: #2C323D; font-family: Inter, system-ui, sans-serif; }
-        .doc-chip.ok { background: #E3F3EA; color: #0B5A33; }
-        .doc-chip.warn { background: #FFF3D6; color: #7A4B00; }
-        .doc-chip.err { background: #FDE8E8; color: #9B1C1C; }
-        .doc-pill { height: 40px; padding: 0 16px; border: 1.5px solid #CDD2DA; border-radius: 999px; background: #fff; font: 600 14px Inter, system-ui, sans-serif; color: #2C323D; cursor: pointer; transition: all 0.15s; }
-        .doc-pill:hover { border-color: #9499A3; background: #F8F9FA; }
-        .doc-pill.sel { border-color: #C8102E; background: #FDF1F3; color: #9E0C24; }
-        .doc-btn { height: 48px; padding: 0 24px; border-radius: 12px; border: 0; background: #C8102E; color: #fff; font: 600 15px Inter, system-ui, sans-serif; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.15s; }
-        .doc-btn:hover:not(:disabled) { background: #9E0C24; }
-        .doc-btn.ghost { background: #fff; color: #14171F; border: 1px solid #BFC5CE; }
-        .doc-btn.ghost:hover:not(:disabled) { background: #F4F5F7; border-color: #9499A3; }
-        .doc-btn.off { background: #E3E6EB; color: #4A5160; cursor: not-allowed; }
-        .doc-lnk { border: 0; background: none; font: 600 14px Inter, system-ui, sans-serif; color: #C8102E; padding: 8px; cursor: pointer; border-radius: 6px; }
-        .doc-lnk:hover { background: #FDF1F3; }
+        .doc-card { background: var(--color-surface); border: 1px solid var(--color-line); border-radius: 16px; }
+        .doc-l { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; color: var(--color-ink); font-family: Inter, system-ui, sans-serif; }
+        .doc-l i { font-style: normal; font-weight: 400; color: var(--color-muted); }
+        .doc-l b { color: var(--color-brand-600); }
+        .doc-inp { width: 100%; height: 48px; border: 1px solid var(--color-line-strong); border-radius: 10px; padding: 0 14px; font: 500 15px Inter, system-ui, sans-serif; color: var(--color-ink); background: var(--color-surface); outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
+        .doc-inp:focus { border-color: var(--color-brand-600); box-shadow: 0 0 0 3px rgba(224, 0, 0, 0.15); }
+        .doc-help { font-size: 13px; color: var(--color-muted); margin-top: 6px; font-family: Inter, system-ui, sans-serif; }
+        .doc-chip { display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 600; background: var(--color-chip); color: var(--color-ink-soft); font-family: Inter, system-ui, sans-serif; }
+        .doc-chip.ok { background: var(--color-success-bg); color: var(--color-success-fg); }
+        .doc-chip.warn { background: var(--color-warning-bg); color: var(--color-warning-fg); }
+        .doc-chip.err { background: var(--color-danger-bg); color: var(--color-danger-fg); }
+        .doc-pill { height: 40px; padding: 0 16px; border: 1.5px solid var(--color-line); border-radius: 999px; background: var(--color-surface); font: 600 14px Inter, system-ui, sans-serif; color: var(--color-ink-soft); cursor: pointer; transition: all 0.15s; }
+        .doc-pill:hover { border-color: var(--color-muted); background: var(--color-surface-alt); }
+        .doc-pill.sel { border-color: var(--color-brand-600); background: var(--color-brand-50); color: var(--color-brand-700); }
+        .doc-btn { height: 48px; padding: 0 24px; border-radius: 12px; border: 0; background: var(--color-brand-600); color: #fff; font: 600 15px Inter, system-ui, sans-serif; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.15s; }
+        .doc-btn:hover:not(:disabled) { background: var(--color-brand-700); }
+        .doc-btn.ghost { background: var(--color-surface); color: var(--color-ink); border: 1px solid var(--color-line-strong); }
+        .doc-btn.ghost:hover:not(:disabled) { background: var(--color-surface-alt); border-color: var(--color-muted); }
+        .doc-btn.off { background: var(--color-chip); color: var(--color-muted); cursor: not-allowed; }
+        .doc-lnk { border: 0; background: none; font: 600 14px Inter, system-ui, sans-serif; color: var(--color-brand-600); padding: 8px; cursor: pointer; border-radius: 6px; }
+        .doc-lnk:hover { background: var(--color-brand-50); }
       `}</style>
 
       {/* Main Section Header Controls */}
@@ -425,7 +455,7 @@ export default function DocumentUploadTable({
             type="button"
             disabled={disabled}
             onClick={handleOpenAddModal}
-            className="doc-btn !h-10 !px-4 !text-label !rounded-xl !bg-[#C8102E] hover:!bg-[#9E0C24] text-white font-semibold transition-all shadow-xs cursor-pointer disabled:opacity-50"
+            className="doc-btn !h-10 !px-4 !text-label !rounded-xl !bg-brand-600 hover:!bg-brand-700 text-white font-semibold transition-all shadow-xs cursor-pointer disabled:opacity-50"
           >
             <Plus size={15} />
             <span>Add Document</span>
@@ -435,8 +465,8 @@ export default function DocumentUploadTable({
 
       {/* ATTACHED DOCUMENTS LIST ON PAGE */}
       {!rows.length ? (
-        <div className="doc-card border-2 border-dashed !border-[#CDD2DA] bg-[#FAFAFB] p-8 text-center rounded-2xl">
-          <div className="w-12 h-12 rounded-2xl bg-[#EEF0F3] flex items-center justify-center text-gray-500 mx-auto mb-3">
+        <div className="doc-card border-2 border-dashed border-line bg-surface-alt p-8 text-center rounded-2xl">
+          <div className="w-12 h-12 rounded-2xl bg-chip flex items-center justify-center text-muted mx-auto mb-3">
             <Shield size={22} />
           </div>
           <h4 className="text-h3 font-bold text-ink mb-1 font-sans">
@@ -449,7 +479,7 @@ export default function DocumentUploadTable({
             type="button"
             disabled={disabled}
             onClick={handleOpenAddModal}
-            className="doc-btn !h-11 !px-5 !text-label !rounded-xl !bg-[#C8102E] hover:!bg-[#9E0C24] text-white font-semibold transition-all shadow-xs cursor-pointer inline-flex items-center gap-2"
+            className="doc-btn !h-11 !px-5 !text-label !rounded-xl !bg-brand-600 hover:!bg-brand-700 text-white font-semibold transition-all shadow-xs cursor-pointer inline-flex items-center gap-2"
           >
             <Plus size={16} />
             <span>Add Identification Document</span>
@@ -473,6 +503,18 @@ export default function DocumentUploadTable({
                   ? row.attachment.split('/').pop()
                   : row.attachment?.name || '');
 
+              const isAutoFilledDoc = Boolean(
+                row.isAutoFilled === true ||
+                row.is_autofilled === true ||
+                row.isAutofilled === true ||
+                row.autofilled === true ||
+                (row.isAutoFilled !== false &&
+                  typeof row.attachment === 'string' &&
+                  row.attachment.trim() &&
+                  !row.attachment.startsWith('blob:') &&
+                  !row.isNewUpload)
+              );
+
               return (
                 <div
                   key={index}
@@ -482,8 +524,8 @@ export default function DocumentUploadTable({
                   <div className="flex items-start gap-3.5 min-w-0">
                     <div
                       className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${rowExpiry.isExpired
-                        ? 'bg-red-50 text-red-700 border-red-200'
-                        : 'bg-[#EEF0F3] text-gray-700 border-[#CDD2DA]'
+                        ? 'bg-danger-bg text-danger-fg border-danger-border'
+                        : 'bg-chip text-ink-soft border-line'
                         }`}
                     >
                       <FileText size={18} strokeWidth={2} />
@@ -496,15 +538,21 @@ export default function DocumentUploadTable({
                         </h4>
 
                         {row.document_category && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-caption font-semibold bg-[#EEF0F3] text-[#2C323D]">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-caption font-semibold bg-chip text-ink-soft">
                             {row.document_category}
                           </span>
                         )}
 
                         {row.document_number && (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-caption font-mono font-semibold bg-[#E3F3EA] text-[#0B5A33]">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-caption font-mono font-semibold bg-success-bg text-success-fg">
                             <Hash size={11} />
                             {row.document_number}
+                          </span>
+                        )}
+
+                        {isAutoFilledDoc && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-caption font-semibold bg-info-bg text-info-fg border border-info-border">
+                            ID on Record
                           </span>
                         )}
 
@@ -529,7 +577,7 @@ export default function DocumentUploadTable({
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-caption text-muted">
                         {row.issue_date && (
                           <span className="inline-flex items-center gap-1 text-caption">
-                            <Calendar size={12} className="text-gray-400" />
+                            <Calendar size={12} className="text-muted" />
                             Issued: <strong className="text-ink">{row.issue_date}</strong>
                           </span>
                         )}
@@ -566,50 +614,56 @@ export default function DocumentUploadTable({
                       </button>
                     )}
 
-                    {/* Edit button */}
-                    <button
-                      type="button"
-                      disabled={disabled}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleOpenEditModal(row, index);
-                      }}
-                      className="p-2 rounded-lg border border-[#CDD2DA] text-gray-600 hover:text-[#C8102E] hover:border-red-300 bg-white hover:bg-red-50/20 transition-colors cursor-pointer shadow-2xs"
-                      title="Edit Document Details"
-                    >
-                      <Edit2 size={14} />
-                    </button>
+                    {/* Edit button - only available for newly uploaded documents (not autofilled) */}
+                    {!isAutoFilledDoc && (
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleOpenEditModal(row, index);
+                        }}
+                        className="p-2 rounded-lg border border-line text-ink hover:text-brand-600 hover:border-brand-600/30 bg-surface hover:bg-brand-50 transition-colors cursor-pointer shadow-2xs"
+                        title="Edit Document Details"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+                    )}
 
-                    {/* Camera capture / replace button */}
-                    <button
-                      type="button"
-                      disabled={disabled}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setActiveCameraIndex(index);
-                      }}
-                      className="p-2 rounded-lg border border-[#CDD2DA] text-gray-600 hover:text-[#C8102E] hover:border-red-300 bg-white hover:bg-red-50/20 transition-colors cursor-pointer shadow-2xs"
-                      title="Replace file using live camera"
-                    >
-                      <Camera size={14} />
-                    </button>
+                    {/* Camera capture / replace button - only available for newly uploaded documents (not autofilled) */}
+                    {!isAutoFilledDoc && (
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setActiveCameraIndex(index);
+                        }}
+                        className="p-2 rounded-lg border border-line text-ink hover:text-brand-600 hover:border-brand-600/30 bg-surface hover:bg-brand-50 transition-colors cursor-pointer shadow-2xs"
+                        title="Replace file using live camera"
+                      >
+                        <Camera size={14} />
+                      </button>
+                    )}
 
-                    {/* Delete button */}
-                    <button
-                      type="button"
-                      disabled={disabled}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleRemoveRow(index);
-                      }}
-                      className="p-2 rounded-lg border border-[#CDD2DA] text-gray-400 hover:text-red-600 hover:border-red-200 hover:bg-red-50 transition-colors cursor-pointer shadow-2xs"
-                      title="Remove Document"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    {/* Delete button - only available for newly added documents, not saved documents from backend */}
+                    {!isAutoFilledDoc && (
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleRemoveRow(index);
+                        }}
+                        className="p-2 rounded-lg border border-line text-muted hover:text-danger-fg hover:border-danger-border hover:bg-danger-bg transition-colors cursor-pointer shadow-2xs"
+                        title="Remove Document"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -646,11 +700,11 @@ export default function DocumentUploadTable({
                 justifyContent: 'space-between',
                 alignItems: 'flex-start',
                 padding: '24px 28px',
-                borderBottom: '1px solid #E3E6EB',
+                borderBottom: '1px solid var(--color-line)',
               }}
             >
               <div>
-                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#14171F' }}>
+                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: 'var(--color-ink)' }}>
                   {editingIndex !== null ? 'Edit identification document' : 'Add identification document'}
                 </h2>
                 <div className="doc-help" style={{ marginTop: '4px' }}>
@@ -665,13 +719,13 @@ export default function DocumentUploadTable({
                 style={{
                   width: '40px',
                   height: '40px',
-                  border: '1px solid #BFC5CE',
+                  border: '1px solid var(--color-line)',
                   borderRadius: '10px',
-                  background: '#fff',
+                  background: 'var(--color-surface)',
                   display: 'grid',
                   placeItems: 'center',
                   cursor: 'pointer',
-                  color: '#14171F',
+                  color: 'var(--color-ink)',
                 }}
               >
                 <svg
@@ -679,7 +733,7 @@ export default function DocumentUploadTable({
                   height="18"
                   viewBox="0 0 24 24"
                   fill="none"
-                  stroke="#14171F"
+                  stroke="currentColor"
                   strokeWidth="2"
                   strokeLinecap="round"
                   aria-hidden="true"
@@ -720,12 +774,12 @@ export default function DocumentUploadTable({
 
               {/* Sub-type selection if Proof of address or Other is selected */}
               {selectedPill === 'Proof of address' && (
-                <div className="mb-5 flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 border border-gray-200 text-xs">
-                  <span className="font-semibold text-gray-600 shrink-0">Address Proof:</span>
+                <div className="mb-5 flex items-center gap-2 p-2.5 rounded-xl bg-surface-alt border border-line text-xs">
+                  <span className="font-semibold text-muted shrink-0">Address Proof:</span>
                   <select
                     value={subDocType || 'Utility Bill'}
                     onChange={(e) => setSubDocType(e.target.value)}
-                    className="bg-white border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs font-medium text-gray-800 outline-none focus:ring-1 focus:ring-[#C8102E] flex-1 cursor-pointer"
+                    className="bg-surface border border-line rounded-lg px-2.5 py-1.5 text-xs font-medium text-ink outline-none focus:ring-1 focus:ring-brand-600 flex-1 cursor-pointer"
                   >
                     <option value="Utility Bill">Utility Bill (Electricity / Water)</option>
                     <option value="Bank Statement">Bank Statement</option>
@@ -737,12 +791,12 @@ export default function DocumentUploadTable({
               )}
 
               {selectedPill === 'Other' && (
-                <div className="mb-5 flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 border border-gray-200 text-xs">
-                  <span className="font-semibold text-gray-600 shrink-0">Specific Type:</span>
+                <div className="mb-5 flex items-center gap-2 p-2.5 rounded-xl bg-surface-alt border border-line text-xs">
+                  <span className="font-semibold text-muted shrink-0">Specific Type:</span>
                   <select
                     value={subDocType || 'Ticket'}
                     onChange={(e) => setSubDocType(e.target.value)}
-                    className="bg-white border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs font-medium text-gray-800 outline-none focus:ring-1 focus:ring-[#C8102E] flex-1 cursor-pointer"
+                    className="bg-surface border border-line rounded-lg px-2.5 py-1.5 text-xs font-medium text-ink outline-none focus:ring-1 focus:ring-brand-600 flex-1 cursor-pointer"
                   >
                     <option value="Ticket">Travel / Flight Ticket</option>
                     <option value="Source of Funds Declaration">Source of Funds Evidence</option>
@@ -807,7 +861,7 @@ export default function DocumentUploadTable({
                   {/* Expiry Date */}
                   <label style={{ display: 'block' }}>
                     <span className="doc-l">
-                      Expiry date {activePill.requiresExpiry ? <b>*</b> : <i>(optional)</i>}
+                      Expiry date <i>(optional)</i>
                     </span>
                     <input
                       type="date"
@@ -874,7 +928,7 @@ export default function DocumentUploadTable({
                       }}
                       style={{
                         height: '292px',
-                        border: isDragging ? '2px dashed #C8102E' : '1.5px dashed #BFC5CE',
+                        border: isDragging ? '2px dashed var(--color-brand-600)' : '1.5px dashed var(--color-line-strong)',
                         borderRadius: '12px',
                         display: 'flex',
                         flexDirection: 'column',
@@ -883,7 +937,7 @@ export default function DocumentUploadTable({
                         gap: '12px',
                         textAlign: 'center',
                         padding: '16px',
-                        background: isDragging ? '#FDF1F3' : '#FAFAFB',
+                        background: isDragging ? 'var(--color-brand-50)' : 'var(--color-surface-alt)',
                         transition: 'all 0.15s ease',
                         width: '100%',
                         minWidth: 0,
@@ -894,7 +948,7 @@ export default function DocumentUploadTable({
                         height="40"
                         viewBox="0 0 24 24"
                         fill="none"
-                        stroke="#5B6270"
+                        stroke="var(--color-muted)"
                         strokeWidth="1.6"
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -902,7 +956,7 @@ export default function DocumentUploadTable({
                       >
                         <path d="M12 16V5M7 10l5-5 5 5M5 19h14"></path>
                       </svg>
-                      <strong style={{ fontSize: '15px', color: '#14171F' }}>
+                      <strong style={{ fontSize: '15px', color: 'var(--color-ink)' }}>
                         {isDragging ? 'Drop file to upload' : 'Drop a file here'}
                       </strong>
                       <div style={{ display: 'flex', gap: '8px' }}>
@@ -943,10 +997,10 @@ export default function DocumentUploadTable({
                     /* FILLED STATE: File preview card with tools */
                     <div
                       style={{
-                        border: '1px solid #CDD2DA',
+                        border: '1px solid var(--color-line)',
                         borderRadius: '12px',
                         overflow: 'hidden',
-                        background: '#fff',
+                        background: 'var(--color-surface)',
                         width: '100%',
                         minWidth: 0,
                       }}
@@ -959,7 +1013,7 @@ export default function DocumentUploadTable({
                           justifyContent: 'space-between',
                           gap: '8px',
                           padding: '10px 12px',
-                          borderBottom: '1px solid #E3E6EB',
+                          borderBottom: '1px solid var(--color-line)',
                           width: '100%',
                           minWidth: 0,
                           boxSizing: 'border-box',
@@ -974,7 +1028,7 @@ export default function DocumentUploadTable({
                               whiteSpace: 'nowrap',
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
-                              color: '#14171F',
+                              color: 'var(--color-ink)',
                             }}
                           >
                             {fileMeta.name}
@@ -1030,7 +1084,7 @@ export default function DocumentUploadTable({
                       <div
                         style={{
                           height: '210px',
-                          background: '#EEF0F3',
+                          background: 'var(--color-chip)',
                           display: 'grid',
                           placeItems: 'center',
                           overflow: 'hidden',
@@ -1043,7 +1097,7 @@ export default function DocumentUploadTable({
                             style={{
                               width: '140px',
                               height: '175px',
-                              background: '#fff',
+                              background: 'var(--color-surface)',
                               boxShadow: '0 2px 8px rgba(20,23,31,.18)',
                               padding: '14px',
                               borderRadius: '4px',
@@ -1055,7 +1109,7 @@ export default function DocumentUploadTable({
                               style={{
                                 width: '44px',
                                 height: '54px',
-                                background: '#D5D9E0',
+                                background: 'var(--color-line-strong)',
                                 marginBottom: '10px',
                                 borderRadius: '2px',
                               }}
@@ -1063,7 +1117,7 @@ export default function DocumentUploadTable({
                             <div
                               style={{
                                 height: '6px',
-                                background: '#D5D9E0',
+                                background: 'var(--color-line-strong)',
                                 marginBottom: '8px',
                                 borderRadius: '1px',
                               }}
@@ -1072,7 +1126,7 @@ export default function DocumentUploadTable({
                               style={{
                                 height: '6px',
                                 width: '70%',
-                                background: '#D5D9E0',
+                                background: 'var(--color-line-strong)',
                                 marginBottom: '8px',
                                 borderRadius: '1px',
                               }}
@@ -1081,7 +1135,7 @@ export default function DocumentUploadTable({
                               style={{
                                 height: '6px',
                                 width: '85%',
-                                background: '#D5D9E0',
+                                background: 'var(--color-line-strong)',
                                 marginBottom: '8px',
                                 borderRadius: '1px',
                               }}
@@ -1090,7 +1144,7 @@ export default function DocumentUploadTable({
                               style={{
                                 height: '6px',
                                 width: '55%',
-                                background: '#D5D9E0',
+                                background: 'var(--color-line-strong)',
                                 borderRadius: '1px',
                               }}
                             />
@@ -1106,14 +1160,14 @@ export default function DocumentUploadTable({
                               objectFit: 'contain',
                               boxShadow: '0 2px 8px rgba(20,23,31,.18)',
                               borderRadius: '4px',
-                              background: '#fff',
+                              background: 'var(--color-surface)',
                             }}
                           />
                         )}
                       </div>
 
                       {/* Tool Button: Preview */}
-                      <div style={{ display: 'flex', gap: '8px', padding: '10px 12px', borderTop: '1px solid #E3E6EB' }}>
+                      <div style={{ display: 'flex', gap: '8px', padding: '10px 12px', borderTop: '1px solid var(--color-line)' }}>
                         <button
                           type="button"
                           onClick={() => {
@@ -1138,8 +1192,8 @@ export default function DocumentUploadTable({
               </div>
 
               {warning && (
-                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl text-label font-normal text-danger flex items-center gap-2">
-                  <AlertTriangle size={15} className="shrink-0 text-danger" />
+                <div className="mt-4 p-3 bg-danger-bg border border-danger-border rounded-xl text-label font-normal text-danger-fg flex items-center gap-2">
+                  <AlertTriangle size={15} className="shrink-0 text-danger-fg" />
                   <span>{warning}</span>
                 </div>
               )}
@@ -1152,17 +1206,17 @@ export default function DocumentUploadTable({
                 alignItems: 'center',
                 gap: '12px',
                 padding: '20px 28px',
-                borderTop: '1px solid #E3E6EB',
-                background: '#FAFAFB',
+                borderTop: '1px solid var(--color-line)',
+                background: 'var(--color-surface-alt)',
               }}
             >
               <span className="doc-help" style={{ margin: 0, flex: 1 }}>
                 {uploadExpiryStatus.isExpired ? (
-                  <span style={{ color: '#C8102E', fontWeight: 600 }}>
+                  <span style={{ color: 'var(--color-danger-fg)', fontWeight: 600 }}>
                     ⚠️ Expired documents cannot be added
                   </span>
                 ) : isFormValid ? (
-                  <span style={{ color: '#0B5A33', fontWeight: 600 }}>
+                  <span style={{ color: 'var(--color-success-fg)', fontWeight: 600 }}>
                     Ready to add
                   </span>
                 ) : !uploadFile ? (

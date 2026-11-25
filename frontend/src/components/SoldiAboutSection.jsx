@@ -36,7 +36,7 @@ export default function SoldiAboutSection() {
   const [activeItem, setActiveItem] = useState(0);
 
   return (
-    <div className="bg-white dark:bg-gray-950 font-sans px-6 md:px-16 py-20 border-t border-b border-gray-100 dark:border-gray-800">
+    <div className="bg-white dark:bg-[#0F1117] font-sans px-6 md:px-16 py-20 border-t border-b border-gray-100 dark:border-line">
       {/* Header Row */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-14">
         <div>
@@ -78,7 +78,7 @@ export default function SoldiAboutSection() {
         
         {/* Left: Photo & Trust Highlights Card */}
         <div className="lg:col-span-5 relative">
-          <div className="rounded-3xl overflow-hidden shadow-2xl border-4 border-white dark:border-gray-800 relative group">
+          <div className="rounded-3xl overflow-hidden shadow-2xl border-4 border-white dark:border-line relative group">
             <img 
               src={about} 
               alt="MH Money Express Point of Sale" 
@@ -87,14 +87,14 @@ export default function SoldiAboutSection() {
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
             
             {/* Floating Trust Banner */}
-            <div className="absolute bottom-6 left-6 right-6 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md rounded-2xl p-4 shadow-xl border border-red-100 dark:border-gray-700">
+            <div className="absolute bottom-6 left-6 right-6 bg-white/95 dark:bg-[#181B24]/95 backdrop-blur-md rounded-2xl p-4 shadow-xl border border-red-100 dark:border-line">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-950 flex items-center justify-center text-[#E00000] font-bold text-caption shrink-0">
                   25+
                 </div>
                 <div>
                   <h4 className="text-label font-bold text-gray-900 dark:text-white">Years of Financial Trust</h4>
-                  <p className="text-caption text-gray-500 dark:text-gray-400">Serving thousands of Fijian families &amp; travelers</p>
+                  <p className="text-caption text-gray-500 dark:text-[#9CA3AF]">Serving thousands of Fijian families &amp; travelers</p>
                 </div>
               </div>
             </div>
@@ -112,7 +112,7 @@ export default function SoldiAboutSection() {
                 className={`p-4 rounded-2xl font-semibold text-left transition-all duration-200 border flex flex-col justify-between gap-2 ${
                   activeItem === i
                     ? "bg-[#E00000] text-white border-[#E00000] shadow-lg shadow-red-500/20"
-                    : "bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-800 hover:border-red-300 dark:hover:border-red-900 hover:bg-red-50/50"
+                    : "bg-gray-50 dark:bg-[#181B24] text-gray-800 dark:text-[#E2E8F0] border-gray-200 dark:border-line hover:border-red-300 dark:hover:border-red-900 hover:bg-red-50/50 dark:hover:bg-[#202430]"
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -127,11 +127,11 @@ export default function SoldiAboutSection() {
           </div>
 
           {/* Active Detail Showcase Card */}
-          <div className="bg-gradient-to-br from-red-50/70 via-white to-red-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-red-950/20 rounded-3xl p-7 border border-red-100 dark:border-gray-800 shadow-md">
+          <div className="bg-gradient-to-br from-red-50/70 via-white to-red-50/30 dark:from-[#181B24] dark:via-[#181B24] dark:to-red-950/20 rounded-3xl p-7 border border-red-100 dark:border-line shadow-md">
             <h3 className="text-h2 font-bold text-gray-900 dark:text-white mb-2">
               {menuItems[activeItem].label}
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 text-body font-normal leading-relaxed mb-6">
+            <p className="text-gray-600 dark:text-[#D1D5DB] text-body font-normal leading-relaxed mb-6">
               {menuItems[activeItem].desc}
             </p>
 
@@ -139,12 +139,12 @@ export default function SoldiAboutSection() {
               {features.map((feat, i) => (
                 <div
                   key={i}
-                  className="flex items-center gap-3 bg-white dark:bg-gray-800/80 rounded-xl px-4 py-2.5 shadow-xs border border-gray-100 dark:border-gray-700/60"
+                  className="flex items-center gap-3 bg-white dark:bg-[#202430] rounded-xl px-4 py-2.5 shadow-xs border border-gray-100 dark:border-line"
                 >
                   <div className="w-5 h-5 rounded-full bg-[#E00000] flex items-center justify-center shrink-0">
                     <Check size={12} className="text-white" strokeWidth={3} />
                   </div>
-                  <span className="text-caption font-semibold text-gray-800 dark:text-gray-200">{feat}</span>
+                  <span className="text-caption font-semibold text-gray-800 dark:text-[#F3F4F6]">{feat}</span>
                 </div>
               ))}
             </div>

@@ -42,6 +42,42 @@ The application serves as the primary Point of Sale (POS), Forex Dealing, and Re
      - These DocTypes store fields such as the customer's current address, immediate contact numbers, travel itinerary / ticket details, purpose of transaction (POT), source of funds, and receiver details.
    - **Audit & Historical Integrity:** This separation ensures that past transaction records preserve the exact address and contact details as they existed at the time of the transaction, while master compliance credentials (TIN, Risk Level, IDs) stay updated on the central `Customer` master record.
 
+6. **User Switching, Form Resetting & Amount Section Preservation:**
+   - **Form Reset Exclusively on Selecting an Existing Customer:** When the teller changes a customer by selecting one from the existing customer dropdown list, the form resets its customer-specific fields and cleanly loads that customer's stored details (preventing leftover fields from any previously selected profile).
+   - **No Reset on Manual Typing or Editing:** Typing, editing, or entering a new customer name into the Full Name field does **not** trigger a form reset. Tellers can freely type or edit without wiping entered form fields.
+   - **Amount Section Is Never Cleared:** Changing the customer or selecting an existing customer from the search dropdown **never clears the amount section** (including transaction amount, send amount, manual rate, denomination count, and currency calculation states). Tellers can adjust or pick a customer at any point without losing entered amounts.
+   - **Cursor / Focus Remains In Place:** Changing or selecting a customer never forces the cursor to jump to the amount input field. Focus remains natural and uninterrupted.
+   - **Strict Customer & Transaction Type Matching for Auto-Fill:**
+     - Auto-fill requires that **both the Customer AND the specific transaction/exchange type match**:
+       - **Currency Exchange (`BUY` vs `SELL`):** If a customer has a past record of a `BUY` exchange and is now performing a `SELL` exchange (or vice versa), only customer master details (name, date of birth, photo, phone, TIN, govt ID) coming from the `Customer` DocType will auto-fill. All travel, flight, ticket, and transaction compliance fields stay completely empty.
+       - **Money Transfer (`Send` vs `Receive`):** If a customer has a past `Send` transfer and is now performing a `Receive` transfer (or vice versa), receiver details and remittance compliance fields stay completely empty; only the customer's master profile details are populated.
+     - **Toggling Transaction Types:** Switching between BUY and SELL tabs (or Send and Receive tabs) dynamically re-evaluates the form. If the selected customer has no past history for the newly selected type, the transaction-specific fields remain clean and empty while preserving master customer data and entered amounts.
+
+---
+
+7. **Core Cash Denomination & Settlement Rules (Retail Exchange, Dealer Exchange, Money Transfer):**
+   - **Currency In vs. Currency Out Definitions:**
+     - **Currency In:** Represents physical cash **received by the teller from the customer** into the drawer.
+     - **Currency Out:** Represents physical cash **disbursed by the teller to the customer** from the drawer.
+   - **Currency Flow Across Trade Directions (Retail & Dealer Exchange):**
+     - **BUY Forex (Teller Buys Foreign Currency, Pays FJD):**
+       - **Currency In:** Foreign Currency (e.g., AUD). The target amount is the entered foreign currency value (`sendAmount`). Drawer stock check is bypassed (`enforceStockLimit={false}`) because cash is entering the counter.
+       - **Currency Out:** Local FJD. The target amount is the calculated local payout (`receiverGets`). Till drawer stock is strictly enforced (`enforceStockLimit={true}`) because cash is being disbursed from the counter.
+     - **SELL Forex (Teller Sells Foreign Currency, Collects FJD):**
+       - **Currency In:** Local FJD. The target amount is the calculated local amount (`receiverGets`). Drawer stock check is bypassed (`enforceStockLimit={false}`).
+       - **Currency Out:** Foreign Currency (e.g., AUD). The target amount is the foreign currency value (`sendAmount`). Till drawer stock is strictly enforced (`enforceStockLimit={true}`) to ensure sufficient foreign notes are in stock.
+     - **Dealer Wholesale Exchange (`/dealer-exchange`):** Applies the exact same Currency In / Currency Out mapping and stock limit enforcement rules.
+   - **Stock Availability Checking (`runStockCheck`):**
+     - Validation runs strictly against the currency being **disbursed to the customer (`Currency Out`)**, eliminating false "out of stock" alerts when receiving cash from a customer.
+   - **Money Transfer Settlement (`Send` vs `Receive`):**
+     - **Send Remittance:** Customer pays FJD cash $\implies$ stock limits are not enforced on accepted cash.
+     - **Receive Payout:** Customer receives FJD payout from teller $\implies$ counter drawer stock limits are enforced (`enforceStockLimit={true}`).
+   - **Denomination Panel UI & Layout (`DenominationPanel`):**
+     - **Stacked Sub-label Layout:** 3-column structured grid (`Denomination`, `Count`, `Subtotal`) with enlarged, legible typography (`text-sm font-bold`).
+     - **Live Stock in Drawer ("in till"):** Live stock count for each note and coin denomination is queried directly from the active warehouse.
+     - **`999999+` Quantity Threshold:** If available quantity in the counter exceeds 999,999, it displays **`999999+ in till`**. For quantities $\le 999,999$, the exact formatted count is shown (e.g. `1,250 in till`). Hovering over the badge shows the exact drawer quantity in a tooltip.
+     - **Interactive Controls:** Stepper increment/decrement buttons (`+` / `-`), typed input with numeric bounds (`CurrencyInput`), and a quick `X` row clear button.
+
 ---
 
 ## 1. Landing & Operations Hub (`/` and `/home`)
@@ -132,8 +168,10 @@ The application serves as the primary Point of Sale (POS), Forex Dealing, and Re
       - Master fields like **Risk Level** (`custom_risk_level`) and **TIN Number** (`custom_tin_number`) are updated directly in the master `Customer` DocType.
       - Personal details and transaction-specific data like address, current contact number, and receiver information are stored on the `Money Transfer` DocType record.
     - **Auto-Creation:** If a new name is entered, when the money transfer proceeds, the system creates a new retail customer record in ERPNext with the entered details.
+    - **User Switching & Amount Preservation:** Selecting an existing customer from the dropdown resets customer fields to cleanly populate that customer's profile, while strictly **preserving the amount section** (amount is never cleared). Typing or modifying the customer name does not reset the form.
     - Customer photo capture card (`CustomerPhotoCard`) with webcam snapshot support or image upload.
     - ID Document validation with automatic expiry warning badges (Expired, Expiring Soon, Valid).
+    - **Identification Documents Upload Table (`DocumentUploadTable`):** Supports uploading government identity documents, passports, and proof of address. Auto-filled documents from customer records or previous transactions are marked with an "Autofilled" badge; tellers cannot edit auto-filled documents in place. Only the delete action is available on auto-filled documents so tellers can remove them and upload a fresh document if changes are needed. Newly uploaded documents support full editing.
     - Risk Level categorization (Low, Medium, High).
   - **Remittance Calculation Panel (`TransferAmountSection`):**
     - Send Amount, Payout Amount, Exchange Rate, and MoneyGram fee calculation.
@@ -143,7 +181,8 @@ The application serves as the primary Point of Sale (POS), Forex Dealing, and Re
     - Reserve Bank of Fiji regulatory thresholds, declaration checkboxes, tax clearance / source of wealth document upload table (`DocumentUploadTable`).
   - **Denomination Panel (`DenominationPanel`):**
     - Denomination breakdown for physical cash collected (Send) or physical cash paid out (Receive).
-    - Automatic change and variance calculation to ensure exact physical cash settlement.
+    - Features the Stacked Sub-label layout displaying live till drawer inventory ("in till") with the `999999+` threshold format.
+    - Automatic change, variance calculation, and counter stock enforcement on Receive payouts to ensure exact physical cash settlement.
   - **Split Payout Options:** Allows splitting large payout transactions across cash and bank deposits.
   - **Invoice & Thermal Slip Generator:** Viewable modal and printable receipt (`MoneyTransferInvoiceDocument`).
 - **What It Does:**
@@ -161,7 +200,7 @@ The application serves as the primary Point of Sale (POS), Forex Dealing, and Re
 - **Access:** Protected Route, guarded by `PosRouteGuard`
 - **Relationship to `/money-transfer`:**
   - **Functionally identical to `/money-transfer`:** Executes the same remittance logic, validations, customer search/editing/creation rules (`customer_group != "Dealer"`), master data updates (Risk Level, TIN) on `Customer`, transaction-specific storage on `Money Transfer`, RBF checks, and ERPNext integration.
-  - **Difference:** Features an **updated, modernized UI layout** with the `TransactionTabBar` for instant tab switching across transactions, modernized `TransferAmountSection`, `CurrencyInput`, `DenominationPanel`, and `CustomerPhotoCard`.
+  - **Difference:** Features an **updated, modernized UI layout** with the `TransactionTabBar` for instant tab switching across transactions, the **Top Board Rates Bar (`BoardRatesBar`)** live exchange rate scrolling marquee, modernized `TransferAmountSection`, `CurrencyInput`, `DenominationPanel`, and `CustomerPhotoCard`.
 
 ---
 
@@ -175,11 +214,15 @@ The application serves as the primary Point of Sale (POS), Forex Dealing, and Re
     - **Full Name Input:** Allows typing to search from existing retail customers with `customer_group != "Dealer"`.
     - **Live Editing:** Tellers can update the customer's risk level, TIN, or ID numbers on-the-fly. Changes to risk level and TIN update the master `Customer` DocType, while the current address and travel details are captured on the `Currency Exchange For Customer` DocType.
     - **Auto-Creation:** If a new customer name is entered, when the currency exchange proceeds, the system creates a new Customer record in ERPNext.
+    - **User Switching & Amount Preservation:** Selecting an existing customer from the dropdown resets the customer form fields while **never clearing the amount section** (`sendAmount`, `manualRate`, denomination rows). Editing or typing in the Full Name field does not reset the form.
   - **4-Step Transaction Stepper:**
     - `Step 1: ESTIMATE` — Currency pair selection, Buy/Sell toggle, amount converter, live exchange rate display.
     - `Step 2: DETAILS` — Customer information card (`SenderCard`), receiver details (`ReceiverForm`), ID documentation, airline ticket verification (for travel allowances), and customer photo capture.
     - `Step 3: REVIEW` — Complete trade summary: FX currency amount, exchange rate, local FJD total, transaction fees, and customer identity verification summary.
-    - `Step 4: PAYMENT` — Denomination reconciliation for foreign currency notes and FJD cash.
+    - `Step 4: PAYMENT` — Denomination reconciliation for foreign currency notes and local FJD cash:
+      - **BUY Mode:** Currency In is Foreign Currency (`sendAmount`); Currency Out is Local FJD (`receiverGets`).
+      - **SELL Mode:** Currency In is Local FJD (`receiverGets`); Currency Out is Foreign Currency (`sendAmount`).
+      - Validates counter stock strictly on Currency Out (disbursed cash) with live "in till" drawer inventory badges (`999999+` threshold).
   - **Success Screen (`TransferSuccess`):** Displays generated transaction number and print receipt action.
 - **What It Does:**
   - Manages retail foreign currency exchange operations:
@@ -200,7 +243,7 @@ The application serves as the primary Point of Sale (POS), Forex Dealing, and Re
 - **Access:** Protected Route, guarded by `PosRouteGuard`
 - **Relationship to `/exchange`:**
   - **Functionally identical to `/exchange`:** Executes the same 4-step retail exchange workflow, BUY/SELL mechanics, customer search/editing/creation rules (`customer_group != "Dealer"`), master data updates (Risk Level, TIN) on `Customer`, transaction-specific storage on `Currency Exchange For Customer`, stock checks, and ERPNext document creation.
-  - **Difference:** Features an **updated, modernized UI layout** with the unified `TransactionTabBar`, modernized summary cards, redesigned sender/receiver forms, and upgraded completion screens (`TransferSuccessNew`).
+  - **Difference:** Features an **updated, modernized UI layout** with the unified `TransactionTabBar`, the **Top Board Rates Bar (`BoardRatesBar`)** live exchange rate scrolling marquee, modernized summary cards, redesigned sender/receiver forms, and upgraded completion screens (`TransferSuccessNew`).
 
 ---
 
@@ -214,6 +257,8 @@ The application serves as the primary Point of Sale (POS), Forex Dealing, and Re
     - **Full Name Input:** Allows tellers to search existing dealer records or enter a new corporate dealer name.
     - **Key Difference:** Specifically filtered by **`customer_group == "Dealer"`**. It only searches accredited dealer institutions, commercial banks, and corporate partners. If a new name is entered, the created customer is assigned to the `Dealer` customer group.
     - **Editing & Data Storage:** Allows editing the dealer's profile (e.g. Risk Level, corporate TIN, authorized representative). Master compliance fields update on the `Customer` DocType, while trade-specific addresses, settlement accounts, and delivery instructions are stored on the `Currency Exchange For Dealer` DocType.
+    - **User Switching & Amount Preservation:** Selecting an existing dealer from the dropdown resets dealer-specific details while strictly preserving the amount section and entered rates. Typing or editing in the dealer name input does not reset the form.
+  - **Top Board Rates Bar (`BoardRatesBar`):** Top scrolling marquee displaying live currency exchange rates against 1 unit of base FJD, automatically fetched and rendered via the standalone `BoardRatesBar` component.
   - **Wholesale Navigation Bar (`TransactionTabBar`):** Fast navigation between wholesale and retail modules.
   - **Dealer Progress Checklist:** Real-time completion tracker monitoring Amount Verified, Dealer Verified, Documents Attached, and Cash Reconciled.
   - **Section Quick-Jumper:** Smooth scrolling to Exchange Details, Customer Info, Documents, and Cash Denominations.
@@ -221,7 +266,7 @@ The application serves as the primary Point of Sale (POS), Forex Dealing, and Re
     - Selection of accredited corporate dealer or institutional partner.
     - Authorized representative credentials, TIN / Business registration numbers.
     - Negotiated wholesale exchange rates and volume pricing.
-  - **High-Volume Denomination Panel:** Built for high-volume note counting and settlement.
+  - **High-Volume Denomination Panel:** Built for high-volume note counting and settlement, operating under the exact same Currency In / Currency Out trade mapping (Forex In / FJD Out for BUY, FJD In / Forex Out for SELL) with live drawer stock badges and `999999+` formatting.
 - **What It Does:**
   - Handles high-value B2B foreign currency transactions between MH Money Express and licensed dealers, banks, or corporate clients.
   - Updates master dealer records (TIN, Risk Level) on `Customer` while recording transaction-level data on `Currency Exchange For Dealer`.
@@ -341,19 +386,56 @@ The application serves as the primary Point of Sale (POS), Forex Dealing, and Re
 
 ---
 
-## 15. User & Location Settings (`/settings` and `/test`)
+## 15. User & Workstation Settings (`/settings` and `/settings-new`)
 
-- **Component File:** `apps/home/frontend/src/components/Settingspanel.jsx`
-- **Route Paths:** `/home/settings` and `/home/test`
+- **Component File:** `apps/home/frontend/src/components/SettingspanelNew.jsx` (with legacy fallback `apps/home/frontend/src/components/Settingspanel.jsx`)
+- **Route Paths:** `/home/settings` and `/home/settings-new` (legacy `/home/test`)
 - **Access:** Protected Route
+- **Design & Layout Architecture:**
+  - Modernized 2-column card and sidebar layout aligned visually and functionally with `MoneyExchangeNew` and `MoneyTransferNew`.
+  - Built entirely using custom semantic CSS theme tokens (`--color-page`, `--color-surface`, `--color-surface-alt`, `--color-line`, `--color-ink`, `--color-muted`, `--color-brand-600`), providing seamless light and dark mode adaptation.
 - **What the Page Has:**
-  - **User Profile Card:** Name, Email, Phone, Role badge (`Teller`, `Manager`, etc.), and membership date.
-  - **Active Branch Location Selector:** Dropdown displaying all branch warehouses assigned to the user in ERPNext.
-  - **Linked Vault Card:** Shows the specific secure vault warehouse configured for the chosen branch location.
-  - **Connection Indicators:** Active Counter status and Linked Vault status badges.
+  - **Top Page Header Bar:** Configuration pill badge, workstation title, description, active session status pill, and currently selected branch indicator.
+  - **Main Left Form Column (4 Structured Sections):**
+    1. **Section 1: User Profile & Identity:**
+       - Full Name, Verified Email, Phone Number, and Member Since / Session date.
+       - Inline profile editing mode for Full Name and Phone Number with interactive Save and Cancel button states.
+    2. **Section 2: Branch Location & Cash Counter:**
+       - Active Branch Counter dropdown populated from the user's assigned branch warehouses in ERPNext.
+       - Warning alert banner if the user profile has no branch location assigned.
+       - Active POS Counter status pill with immediate live propagation across Money Transfer and Currency Exchange.
+    3. **Section 3: Linked Secure Vault:**
+       - Displays the associated target vault repository for cash replenishment and end-of-day balances.
+       - Counter Warehouse and Vault Transfer Route indicator tags.
+    4. **Section 4: Interface & Display Preferences:**
+       - **Workstation Theme Mode (Light / Dark):**
+         - Dedicated card selectors for **Light Theme** ("Crisp white and clean slate") and **Dark Theme** ("Reduced glare for night/long shifts").
+         - **OS-Independent Default Theme:** The application default is strictly **Light Theme**, completely decoupled from OS-level `prefers-color-scheme`. Tellers explicitly choose their theme preference here.
+         - Synchronizes `.dark` and `data-theme="dark"` on document root and persists in `localStorage` (`theme_mode`).
+       - **Base Document Font Scaling:**
+         - 4-tier typography scale selector (`Small` - 14px, `Normal` - 16px default, `Large` - 18px, `Larger` - 20px).
+         - Auto-saves preference to `localStorage` (`document_font_size`) and immediately resizes root document font scale.
+       - **Typography Live Preview Card:** Real-time preview card demonstrating the selected font scale and sample currency transaction text.
+    - **Bottom Action Footer Bar:**
+      - Persistent machine storage note and **"Save All Changes"** action button.
+  - **Main Right Sidebar (Workstation & Readiness):**
+    - **Account Summary Card:**
+      - User avatar with dynamic two-letter monogram and online presence dot.
+      - User full name, email, and Role badge (`Cashier`, `Teller`, `Manager`).
+      - Summary detail rows: Assigned Counter, Linked Vault, Active Theme Mode (`light Mode` / `dark Mode`), Base Font Scale, and Workstation Status (`Active & Ready`).
+    - **Workstation Readiness Checklist:**
+      - Interactive progress completion bar (`4 of 4 completed - 100%`).
+      - 4 readiness checklist milestones with active status indicators:
+        1. *User Profile Configured*
+        2. *Branch Counter Assigned*
+        3. *Secure Vault Linked*
+        4. *Display Scaling Applied*
+    - **System Notice & Guidance Card:**
+      - Operational notice advising tellers on multi-counter operations and cash drawer alignment.
 - **What It Does:**
-  - Allows tellers and managers to select or switch their active operating branch location.
-  - Automatically queries the backend for the associated secure vault and synchronizes the session across all POS modules.
+  - Serves as the central workstation control panel for tellers and branch managers.
+  - Allows seamless switching between assigned branch counters, automatically querying the backend for associated secure vault routing.
+  - Manages global workstation display ergonomics (Theme Mode and Font Scaling) with persistent local storage.
 
 ---
 
@@ -367,3 +449,32 @@ The application serves as the primary Point of Sale (POS), Forex Dealing, and Re
 ### Dashboard (`Dashboard.jsx`)
 - **Component File:** `apps/home/frontend/src/pages/Dashboard.jsx`
 - **Status:** Empty placeholder module reserved for future operational analytics widgets.
+
+---
+
+## 17. Shared Transaction UI Components
+
+### 1. Board Rates Marquee Bar (`BoardRatesBar.jsx`)
+- **Component File:** `apps/home/frontend/src/components/common/BoardRatesBar.jsx`
+- **Purpose:** A self-contained, drop-in ticker bar that displays a continuous scrolling marquee of live currency exchange rates (1 unit of foreign currency in local base currency, e.g. FJD).
+- **Zero Parent Dependency:** Requires no props or parent state/context to function. Can be dropped into any page (`<BoardRatesBar />`) and immediately renders.
+- **Independent Live Backend Fetching:**
+  - Calls `useERPNextRates` to fetch live currency rates from `/api/method/moneygram.api.get_currency_exchange_rate`.
+  - Calls `useBaseCurrency` to resolve the active base currency (defaulting to FJD).
+  - When live rates are unavailable or no data is returned, displays a prominent red message ("Unable to get latest data") instead of using static mock fallback rates.
+- **Encapsulated Styling & Animations:**
+  - Contains its own scoped CSS keyframes (`boardRateMarqueeAnim`), gradient edge masking, pause-on-hover interaction, and badge chips.
+  - Eliminates the need for parent pages to define separate `@keyframes boardRateMarquee` or `.marquee-container` rules.
+- **Optional Customization Props:**
+  - `exchangeType`: `'BUY' | 'SELL'` (defaults to `'BUY'`, or detected from `ExchangeContext`)
+  - `baseCurrency`: Base currency override string (e.g. `'FJD'`)
+  - `title`: Label string (default: `"Board rates · 1 unit in <BASE_CURRENCY>"`)
+  - `currencies`: Custom currency rate array override `Array<{ code, rate }>`
+  - `speed`: Marquee cycle duration in seconds (default: `40`)
+  - `className` & `style`: Container styling overrides
+- **Active Usage:** Used on `/exchange-new`, `/dealer-exchange`, and `/money-transfer-new`.
+
+### 2. Transaction Tab Bar (`TransactionTabBar.jsx`)
+- **Component File:** `apps/home/frontend/src/components/common/TransactionTabBar.jsx`
+- **Purpose:** Shared navigation tab bar across all transaction pages (Buy forex, Sell forex, Transfer money, Dealer exchange, and Vault/Branch transfer).
+- **Active Usage:** Used on `/exchange-new`, `/dealer-exchange`, and `/money-transfer-new`.

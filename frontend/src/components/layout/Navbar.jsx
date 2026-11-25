@@ -342,9 +342,7 @@ export default function Navbar() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 backdrop-blur-md border-b transition-all
-  bg-white/90 border-gray-200
-  dark:bg-gray-900/90 dark:border-gray-800">
+    <header className="sticky top-0 z-50 backdrop-blur-md border-b transition-all bg-surface/90 border-line">
 
       <div className="flex items-center justify-between px-6 lg:px-10 py-3">
 
@@ -382,21 +380,21 @@ export default function Navbar() {
                         type="button"
                         onClick={() => setOpenDropdown((current) => current === item.label ? null : item.label)}
                         className={`px-3 lg:px-3.5 py-1.5 lg:py-2 rounded-lg text-label font-semibold transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${isAnyActive
-                          ? "bg-white text-[#E00000] shadow-sm dark:bg-white dark:text-[#E00000]"
-                          : "text-gray-700 hover:text-primary hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                          ? "bg-surface-alt text-brand-600 shadow-sm"
+                          : "text-ink hover:text-brand-600 hover:bg-surface-alt"
                           }`}
                       >
                         <span>{item.label}</span>
                         <ChevronDown
                           size={14}
-                          className={`transition-transform duration-200 ${openDropdown === item.label ? "rotate-180 text-[#E00000]" : "text-gray-400"
+                          className={`transition-transform duration-200 ${openDropdown === item.label ? "rotate-180 text-brand-600" : "text-muted"
                             }`}
                         />
                       </button>
 
                       {/* Dropdown Menu */}
                       {openDropdown === item.label && (
-                        <div className="absolute top-full left-0 mt-1.5 w-72 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                        <div className="absolute top-full left-0 mt-1.5 w-72 bg-surface rounded-2xl shadow-xl border border-line p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                           {item.children.map((child) => {
                             const isChildActive = location.pathname === child.href;
                             const IconComponent = child.icon;
@@ -407,14 +405,14 @@ export default function Navbar() {
                                 to={child.href}
                                 onClick={() => setOpenDropdown(null)}
                                 className={`flex items-start gap-3 p-2.5 rounded-xl transition-all ${isChildActive
-                                  ? "bg-red-50/70 text-[#E00000] dark:bg-red-950/40"
-                                  : "text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
+                                  ? "bg-danger-bg text-brand-600"
+                                  : "text-ink hover:bg-surface-alt"
                                   }`}
                               >
                                 <div
                                   className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${isChildActive
-                                    ? "bg-[#E00000] text-white"
-                                    : "bg-gray-100 dark:bg-gray-800 text-gray-500"
+                                    ? "bg-brand-600 text-white"
+                                    : "bg-surface-alt text-muted"
                                     }`}
                                 >
                                   <IconComponent size={16} />
@@ -443,8 +441,8 @@ export default function Navbar() {
                     key={item.label}
                     to={item.href}
                     className={`px-3 lg:px-3.5 py-1.5 lg:py-2 rounded-lg text-label font-semibold transition-all duration-200 ${isActive
-                      ? "bg-white text-[#E00000] shadow-sm dark:bg-white dark:text-[#E00000]"
-                      : "text-gray-700 hover:text-primary hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                      ? "bg-surface-alt text-brand-600 shadow-sm"
+                      : "text-ink hover:text-brand-600 hover:bg-surface-alt"
                       }`}
                   >
                     {item.label}
@@ -455,16 +453,16 @@ export default function Navbar() {
               {/* Active Location Badge */}
               {activeLocationName ? (
                 <>
-                  <div className="h-5 w-px bg-gray-200 dark:bg-gray-700 mx-0.5" />
+                  <div className="h-5 w-px bg-line mx-0.5" />
                   <Link
                     to="/settings"
                     title={`Active Location: ${activeLocationName}${posStatus ? ` · Cash Counter ${posStatus.replaceAll("_", " ")}` : ""} · Click to manage in Settings`}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-50 hover:bg-red-50/60 dark:bg-gray-800/80 dark:hover:bg-gray-800 border border-gray-200/80 hover:border-[#E00000]/30 dark:border-gray-700/80 transition-all text-caption font-semibold group cursor-pointer shadow-2xs"
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-alt hover:bg-chip border border-line hover:border-brand-600/40 transition-all text-caption font-semibold group cursor-pointer shadow-2xs"
                   >
-                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-red-50 text-[#E00000] dark:bg-red-950/60 shrink-0">
+                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-danger-bg text-brand-600 shrink-0">
                       <MapPin size={12} strokeWidth={2.4} />
                     </span>
-                    <span className="font-semibold text-gray-700 dark:text-gray-200 max-w-[110px] lg:max-w-[150px] xl:max-w-[200px] truncate">
+                    <span className="font-semibold text-ink max-w-[110px] lg:max-w-[150px] xl:max-w-[200px] truncate">
                       {activeLocationName}
                     </span>
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
@@ -482,16 +480,16 @@ export default function Navbar() {
                 </>
               ) : (
                 <>
-                  <div className="h-5 w-px bg-gray-200 dark:bg-gray-700 mx-0.5" />
+                  <div className="h-5 w-px bg-line mx-0.5" />
                   <Link
                     to="/settings"
                     title="User is not assigned to any branch location. Click to view Settings."
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 hover:bg-amber-100/80 dark:bg-amber-950/50 dark:hover:bg-amber-900/60 border border-amber-300 dark:border-amber-700 transition-all text-caption font-semibold group cursor-pointer shadow-2xs"
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all text-caption font-semibold group cursor-pointer shadow-2xs"
                   >
-                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-200 shrink-0">
+                    <span className="flex items-center justify-center w-5 h-5 rounded-full bg-amber-500/20 text-amber-600 shrink-0">
                       <MapPin size={12} strokeWidth={2.4} />
                     </span>
-                    <span className="font-semibold text-amber-800 dark:text-amber-200 max-w-[140px] truncate">
+                    <span className="font-semibold text-amber-600 max-w-[140px] truncate">
                       No Branch Assigned
                     </span>
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping shrink-0" />
@@ -511,9 +509,9 @@ export default function Navbar() {
                     setOpenDropdown(null);
                   }}
                   className={`group relative flex items-center justify-center w-9 h-9 rounded-full transition-all duration-200 cursor-pointer ${profileOpen
-                    ? "ring-2 ring-[#E00000] ring-offset-2 dark:ring-offset-gray-900 shadow-md scale-105"
-                    : "ring-1 ring-gray-200 dark:ring-gray-700 hover:ring-[#E00000]/60 hover:shadow-sm"
-                    } bg-gradient-to-br from-[#E00000] to-[#990000] text-white select-none`}
+                    ? "ring-2 ring-brand-600 ring-offset-2 ring-offset-surface shadow-md scale-105"
+                    : "ring-1 ring-line hover:ring-brand-600/60 hover:shadow-sm"
+                    } bg-brand-600 text-white select-none`}
                 >
                   {currentUser?.user_image ? (
                     <img
@@ -527,18 +525,18 @@ export default function Navbar() {
                     </span>
                   )}
                   {/* Status indicator dot */}
-                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-gray-900" />
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-surface" />
                 </button>
 
                 {/* Profile Dropdown Menu */}
                 {profileOpen && (
                   <div
                     id="profile-dropdown-menu"
-                    className="absolute right-0 top-full mt-2.5 w-76 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+                    className="absolute right-0 top-full mt-2.5 w-76 bg-surface rounded-2xl shadow-2xl border border-line p-4 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
                   >
                     {/* Header info */}
-                    <div className="flex items-center gap-3 pb-3 border-b border-gray-100 dark:border-gray-800">
-                      <div className="relative flex items-center justify-center w-11 h-11 rounded-2xl bg-gradient-to-br from-[#E00000] to-[#990000] text-white shadow-sm shrink-0">
+                    <div className="flex items-center gap-3 pb-3 border-b border-line">
+                      <div className="relative flex items-center justify-center w-11 h-11 rounded-2xl bg-brand-600 text-white shadow-sm shrink-0">
                         {currentUser?.user_image ? (
                           <img
                             src={currentUser.user_image}
@@ -550,14 +548,14 @@ export default function Navbar() {
                             {userInitials}
                           </span>
                         )}
-                        <span className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-gray-900" />
+                        <span className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-surface" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <h4 className="text-sm font-black text-gray-900 dark:text-gray-100 truncate" title={tellerName}>
+                        <h4 className="text-sm font-black text-ink truncate" title={tellerName}>
                           {tellerName}
                         </h4>
                         <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-red-50 text-[#E00000] dark:bg-red-950/60 dark:text-red-400">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-danger-bg text-brand-600">
                             {tellerRole}
                           </span>
                         </div>
@@ -565,44 +563,44 @@ export default function Navbar() {
                     </div>
 
                     {/* Teller Contact / Location Details */}
-                    <div className="mt-3 p-3 rounded-xl bg-gray-50/80 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-800 space-y-2.5">
+                    <div className="mt-3 p-3 rounded-xl bg-surface-alt border border-line space-y-2.5">
                       <div className="flex items-start gap-2.5">
-                        <div className="w-5 h-5 rounded-md bg-white dark:bg-gray-700/80 text-gray-500 dark:text-gray-400 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                        <div className="w-5 h-5 rounded-md bg-surface text-muted flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
                           <Mail size={12} strokeWidth={2.2} />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-muted">
                             Email Address
                           </div>
-                          <div className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate mt-0.5" title={tellerEmail}>
+                          <div className="text-xs font-semibold text-ink truncate mt-0.5" title={tellerEmail}>
                             {tellerEmail}
                           </div>
                         </div>
                       </div>
 
                       <div className="flex items-start gap-2.5">
-                        <div className="w-5 h-5 rounded-md bg-white dark:bg-gray-700/80 text-gray-500 dark:text-gray-400 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                        <div className="w-5 h-5 rounded-md bg-surface text-muted flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
                           <Phone size={12} strokeWidth={2.2} />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-muted">
                             Mobile Number
                           </div>
-                          <div className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate mt-0.5" title={tellerPhone}>
+                          <div className="text-xs font-semibold text-ink truncate mt-0.5" title={tellerPhone}>
                             {tellerPhone}
                           </div>
                         </div>
                       </div>
 
                       <div className="flex items-start gap-2.5">
-                        <div className="w-5 h-5 rounded-md bg-white dark:bg-gray-700/80 text-gray-500 dark:text-gray-400 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                        <div className="w-5 h-5 rounded-md bg-surface text-muted flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
                           <MapPin size={12} strokeWidth={2.2} />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-muted">
                             Active Location
                           </div>
-                          <div className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate mt-0.5" title={activeLocationName || "No Branch Assigned"}>
+                          <div className="text-xs font-semibold text-ink truncate mt-0.5" title={activeLocationName || "No Branch Assigned"}>
                             {activeLocationName || "No Branch Assigned"}
                           </div>
                         </div>
@@ -610,20 +608,20 @@ export default function Navbar() {
                     </div>
 
                     {/* Quick navigation & Logout Action */}
-                    <div className="mt-2.5 pt-2 border-t border-gray-100 dark:border-gray-800 space-y-1">
+                    <div className="mt-2.5 pt-2 border-t border-line space-y-1">
                       <Link
-                        to="/settings"
+                        to="/settings-new"
                         onClick={() => setProfileOpen(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold text-ink hover:bg-surface-alt transition-colors"
                       >
-                        <Settings size={14} className="text-gray-400" />
+                        <Settings size={14} className="text-muted" />
                         <span>Branch & Account Settings</span>
                       </Link>
 
                       <button
                         onClick={handleLogout}
                         disabled={isLoggingOut}
-                        className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-white bg-[#E00000] hover:bg-[#B70000] active:scale-[0.98] transition-all duration-150 shadow-sm disabled:opacity-50 cursor-pointer mt-1"
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold text-white bg-brand-600 hover:bg-brand-700 active:scale-[0.98] transition-all duration-150 shadow-sm disabled:opacity-50 cursor-pointer mt-1"
                       >
                         <LogOut size={14} strokeWidth={2.2} />
                         <span>{isLoggingOut ? "Logging out..." : "Logout"}</span>
@@ -637,8 +635,7 @@ export default function Navbar() {
             {/* Mobile Toggle */}
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="md:hidden p-2 transition-colors
-                text-gray-700 dark:text-gray-300"
+              className="md:hidden p-2 transition-colors text-ink hover:text-brand-600"
             >
               {menuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
@@ -660,9 +657,7 @@ export default function Navbar() {
           className={`md:hidden overflow-hidden transition-all duration-300 ${menuOpen ? "max-h-96 opacity-100 mt-2" : "max-h-0 opacity-0"
             }`}
         >
-          <div className="mx-6 mb-4 rounded-xl shadow-lg border
-          bg-white border-gray-200
-          dark:bg-gray-900 dark:border-gray-800">
+          <div className="mx-6 mb-4 rounded-xl shadow-lg border bg-surface border-line">
 
             <div className="flex flex-col p-4 space-y-3">
 
@@ -671,22 +666,22 @@ export default function Navbar() {
                 <Link
                   to="/settings"
                   onClick={() => setMenuOpen(false)}
-                  className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-800/70 border border-gray-200/80 dark:border-gray-700/80 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                  className="flex items-center justify-between p-3 rounded-xl bg-surface-alt border border-line hover:bg-chip transition-colors"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-red-50 dark:bg-red-950/60 text-[#E00000] flex items-center justify-center shrink-0">
+                    <div className="w-7 h-7 rounded-lg bg-danger-bg text-brand-600 flex items-center justify-center shrink-0">
                       <MapPin size={15} strokeWidth={2.2} />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-muted">
                         Active Location
                       </div>
-                      <div className="text-xs font-bold text-gray-800 dark:text-gray-100 truncate">
+                      <div className="text-xs font-bold text-ink truncate">
                         {activeLocationName}
                       </div>
                     </div>
                   </div>
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full shrink-0">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full shrink-0">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     Active
                   </span>
@@ -695,22 +690,22 @@ export default function Navbar() {
                 <Link
                   to="/settings"
                   onClick={() => setMenuOpen(false)}
-                  className="flex items-center justify-between p-3 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700 transition-colors"
+                  className="flex items-center justify-between p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 transition-colors"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200 flex items-center justify-center shrink-0">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-600 flex items-center justify-center shrink-0">
                       <MapPin size={15} strokeWidth={2.2} />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-amber-600">
                         Active Location
                       </div>
-                      <div className="text-xs font-bold text-amber-800 dark:text-amber-200 truncate">
+                      <div className="text-xs font-bold text-amber-600 truncate">
                         No Branch Assigned
                       </div>
                     </div>
                   </div>
-                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/60 px-2 py-0.5 rounded-full shrink-0">
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-600 bg-amber-500/20 px-2 py-0.5 rounded-full shrink-0">
                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
                     Unassigned
                   </span>
@@ -721,7 +716,7 @@ export default function Navbar() {
                 if (item.isDropdown) {
                   return (
                     <div key={item.label} className="flex flex-col space-y-1 pt-1">
-                      <div className="text-[11px] font-bold uppercase tracking-wider text-gray-400 px-3.5 py-1">
+                      <div className="text-[11px] font-bold uppercase tracking-wider text-muted px-3.5 py-1">
                         {item.label}
                       </div>
                       {item.children.map((child) => {
@@ -734,8 +729,8 @@ export default function Navbar() {
                             to={child.href}
                             onClick={() => setMenuOpen(false)}
                             className={`flex items-center gap-2.5 px-3.5 py-2 rounded-lg text-sm font-bold transition-all duration-200 ${isChildActive
-                              ? "bg-white text-[#E00000] shadow-sm dark:bg-white dark:text-[#E00000]"
-                              : "text-gray-700 hover:text-primary hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                              ? "bg-surface-alt text-brand-600 shadow-sm"
+                              : "text-ink hover:text-brand-600 hover:bg-surface-alt"
                               }`}
                           >
                             <IconComponent size={15} />
@@ -755,8 +750,8 @@ export default function Navbar() {
                     to={item.href}
                     onClick={() => setMenuOpen(false)}
                     className={`px-3.5 py-2 rounded-lg text-sm font-bold transition-all duration-200 ${isActive
-                      ? "bg-white text-[#E00000] shadow-sm dark:bg-white dark:text-[#E00000]"
-                      : "text-gray-700 hover:text-primary hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+                      ? "bg-surface-alt text-brand-600 shadow-sm"
+                      : "text-ink hover:text-brand-600 hover:bg-surface-alt"
                       }`}
                   >
                     {item.label}
@@ -765,9 +760,9 @@ export default function Navbar() {
               })}
 
               {/* Mobile Profile Card & Logout */}
-              <div className="mt-2 pt-3 border-t border-gray-100 dark:border-gray-800">
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-800/60 border border-gray-200/80 dark:border-gray-700/80">
-                  <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-[#E00000] to-[#990000] text-white shrink-0 font-black text-xs">
+              <div className="mt-2 pt-3 border-t border-line">
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-surface-alt border border-line">
+                  <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-brand-600 text-white shrink-0 font-black text-xs">
                     {currentUser?.user_image ? (
                       <img
                         src={currentUser.user_image}
@@ -777,10 +772,10 @@ export default function Navbar() {
                     ) : (
                       userInitials
                     )}
-                    <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-gray-900" />
+                    <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-surface" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-xs font-bold text-gray-900 dark:text-gray-100 truncate">
+                    <div className="text-xs font-bold text-ink truncate">
                       {tellerName}
                     </div>
                     <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">

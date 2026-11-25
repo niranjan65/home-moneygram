@@ -1,6 +1,7 @@
 import { sessionFetch as fetch } from "../api/sessionClient.js";
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import TransactionTabBar from '../components/common/TransactionTabBar';
+import BoardRatesBar from '../components/common/BoardRatesBar';
 import { Summary } from '../components/exchange-new/Summary';
 import { SenderCard } from '../components/exchange-new/SenderCard';
 import { ReceiverForm } from '../components/exchange-new/ReceiverForm';
@@ -80,30 +81,6 @@ const MoneyExchangeNew = () => {
   const { uploadFile } = useERPFileUpload();
   const ratesData = useERPNextRates();
 
-  const boardCurrencies = useMemo(() => {
-    if (ratesData?.availableCurrencies && ratesData.availableCurrencies.length > 0) {
-      return ratesData.availableCurrencies.map(c => {
-        const rate = summary.exchangeType === 'SELL'
-          ? (c.sellingRate ?? c.buyingRate)
-          : (c.buyingRate ?? c.sellingRate);
-        return {
-          code: c.code,
-          rate: rate ? Number(rate).toFixed(4) : '—',
-        };
-      });
-    }
-    return [
-      { code: 'USD', rate: '2.2410' },
-      { code: 'AUD', rate: '1.4590' },
-      { code: 'NZD', rate: '1.3320' },
-      { code: 'EUR', rate: '2.4350' },
-      { code: 'GBP', rate: '2.8240' },
-      { code: 'CAD', rate: '1.6210' },
-      { code: 'JPY', rate: '0.0148' },
-      { code: 'SGD', rate: '1.6820' },
-      { code: 'CNY', rate: '0.3120' },
-    ];
-  }, [ratesData?.availableCurrencies, summary.exchangeType]);
 
   const [summaryChange, setHandleSumamryChange] = useState();
   const [showLocationModal, setShowLocationModal] = useState(false);
@@ -209,6 +186,11 @@ const MoneyExchangeNew = () => {
   });
 
   const [formKey, setFormKey] = useState(0);
+
+  const initialSendAmount = useMemo(() => {
+    const saved = sessionStorage.getItem('exchangeSummary');
+    return !startNewExchange && saved ? (JSON.parse(saved)?.sendAmount ?? '') : '';
+  }, [startNewExchange, formKey]);
 
   const loginUser = useUser();
 
@@ -837,7 +819,7 @@ const MoneyExchangeNew = () => {
       <ReceiverForm
         key={`form-refresh-key-${formKey}`}
         initialData={receiverInfo}
-        sendAmount={summary.sendAmount}
+        sendAmount={receiverInfo?.sendAmount ?? initialSendAmount}
         onContinue={handleContinue}
         onClear={handleCancel}
         onSummaryChange={handleSummaryChange}
@@ -850,18 +832,18 @@ const MoneyExchangeNew = () => {
 
 
   return (
-    <div className="money-exchange-new min-h-screen flex flex-col bg-[#F4F5F7] text-[#14171F]">
+    <div className="money-exchange-new min-h-screen flex flex-col bg-page text-ink transition-colors">
       <style>{`
         .money-exchange-new {
-          background: #F4F5F7;
+          background-color: var(--color-page);
           min-height: 100vh;
-          font-family: Inter, system-ui, -apple-system, sans-serif;
-          color: #14171F;
+          font-family: var(--font-sans);
+          color: var(--color-ink);
         }
         .money-exchange-new .card {
-          background: #fff;
-          border: 1px solid #E3E6EB;
-          border-radius: 16px;
+          background-color: var(--color-surface);
+          border: 1px solid var(--color-line);
+          border-radius: var(--radius-card);
         }
         .money-exchange-new .lbl {
           display: block;
@@ -869,32 +851,32 @@ const MoneyExchangeNew = () => {
           line-height: var(--text-label--line-height);
           font-weight: var(--text-label--font-weight);
           letter-spacing: .02em;
-          color: #14171F;
+          color: var(--color-ink);
           margin-bottom: 6px;
         }
         .money-exchange-new .inp {
           width: 100%;
           height: 48px;
-          border: 1px solid #BFC5CE;
-          border-radius: 10px;
+          border: 1px solid var(--color-line-strong);
+          border-radius: var(--radius-input);
           padding: 0 14px;
           font-size: var(--text-body-value);
           line-height: var(--text-body-value--line-height);
           font-weight: var(--text-body-value--font-weight);
           font-family: var(--font-sans);
-          color: #14171F;
-          background: #fff;
+          color: var(--color-ink);
+          background-color: var(--color-surface);
           box-sizing: border-box;
           transition: border-color .15s, box-shadow .15s;
         }
         .money-exchange-new .inp:focus {
           outline: none;
-          border-color: #C8102E;
-          box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.12);
+          border-color: var(--color-brand-600);
+          box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.15);
         }
         .money-exchange-new .sec {
           padding: 28px;
-          border-bottom: 1px solid #E3E6EB;
+          border-bottom: 1px solid var(--color-line);
         }
         .money-exchange-new .h {
           display: flex;
@@ -904,14 +886,14 @@ const MoneyExchangeNew = () => {
           font-size: var(--text-h3);
           line-height: var(--text-h3--line-height);
           font-weight: var(--text-h3--font-weight);
-          color: #14171F;
+          color: var(--color-ink);
         }
         .money-exchange-new .n {
           width: 28px;
           height: 28px;
           border-radius: 50%;
-          background: #14171F;
-          color: #fff;
+          background-color: var(--color-ink);
+          color: var(--color-surface);
           font-size: var(--text-caption);
           font-weight: 700;
           display: grid;
@@ -940,34 +922,33 @@ const MoneyExchangeNew = () => {
           height: 32px;
           padding: 0 12px;
           border-radius: 999px;
-          font-size: var(--text-caption);
           line-height: var(--text-caption--line-height);
           font-weight: 600;
-          background: #EEF0F3;
-          color: #2C323D;
+          background-color: var(--color-chip);
+          color: var(--color-ink-soft);
         }
         .money-exchange-new .ok {
-          background: #E3F3EA;
-          color: #0B5A33;
+          background-color: var(--color-success-bg);
+          color: var(--color-success-fg);
         }
         .money-exchange-new .warn {
-          background: #FFF3D6;
-          color: #7A4B00;
+          background-color: var(--color-warning-bg);
+          color: var(--color-warning-fg);
         }
         .money-exchange-new .opt {
-          border: 1.5px solid #CDD2DA;
+          border: 1.5px solid var(--color-line-strong);
           border-radius: 12px;
           padding: 16px;
-          background: #fff;
+          background-color: var(--color-surface);
           cursor: pointer;
           transition: all .15s;
         }
         .money-exchange-new .opt:hover {
-          border-color: #BFC5CE;
+          border-color: var(--color-brand-600);
         }
         .money-exchange-new .opt.sel {
-          border-color: #C8102E;
-          background: #FDF1F3;
+          border-color: var(--color-brand-600);
+          background-color: var(--color-brand-50);
         }
         .money-exchange-new .row {
           display: flex;
@@ -976,16 +957,20 @@ const MoneyExchangeNew = () => {
           line-height: var(--text-body--line-height);
           font-weight: var(--text-body--font-weight);
           padding: 8px 0;
+          border-bottom: 1px solid var(--color-line-subtle);
         }
         .money-exchange-new .row span:first-child {
-          color: #4A5160;
+          color: var(--color-muted);
+        }
+        .money-exchange-new .row span:last-child {
+          color: var(--color-ink);
         }
         .money-exchange-new .btn {
           height: 52px;
           padding: 0 28px;
           border-radius: 12px;
           border: 0;
-          background: #C8102E;
+          background-color: var(--color-brand-600);
           color: #fff;
           font-size: var(--text-btn-lg);
           line-height: var(--text-btn-lg--line-height);
@@ -999,19 +984,19 @@ const MoneyExchangeNew = () => {
           gap: 8px;
         }
         .money-exchange-new .btn:hover:not(:disabled) {
-          background: #a60d26;
+          background-color: var(--color-brand-700);
         }
         .money-exchange-new .btn:disabled {
           opacity: 0.5;
           cursor: not-allowed;
         }
         .money-exchange-new .ghost {
-          background: #fff;
-          color: #14171F;
-          border: 1px solid #BFC5CE;
+          background-color: var(--color-surface);
+          color: var(--color-ink);
+          border: 1px solid var(--color-line-strong);
         }
         .money-exchange-new .ghost:hover:not(:disabled) {
-          background: #F4F5F7;
+          background-color: var(--color-surface-alt);
         }
         .money-exchange-new .tab {
           height: 50px;
@@ -1022,7 +1007,7 @@ const MoneyExchangeNew = () => {
           line-height: var(--text-btn-lg--line-height);
           font-weight: var(--text-btn-lg--font-weight);
           font-family: var(--font-sans);
-          color: #4A5160;
+          color: var(--color-muted);
           border-radius: 12px;
           cursor: pointer;
           transition: all .15s;
@@ -1032,7 +1017,7 @@ const MoneyExchangeNew = () => {
           text-decoration: none;
         }
         .money-exchange-new .tab.on {
-          background: #C8102E;
+          background-color: var(--color-brand-600);
           color: #fff;
         }
         .money-exchange-new .chk {
@@ -1043,13 +1028,13 @@ const MoneyExchangeNew = () => {
           line-height: var(--text-label--line-height);
           font-weight: var(--text-label--font-weight);
           padding: 6px 0;
-          color: #14171F;
+          color: var(--color-ink);
         }
         .money-exchange-new .dot {
           width: 20px;
           height: 20px;
           border-radius: 50%;
-          background: #0B7A44;
+          background-color: var(--color-success);
           flex: none;
           display: grid;
           place-items: center;
@@ -1057,34 +1042,8 @@ const MoneyExchangeNew = () => {
           font-size: var(--text-overline);
         }
         .money-exchange-new .dot.o {
-          background: #fff;
-          border: 2px solid #BFC5CE;
-        }
-        @keyframes boardRateMarquee {
-          0% {
-            transform: translateX(0);
-          }
-          100% {
-            transform: translateX(-50%);
-          }
-        }
-        .money-exchange-new .marquee-container {
-          overflow: hidden;
-          position: relative;
-          width: 100%;
-          min-width: 0;
-          mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
-          -webkit-mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
-        }
-        .money-exchange-new .marquee-track {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          width: max-content;
-          animation: boardRateMarquee 40s linear infinite;
-        }
-        .money-exchange-new .marquee-track:hover {
-          animation-play-state: paused;
+          background-color: var(--color-surface);
+          border: 2px solid var(--color-line-strong);
         }
         @media (max-width: 1024px) {
           .money-exchange-new .main-layout {
@@ -1100,59 +1059,7 @@ const MoneyExchangeNew = () => {
           <div className="max-w-[80%] mx-auto">
 
             {/* Top Board Rates Bar with Scrolling Marquee */}
-            <div
-              className="card"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "16px",
-                padding: "12px 20px 24px 20px",
-                fontSize: "var(--text-label)",
-                overflow: "hidden",
-                marginBottom: "0px",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  whiteSpace: "nowrap",
-                  flexShrink: 0,
-                  paddingRight: "14px",
-                  borderRight: "1.5px solid #E3E6EB",
-                }}
-              >
-                <strong style={{ fontSize: "var(--text-label)", color: "#14171F" }}>
-                  Board rates · 1 unit in FJD
-                </strong>
-              </div>
-
-              <div className="marquee-container">
-                <div className="marquee-track">
-                  {boardCurrencies.map((c, idx) => (
-                    <span
-                      key={`curr-1-${c.code}-${idx}`}
-                      className="chip"
-                      style={{ flexShrink: 0, whiteSpace: "nowrap", gap: "6px" }}
-                    >
-                      <strong style={{ color: "#14171F" }}>{c.code}</strong>
-                      <span style={{ color: "#4A5160" }}>{c.rate}</span>
-                    </span>
-                  ))}
-                  {boardCurrencies.map((c, idx) => (
-                    <span
-                      key={`curr-2-${c.code}-${idx}`}
-                      className="chip"
-                      style={{ flexShrink: 0, whiteSpace: "nowrap", gap: "6px" }}
-                    >
-                      <strong style={{ color: "#14171F" }}>{c.code}</strong>
-                      <span style={{ color: "#4A5160" }}>{c.rate}</span>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <BoardRatesBar exchangeType={launchExchangeType || summary.exchangeType || 'BUY'} />
 
             {/* Service Mode Navigation Tabs */}
             <TransactionTabBar

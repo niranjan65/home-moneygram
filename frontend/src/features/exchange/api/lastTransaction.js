@@ -3,87 +3,134 @@ import { buildApiUrl, getFetchOptions } from "../config/erpConfig";
 
 /**
  * Fetch the customer's last transaction from Frappe REST API.
- * Supports searching by name, custom_customer_id, and customer_id.
- * Prioritizes preferredType ("Money Transfer" or "Currency Exchange For Customer"),
- * falling back to the other transaction type if no record is found.
+ * Supports searching by candidate customer identifiers.
+ * Strictly scopes query by transactionCategory ("Currency Exchange" or "Money Transfer")
+ * and activeType ("BUY" | "SELL" for Currency Exchange; "Send" | "Receive" for Money Transfer).
+ * Does not fall back across categories or across mismatched transaction types.
  */
-export async function fetchCustomerLastTransaction(customer, preferredType = "Money Transfer") {
+export async function fetchCustomerLastTransaction(
+  customer,
+  transactionCategory = "Money Transfer",
+  activeType = null
+) {
   if (!customer) return null;
 
-  const candidateIds = Array.from(
-    new Set(
-      [
-        typeof customer === "string" ? customer : null,
-        customer?.name,
-        customer?.custom_customer_id,
-        customer?.customer_id,
-        customer?.customer,
-      ]
-        .map((id) => (typeof id === "string" ? id.trim() : ""))
-        .filter((id) => id.length > 0)
-    )
-  );
+  const rawIds = [
+    typeof customer === "string" ? customer : null,
+    customer?.name,
+    customer?.custom_customer_id,
+    customer?.customer_id,
+    customer?.customer,
+  ]
+    .filter((id) => typeof id === "string" && id.trim().length > 0)
+    .map((id) => id.trim());
 
+  // Also include base name without trailing suffix " - <number>"
+  const nameStr = customer?.name || (typeof customer === "string" ? customer : "");
+  const baseName = nameStr.replace(/\s*-\s*\d+$/, "").trim();
+  if (baseName) rawIds.push(baseName);
+
+  // Also include constructed fullName_dob key if available
+  const fullName =
+    customer?.custom_full_name || customer?.customer_name || customer?.full_name;
+  const dob =
+    customer?.custom_date_of_birth || customer?.dob || customer?.date_of_birth;
+  if (fullName && dob) {
+    rawIds.push(`${fullName}_${dob}`.trim());
+  }
+
+  const candidateIds = Array.from(new Set(rawIds));
   if (candidateIds.length === 0) return null;
 
   const isExchange =
-    preferredType === "Currency Exchange" ||
-    preferredType === "Currency Exchange For Customer";
+    transactionCategory === "Currency Exchange" ||
+    transactionCategory === "Currency Exchange For Customer";
 
-  const primaryDoctype = isExchange
+  const doctype = isExchange
     ? "Currency Exchange For Customer"
     : "Money Transfer";
-  const secondaryDoctype = isExchange
-    ? "Money Transfer"
-    : "Currency Exchange For Customer";
 
-  const doctypesToTry = [primaryDoctype, secondaryDoctype];
+  try {
+    const filterList = [
+      ["customer_id", "in", candidateIds],
+      ["docstatus", "<", 2],
+    ];
 
-  for (const doctype of doctypesToTry) {
-    try {
-      const filters = JSON.stringify([
-        ["customer_id", "in", candidateIds],
-        ["docstatus", "<", 2],
-      ]);
-
-      const url = buildApiUrl(
-        `api/resource/${encodeURIComponent(doctype)}?filters=${encodeURIComponent(
-          filters
-        )}&order_by=creation desc&limit_page_length=1&fields=["*"]`
-      );
-
-      const res = await fetch(url, getFetchOptions({ method: "GET" }));
-      if (!res.ok) continue;
-
-      const json = await res.json();
-      const row = json?.data?.[0];
-
-      if (row && row.name) {
-        let fullDoc = row;
-        // Fetch full document with child tables (e.g. documents) if needed
-        if (!Array.isArray(fullDoc.documents) || fullDoc.documents.length === 0) {
-          try {
-            const detailRes = await fetch(
-              buildApiUrl(
-                `api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(
-                  row.name
-                )}`
-              ),
-              getFetchOptions({ method: "GET" })
-            );
-            if (detailRes.ok) {
-              const detailJson = await detailRes.json();
-              if (detailJson.data) {
-                fullDoc = detailJson.data;
-              }
-            }
-          } catch (_) {}
-        }
-        return { doctype, data: fullDoc };
+    if (activeType) {
+      if (isExchange) {
+        filterList.push(["exchange_type", "=", String(activeType).trim().toUpperCase()]);
+      } else {
+        filterList.push(["transfer_type", "=", String(activeType).trim()]);
       }
-    } catch (err) {
-      console.warn(`[lastTransaction] Error querying ${doctype}:`, err);
     }
+
+    const filters = JSON.stringify(filterList);
+
+    const url = buildApiUrl(
+      `api/resource/${encodeURIComponent(doctype)}?filters=${encodeURIComponent(
+        filters
+      )}&order_by=creation desc&limit_page_length=1&fields=["*"]`
+    );
+
+    const res = await fetch(url, getFetchOptions({ method: "GET" }));
+    if (!res.ok) return null;
+
+    const json = await res.json();
+    const row = json?.data?.[0];
+
+    if (row && row.name) {
+      // Client-side verification 1: Ownership Check
+      const recordCustId = String(row.customer_id || "").trim().toLowerCase();
+      const isOwnerMatch = candidateIds.some(
+        (id) =>
+          id.toLowerCase() === recordCustId ||
+          (baseName && recordCustId.startsWith(baseName.toLowerCase()))
+      );
+      if (!isOwnerMatch) {
+        console.warn(
+          `[lastTransaction] Discarding mismatched transaction ${row.name}: customer_id "${row.customer_id}" does not match customer candidate IDs.`
+        );
+        return null;
+      }
+
+      // Client-side verification 2: Exact Type Check
+      if (activeType) {
+        const docTypeVal = row.exchange_type || row.transfer_type;
+        if (
+          docTypeVal &&
+          docTypeVal.trim().toUpperCase() !== String(activeType).trim().toUpperCase()
+        ) {
+          console.warn(
+            `[lastTransaction] Discarding transaction ${row.name}: type "${docTypeVal}" does not match requested activeType "${activeType}".`
+          );
+          return null;
+        }
+      }
+
+      let fullDoc = row;
+      // Fetch full document with child tables (e.g. documents) if needed
+      if (!Array.isArray(fullDoc.documents) || fullDoc.documents.length === 0) {
+        try {
+          const detailRes = await fetch(
+            buildApiUrl(
+              `api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(
+                row.name
+              )}`
+            ),
+            getFetchOptions({ method: "GET" })
+          );
+          if (detailRes.ok) {
+            const detailJson = await detailRes.json();
+            if (detailJson.data) {
+              fullDoc = detailJson.data;
+            }
+          }
+        } catch (_) {}
+      }
+      return { doctype, data: fullDoc };
+    }
+  } catch (err) {
+    console.warn(`[lastTransaction] Error querying ${doctype}:`, err);
   }
 
   return null;
@@ -103,7 +150,6 @@ export function extractMoneyTransferPrefill(lastTx) {
 
   // Receiver details
   if (lastTx.receiver_name) updates.receiver_name = lastTx.receiver_name;
-  else if (lastTx.customer_full_name) updates.receiver_name = lastTx.customer_full_name;
 
   if (lastTx.receiver_address) updates.receiver_address = lastTx.receiver_address;
   if (lastTx.receiver_address_line_2) updates.receiver_address_line_2 = lastTx.receiver_address_line_2;
@@ -176,13 +222,16 @@ export function extractMoneyTransferPrefill(lastTx) {
   // Documents
   if (Array.isArray(lastTx.documents) && lastTx.documents.length > 0) {
     updates.documents = lastTx.documents.map((d) => ({
+      document_category: d.document_category || "Proof of Identity",
       document_type: d.document_type || govIdType || "Passport",
       document_number: d.document_number || govIdNum || "",
       issue_date: d.issue_date || lastTx.id_issue_date || "",
       expiry_date: d.expiry_date || lastTx.id_expiry_date || "",
       issue_country: d.issue_country || lastTx.id_issue_country || "",
       attachment: d.attachment || "",
+      file_name: d.file_name || (typeof d.attachment === "string" ? d.attachment.split("/").pop() : ""),
       notes: d.notes || "",
+      isAutoFilled: true,
     }));
     const firstAttach = lastTx.documents[0]?.attachment;
     if (firstAttach) {
@@ -202,13 +251,16 @@ export function extractMoneyTransferPrefill(lastTx) {
     updates.custom_government_document = docUrl;
     updates.documents = [
       {
+        document_category: "Proof of Identity",
         document_type: govIdType || "Passport",
         document_number: govIdNum || "",
         issue_date: lastTx.id_issue_date || "",
         expiry_date: lastTx.id_expiry_date || "",
         issue_country: lastTx.id_issue_country || "",
         attachment: docUrl,
+        file_name: typeof docUrl === "string" ? docUrl.split("/").pop() : "document.pdf",
         notes: "",
+        isAutoFilled: true,
       },
     ];
   }
@@ -312,13 +364,16 @@ export function extractExchangePrefill(lastTx) {
   // Documents Table
   if (Array.isArray(lastTx.documents) && lastTx.documents.length > 0) {
     updates.documents = lastTx.documents.map((d) => ({
+      document_category: d.document_category || "Proof of Identity",
       document_type: d.document_type || govIdType || "Passport",
       document_number: d.document_number || govIdNum || "",
       issue_date: d.issue_date || lastTx.id_issue_date || "",
       expiry_date: d.expiry_date || lastTx.id_expiry_date || "",
       issue_country: d.issue_country || lastTx.id_issue_country || "",
       attachment: d.attachment || "",
+      file_name: d.file_name || (typeof d.attachment === "string" ? d.attachment.split("/").pop() : ""),
       notes: d.notes || "",
+      isAutoFilled: true,
     }));
     const firstAttach = lastTx.documents[0]?.attachment;
     if (firstAttach) {
@@ -342,13 +397,16 @@ export function extractExchangePrefill(lastTx) {
     updates.docFile = docUrl;
     updates.documents = [
       {
+        document_category: "Proof of Identity",
         document_type: govIdType || "Passport",
         document_number: govIdNum || "",
         issue_date: lastTx.id_issue_date || "",
         expiry_date: lastTx.id_expiry_date || "",
         issue_country: lastTx.id_issue_country || "",
         attachment: docUrl,
+        file_name: typeof docUrl === "string" ? docUrl.split("/").pop() : "document.pdf",
         notes: "",
+        isAutoFilled: true,
       },
     ];
   }

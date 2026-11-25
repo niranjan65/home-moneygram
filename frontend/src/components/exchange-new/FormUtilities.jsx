@@ -3,18 +3,18 @@ import { AlertCircle } from 'lucide-react';
 
 export const inputBase =
   'w-full min-w-0 box-border bg-surface border border-line-strong text-ink rounded-input px-3.5 py-3 text-body font-medium tnum ' +
-  'focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-white placeholder:text-muted placeholder:font-normal transition-all duration-200';
+  'focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-surface placeholder:text-muted placeholder:font-normal transition-all duration-200';
 
 export const selectBase =
   'w-full min-w-0 box-border bg-surface border border-line-strong text-ink rounded-input px-3.5 py-3 text-body font-medium ' +
-  'focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-white placeholder:text-muted placeholder:font-normal transition-all duration-200 ' +
+  'focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-surface placeholder:text-muted placeholder:font-normal transition-all duration-200 ' +
   'appearance-none pr-10 cursor-pointer';
 
 export const fieldCls = (err) =>
-  `${inputBase} ${err ? 'border-danger/40 bg-brand-50/30 focus:ring-2 focus:ring-brand-600' : ''}`;
+  `${inputBase} ${err ? 'border-danger-border bg-danger-bg focus:ring-2 focus:ring-brand-600' : ''}`;
 
 export const selectCls = (err) =>
-  `${selectBase} ${err ? 'border-danger/40 bg-brand-50/30 focus:ring-2 focus:ring-brand-600' : ''}`;
+  `${selectBase} ${err ? 'border-danger-border bg-danger-bg focus:ring-2 focus:ring-brand-600' : ''}`;
 
 export const ErrorMsg = ({ message }) =>
   message ? (

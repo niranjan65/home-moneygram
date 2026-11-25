@@ -13,6 +13,7 @@ import { useEffect } from "react";
 // import { io } from "socket.io-client";
 import SoldiLanding from "./components/SoldiLanding";
 import SettingsPanel from "./components/Settingspanel";
+import SettingsPanelNew from "./components/SettingspanelNew";
 import CurrencyBalanceReport from "./components/CurrencyBalanceReport";
 import Stocks from "./pages/Stocks";
 import DealerExchange from "./pages/DealerExchange";
@@ -174,6 +175,14 @@ function App() {
           element={
             <ProtectedRoute>
               <SettingsPanel />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings-new"
+          element={
+            <ProtectedRoute>
+              <SettingsPanelNew />
             </ProtectedRoute>
           }
         />

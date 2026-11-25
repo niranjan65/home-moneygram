@@ -28,7 +28,7 @@ const PhoneMockup = () => {
       <div className="absolute w-72 h-72 sm:w-96 sm:h-96 rounded-full bg-gradient-to-tr from-red-500/20 to-amber-500/10 blur-3xl -z-10" />
 
       {/* Floating Live Rate Pill - Top Left */}
-      <div className="absolute -top-4 -left-4 sm:-left-8 z-30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md rounded-2xl px-3.5 py-2 shadow-xl border border-red-100 dark:border-gray-800 flex items-center gap-2 animate-bounce duration-1000">
+      <div className="absolute -top-4 -left-4 sm:-left-8 z-30 bg-white/95 dark:bg-[#181B24]/95 backdrop-blur-md rounded-2xl px-3.5 py-2 shadow-xl border border-red-100 dark:border-line flex items-center gap-2 animate-bounce duration-1000">
         <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping shrink-0" />
         <div>
           <p className="text-overline font-semibold text-gray-400 uppercase tracking-wider">Live Rate</p>
@@ -37,7 +37,7 @@ const PhoneMockup = () => {
       </div>
 
       {/* Floating Trust Badge - Bottom Right */}
-      <div className="absolute -bottom-4 -right-4 sm:-right-8 z-30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md rounded-2xl px-3.5 py-2 shadow-xl border border-red-100 dark:border-gray-800 flex items-center gap-2.5">
+      <div className="absolute -bottom-4 -right-4 sm:-right-8 z-30 bg-white/95 dark:bg-[#181B24]/95 backdrop-blur-md rounded-2xl px-3.5 py-2 shadow-xl border border-red-100 dark:border-line flex items-center gap-2.5">
         <div className="w-7 h-7 rounded-xl bg-red-100 dark:bg-red-950 flex items-center justify-center text-[#E00000]">
           <ShieldCheck size={16} />
         </div>
@@ -59,7 +59,7 @@ const PhoneMockup = () => {
         </div>
 
         {/* Screen Content */}
-        <div className="bg-gray-50 dark:bg-gray-900 h-full rounded-[2.5rem] pt-7 pb-4 px-3 flex flex-col justify-between overflow-hidden">
+        <div className="bg-gray-50 dark:bg-[#181B24] h-full rounded-[2.5rem] pt-7 pb-4 px-3 flex flex-col justify-between overflow-hidden">
           
           {/* Header */}
           <div>
@@ -101,30 +101,30 @@ const PhoneMockup = () => {
 
             {/* Quick Contacts */}
             <div className="mt-3.5">
-              <p className="text-overline font-semibold text-gray-400 mb-2 px-1">Frequent Receivers</p>
+              <p className="text-overline font-semibold text-gray-400 dark:text-[#9CA3AF] mb-2 px-1">Frequent Receivers</p>
               <div className="flex justify-between px-1">
                 {contacts.map((c) => (
                   <div key={c.name} className="flex flex-col items-center gap-1">
                     <div className={`w-8 h-8 rounded-full ${c.color} flex items-center justify-center text-white text-caption font-bold shadow-xs`}>
                       {c.initial}
                     </div>
-                    <span className="text-overline font-semibold text-gray-500">{c.name}</span>
+                    <span className="text-overline font-semibold text-gray-500 dark:text-[#D1D5DB]">{c.name}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* MoneyGram Active Remittance Pill */}
-            <div className="mt-3 bg-white dark:bg-gray-800 rounded-xl p-2.5 shadow-sm border border-gray-100 dark:border-gray-700">
+            <div className="mt-3 bg-white dark:bg-[#202430] rounded-xl p-2.5 shadow-sm border border-gray-100 dark:border-line">
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <span className="text-caption font-semibold text-gray-800 dark:text-gray-200">MoneyGram Inward</span>
+                  <span className="text-caption font-semibold text-gray-800 dark:text-[#F3F4F6]">MoneyGram Inward</span>
                 </div>
                 <span className="text-overline font-semibold text-emerald-600 dark:text-emerald-400">Paid Out</span>
               </div>
               <div className="flex justify-between items-center text-caption">
-                <span className="text-gray-500 font-normal">Ref: MG-84920</span>
+                <span className="text-gray-500 dark:text-[#9CA3AF] font-normal">Ref: MG-84920</span>
                 <span className="font-bold text-gray-900 dark:text-white tnum">$ 1,250.00 FJD</span>
               </div>
             </div>
@@ -143,9 +143,9 @@ const PhoneMockup = () => {
 
 const StatItem = ({ value, label, subtext }) => (
   <div className="flex flex-col gap-0.5">
-    <span className="text-3xl sm:text-4xl font-bold text-gray-900 tracking-tight tnum">{value}</span>
-    <span className="text-overline font-semibold text-gray-800 uppercase tracking-wider">{label}</span>
-    {subtext && <span className="text-caption text-gray-500 font-normal">{subtext}</span>}
+    <span className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white tracking-tight tnum">{value}</span>
+    <span className="text-overline font-semibold text-gray-800 dark:text-[#E2E8F0] uppercase tracking-wider">{label}</span>
+    {subtext && <span className="text-caption text-gray-500 dark:text-[#9CA3AF] font-normal">{subtext}</span>}
   </div>
 );
 
@@ -212,7 +212,7 @@ export default function SoldiLanding() {
   ];
 
   return (
-    <div className="min-h-screen font-sans overflow-hidden bg-[url('../assets/redbg.png')] bg-cover bg-fixed">
+    <div className="min-h-screen font-sans overflow-hidden bg-[url('../assets/redbg.png')] dark:bg-[url('../assets/redbg-dark.png')] bg-cover bg-fixed">
       <Navbar />
 
 
@@ -225,13 +225,13 @@ export default function SoldiLanding() {
           <div className="lg:col-span-7 flex flex-col gap-6 text-left">
             <div>
               {/* Category Pill */}
-              <div className="inline-flex items-center gap-2 border border-red-200 bg-white/90 shadow-xs rounded-full px-4 py-1.5 text-overline font-semibold text-[#E00000] tracking-wider uppercase mb-4 backdrop-blur-sm">
+              <div className="inline-flex items-center gap-2 border border-red-200 dark:border-red-900/40 bg-white/90 dark:bg-[#181B24]/90 shadow-xs rounded-full px-4 py-1.5 text-overline font-semibold text-[#E00000] tracking-wider uppercase mb-4 backdrop-blur-sm">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 MH Money Express · Authorized MoneyGram Principal Agent
               </div>
 
               {/* Main Headline */}
-              <h1 className="text-display sm:text-5xl lg:text-6xl font-bold text-gray-900 leading-[1.12] tracking-tight">
+              <h1 className="text-display sm:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white leading-[1.12] tracking-tight">
                 Fast &amp; Secure{" "}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#E00000] via-[#C50000] to-[#990000]">
                   International
@@ -254,7 +254,7 @@ export default function SoldiLanding() {
               </h1>
             </div>
 
-            <p className="text-body font-normal text-gray-600 leading-relaxed max-w-xl">
+            <p className="text-body font-normal text-gray-600 dark:text-[#D1D5DB] leading-relaxed max-w-xl">
               Fiji's premier authorized foreign exchange dealer and global remittance hub. Experience guaranteed vault cash availability, transparent mid-market exchange rates, and strict RBF regulatory compliance.
             </p>
 
@@ -270,7 +270,7 @@ export default function SoldiLanding() {
 
               <Link
                 to="/exchange"
-                className="bg-white hover:bg-gray-50 text-gray-900 text-btn-lg font-semibold px-6 py-3.5 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg border border-gray-200 flex items-center gap-2 group"
+                className="bg-white dark:bg-[#181B24] hover:bg-gray-50 dark:hover:bg-[#202430] text-gray-900 dark:text-white text-btn-lg font-semibold px-6 py-3.5 rounded-xl transition-all duration-200 shadow-md hover:shadow-lg border border-gray-200 dark:border-line flex items-center gap-2 group"
               >
                 Exchange Currency
                 <ArrowUpRight size={16} className="text-[#E00000] group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
@@ -278,14 +278,14 @@ export default function SoldiLanding() {
 
               <Link
                 to="/dealer-exchange"
-                className="text-caption font-semibold text-gray-700 hover:text-[#E00000] transition-colors py-2 px-3 underline underline-offset-4"
+                className="text-caption font-semibold text-gray-700 dark:text-[#E2E8F0] hover:text-[#E00000] dark:hover:text-red-400 transition-colors py-2 px-3 underline underline-offset-4"
               >
                 Dealer Wholesale &gt;
               </Link>
             </div>
 
             {/* Quick Stats Grid Row */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6 border-t border-gray-200/80 mt-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-6 border-t border-gray-200/80 dark:border-white/15 mt-2">
               <StatItem value="10M+" label="Global Users" subtext="Across MoneyGram" />
               <StatItem value="15+" label="Currencies" subtext="Live In Vault" />
               <StatItem value="$8B+" label="Volume Managed" subtext="Secure Transfers" />
@@ -307,7 +307,7 @@ export default function SoldiLanding() {
       </section>
 
       {/* Features Section: Matching MH Theme with Premium Dark Obsidian Glass */}
-      <section className="w-full bg-gradient-to-b from-gray-950 via-gray-900 to-[#1e0404] text-white">
+      <section className="w-full bg-gradient-to-b from-[#0B0D12] via-[#14171F] to-[#1e0404] text-white">
         <div className="max-w-[80%] mx-auto px-6 md:px-16 py-20">
           
           {/* Header Row */}
@@ -358,7 +358,7 @@ export default function SoldiLanding() {
                   <h3 className="text-white font-bold text-h3 leading-snug mb-2">{f.title}</h3>
 
                   {/* Description */}
-                  <p className="text-gray-400 text-caption font-normal leading-relaxed mb-4">{f.desc}</p>
+                  <p className="text-gray-400 dark:text-[#D1D5DB] text-caption font-normal leading-relaxed mb-4">{f.desc}</p>
                 </div>
 
                 {/* Mockup Preview */}

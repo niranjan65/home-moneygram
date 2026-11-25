@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import CurrencyDropdown from "./CurrencyDropdown";
 import { currencies } from "../../data/currencies";
+import { CurrencyInput } from "../common/CurrencyInput";
 
 export default function Hero() {
   const [amount, setAmount] = useState(1);
@@ -69,9 +70,7 @@ export default function Hero() {
               From
             </label>
 
-            <input
-              type="number"
-              min="0"
+            <CurrencyInput
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-4 py-3 text-amount-pair font-bold tnum focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition"

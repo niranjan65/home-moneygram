@@ -114,13 +114,13 @@ const currencies = [
 
 export default function PopularCountries() {
   return (
-    <div className="bg-white min-h-screen font-sans px-8 md:px-16 py-16">
+    <div className="bg-surface text-ink min-h-screen font-sans px-8 md:px-16 py-16 transition-colors">
       {/* Header */}
       <div className="flex flex-col items-center text-center mb-14 gap-4">
-        <button className="border border-gray-300 rounded-full px-5 py-2 text-overline font-semibold tracking-wider uppercase text-gray-600">
+        <button className="border border-line rounded-full px-5 py-2 text-overline font-semibold tracking-wider uppercase text-muted">
           We Are Covering
         </button>
-        <h2 className="text-h1 font-bold text-gray-900 leading-snug tracking-tight">
+        <h2 className="text-h1 font-bold text-ink leading-snug tracking-tight">
           Popular Countries Our{" "}
           <span className="relative inline-block">
             Customers
@@ -138,21 +138,21 @@ export default function PopularCountries() {
         {currencies.map((c, i) => (
           <div
             key={i}
-            className="bg-[#fff0f0] rounded-2xl p-6 flex flex-col gap-4 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 group"
+            className="bg-[#fff0f0] dark:bg-surface-alt dark:border dark:border-line text-ink rounded-2xl p-6 flex flex-col gap-4 hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 group"
           >
             {/* Flag + Name */}
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-full overflow-hidden flex-shrink-0 shadow-sm">
                 {c.flag}
               </div>
-              <h3 className="text-h3 font-bold text-gray-900 leading-snug">{c.name}</h3>
+              <h3 className="text-h3 font-bold text-ink leading-snug">{c.name}</h3>
             </div>
 
             {/* Description */}
-            <p className="text-gray-500 text-body font-normal leading-relaxed flex-1">{c.desc}</p>
+            <p className="text-muted dark:text-[#D1D5DB] text-body font-normal leading-relaxed flex-1">{c.desc}</p>
 
             {/* Send Money link */}
-            <button className="text-label font-semibold text-gray-900 underline underline-offset-2 w-fit hover:text-gray-600 transition-colors">
+            <button className="text-label font-semibold text-ink underline underline-offset-2 w-fit hover:text-brand-600 transition-colors cursor-pointer">
               Send Money
             </button>
           </div>

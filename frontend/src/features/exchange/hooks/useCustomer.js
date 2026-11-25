@@ -104,13 +104,16 @@ export const useCustomer = ({ autoFillDocument = true } = {}) => {
         const currentDocs = getValues ? getValues('documents') : null;
         if (!currentDocs || currentDocs.length === 0) {
           setValue('documents', [{
+            document_category: 'Proof of Identity',
             document_type: govIdType,
             document_number: govIdNum,
             issue_date: customer.custom_id_issue_date || customer.id_issue_date || '',
             expiry_date: customer.custom_id_expiry_date || customer.id_expiry_date || '',
             issue_country: customer.custom_id_issue_country || customer.id_issue_country || '',
             attachment: url,
+            file_name: typeof url === 'string' ? url.split('/').pop() : 'document.pdf',
             notes: '',
+            isAutoFilled: true,
           }], { shouldValidate: true, shouldDirty: true });
         }
       } else {

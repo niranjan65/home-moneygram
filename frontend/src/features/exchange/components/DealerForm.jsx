@@ -144,8 +144,10 @@ export const DealerForm = ({
   const selectedDenomCountry = toCurrency?.country ?? null;
   const { data: foreignCurrencyInfo, loading: denomLoading, error: denomLoadError } = useDenomination(selectedDenomCountry);
 
-  const senderInfo = exchangeType === 'BUY' ? baseCurrencyInfo : foreignCurrencyInfo;
-  const receiverInfo = exchangeType === 'BUY' ? foreignCurrencyInfo : baseCurrencyInfo;
+  // In BUY FOREX: Currency In = Forex, Currency Out = FJD
+  // In SELL FOREX: Currency In = FJD, Currency Out = Forex
+  const senderInfo = exchangeType === 'BUY' ? foreignCurrencyInfo : baseCurrencyInfo;
+  const receiverInfo = exchangeType === 'BUY' ? baseCurrencyInfo : foreignCurrencyInfo;
 
   const loginUser = useUser();
   const { selectedWarehouse } = useSettings();
@@ -155,19 +157,13 @@ export const DealerForm = ({
   const stockErrorRef = useRef(null);
 
   // Clear errors when currency or warehouse changes
-  useEffect(() => { 
-    setStockError(''); 
+  useEffect(() => {
+    setStockError('');
     setCashAccountError('');
   }, [toCurrency?.code, selectedWarehouse?.warehouse]);
 
   const runStockCheck = async (si = senderInfo, ri = receiverInfo) => {
-
-
-    // Stock check only applies when selling (customer brings foreign currency)
-
-
     const warehouseName = selectedWarehouse?.warehouse;
-
 
     const getSelectedItems = (info, rows) => {
       if (!info || !rows) return [];
@@ -180,60 +176,114 @@ export const DealerForm = ({
       }).filter(Boolean);
     };
 
-    if (exchangeType === 'BUY') {
-      const selectedItems = getSelectedItems(si, senderDenomRowsRef.current);
-      if (!warehouseName || selectedItems.length === 0) return true; // nothing to check
-      setStockLoading(true);
-      try {
-        const { outOfStock } = await validateStockAvailability(selectedItems, warehouseName, loginUser);
-        if (outOfStock.length > 0) {
-          setStockError(
-            `Sufficient stock for ${si?.currency} not available at ${warehouseName} for the denominations you've entered. (Check: ${outOfStock.join(', ')}) Please adjust the counts or contact admin.`
-          );
-          setTimeout(() => stockErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
-          return false;
-        }
-        setStockError('');
-        return true;
-      } catch (err) {
-        console.error('[Stock Check]', err);
-        setStockError('');
-        return true; // non-blocking on API error
-      } finally {
-        setStockLoading(false);
+    // Stock check validates the currency being disbursed to the customer (receiverInfo)
+    const selectedItems = getSelectedItems(ri, receiverDenomRowsRef.current);
+    if (!warehouseName || selectedItems.length === 0) return true; // nothing to check
+    setStockLoading(true);
+    try {
+      const { outOfStock } = await validateStockAvailability(selectedItems, warehouseName, loginUser);
+      if (outOfStock.length > 0) {
+        setStockError(
+          `Sufficient stock for ${ri?.currency} not available at ${warehouseName} for the denominations you've entered. (Check: ${outOfStock.join(', ')}) Please adjust the counts or contact admin.`
+        );
+        setTimeout(() => stockErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+        return false;
       }
-    } else if (exchangeType === 'SELL') {
-      const selectedItems = getSelectedItems(si, senderDenomRowsRef.current);
-      if (!warehouseName || selectedItems.length === 0) return true; // nothing to check
-      setStockLoading(true);
-      try {
-        const { outOfStock } = await validateStockAvailability(selectedItems, warehouseName, loginUser);
-        if (outOfStock.length > 0) {
-          setStockError(
-            `Sufficient stock for ${si?.currency} not available at ${warehouseName} for the denominations you've entered. (Check: ${outOfStock.join(', ')}) Please adjust the counts or contact admin.`
-          );
-          setTimeout(() => stockErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
-          return false;
-        }
-        setStockError('');
-        return true;
-      } catch (err) {
-        console.error('[Stock Check]', err);
-        setStockError('');
-        return true; // non-blocking on API error
-      } finally {
-        setStockLoading(false);
-      }
+      setStockError('');
+      return true;
+    } catch (err) {
+      console.error('[Stock Check]', err);
+      setStockError('');
+      return true; // non-blocking on API error
+    } finally {
+      setStockLoading(false);
     }
-
-
-
   };
 
   const senderDenomRowsRef = useRef([]);
   const receiverDenomRowsRef = useRef([]);
   const senderDenomStatusRef = useRef({ total: 0, target: 0 });
   const receiverDenomStatusRef = useRef({ total: 0, target: 0 });
+
+  const [senderAvailability, setSenderAvailability] = useState({});
+  const [receiverAvailability, setReceiverAvailability] = useState({});
+
+  useEffect(() => {
+    const warehouseName = selectedWarehouse?.warehouse;
+    if (!warehouseName) {
+      setSenderAvailability({});
+      setReceiverAvailability({});
+      return;
+    }
+
+    const senderItems = [
+      ...(senderInfo?.notes_name || []).map(code => ({ item_code: code, requested_qty: 0 })),
+      ...(senderInfo?.coins_name || []).map(code => ({ item_code: code, requested_qty: 0 })),
+    ].filter(i => Boolean(i.item_code));
+
+    const receiverItems = [
+      ...(receiverInfo?.notes_name || []).map(code => ({ item_code: code, requested_qty: 0 })),
+      ...(receiverInfo?.coins_name || []).map(code => ({ item_code: code, requested_qty: 0 })),
+    ].filter(i => Boolean(i.item_code));
+
+    const allItems = [...senderItems, ...receiverItems];
+    if (allItems.length === 0) {
+      setSenderAvailability({});
+      setReceiverAvailability({});
+      return;
+    }
+
+    let active = true;
+    validateStockAvailability(allItems, warehouseName, loginUser)
+      .then(res => {
+        if (!active || !res?.qtyMap) return;
+
+        if (senderInfo) {
+          const sAvail = {};
+          (senderInfo.notes || []).forEach((denom, i) => {
+            const code = senderInfo.notes_name?.[i];
+            if (code) {
+              sAvail[String(Number(denom))] = Math.max(0, Number(res.qtyMap[code] ?? 0));
+            }
+          });
+          (senderInfo.coins || []).forEach((denom, i) => {
+            const code = senderInfo.coins_name?.[i];
+            if (code) {
+              sAvail[String(Number(denom))] = Math.max(0, Number(res.qtyMap[code] ?? 0));
+            }
+          });
+          // console.log("sAvail", sAvail)
+          // console.log("senderInfo", senderInfo)
+          setSenderAvailability(sAvail);
+        } else {
+          setSenderAvailability({});
+        }
+
+        if (receiverInfo) {
+          const rAvail = {};
+          (receiverInfo.notes || []).forEach((denom, i) => {
+            const code = receiverInfo.notes_name?.[i];
+            if (code) {
+              rAvail[String(Number(denom))] = Math.max(0, Number(res.qtyMap[code] ?? 0));
+            }
+          });
+          (receiverInfo.coins || []).forEach((denom, i) => {
+            const code = receiverInfo.coins_name?.[i];
+            if (code) {
+              rAvail[String(Number(denom))] = Math.max(0, Number(res.qtyMap[code] ?? 0));
+            }
+          });
+          setReceiverAvailability(rAvail);
+        } else {
+          setReceiverAvailability({});
+        }
+      })
+      .catch(err => {
+        console.error('[DealerForm Stock Availability Fetch Error]', err);
+      });
+
+    return () => { active = false; };
+  }, [senderInfo, receiverInfo, selectedWarehouse?.warehouse, loginUser]);
 
   const [denomBalanceError, setDenomBalanceError] = useState('');
   const denomErrorRef = useRef(null);
@@ -252,7 +302,7 @@ export const DealerForm = ({
         custom_last_name: initialData.lastName,
         custom_date_of_birth: initialData.dateOfBirth,
         custom_government_document: initialData.docFile,
-        image: initialData.docFile,
+        image: initialData.image || initialData.customer_image || "",
       };
     }
     return null;
@@ -260,10 +310,7 @@ export const DealerForm = ({
 
   const handleResetAllFields = React.useCallback(() => {
     setCurrentDealer(null);
-    // 1. Reset calculation / amounts
-    setSendAmount('');
-    setSendAmountError('');
-    setManualRate('');
+    // Do not clear the amount section when resetting dealer fields
 
     // 2. Reset denomination counts & status
     if (senderDenomRowsRef.current) senderDenomRowsRef.current = [];
@@ -296,7 +343,7 @@ export const DealerForm = ({
       id_expiry_date: null,
     });
     methods.clearErrors();
-  }, [methods, setSendAmount, setSendAmountError, setManualRate]);
+  }, [methods]);
 
   const watchedValues = watch();
 
@@ -642,11 +689,13 @@ export const DealerForm = ({
                 receiverDenomStatusRef.current = s;
                 updateProgress();
               }}
+              senderAvailabilityByDenomination={senderAvailability}
+              receiverAvailabilityByDenomination={receiverAvailability}
             />
           </div>
 
           {/* CARD FOOTER ACTIONS BAR (matching /exchange-new) */}
-          <div style={{ padding: "20px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#FAFAFB", borderTop: "1px solid #E3E6EB", flexWrap: "wrap", gap: "12px", marginTop: "20px" }}>
+          <div style={{ padding: "20px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--color-surface-alt)", borderTop: "1px solid var(--color-line)", flexWrap: "wrap", gap: "12px", marginTop: "20px" }}>
             <button
               type="button"
               onClick={onClear}
@@ -664,8 +713,8 @@ export const DealerForm = ({
               {stockLoading
                 ? 'Checking stock…'
                 : !requiredFieldsInfo.isAllComplete
-                ? `Continue (${requiredFieldsInfo.completedCount}/${requiredFieldsInfo.totalCount})`
-                : `Continue to review · FJD ${Number(exchangeType === 'BUY' ? fjdSendAmount || 0 : exchangePreview?.rawAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                  ? `Continue (${requiredFieldsInfo.completedCount}/${requiredFieldsInfo.totalCount})`
+                  : `Continue to review · FJD ${Number(exchangeType === 'BUY' ? fjdSendAmount || 0 : exchangePreview?.rawAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
               }
             </button>
           </div>

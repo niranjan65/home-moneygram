@@ -724,7 +724,7 @@ const MoneyExchange = () => {
 
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-page text-ink transition-colors">
       <Navbar />
 
       <ExchangeProvider summary={summary}>

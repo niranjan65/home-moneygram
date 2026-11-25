@@ -17,6 +17,17 @@ export const DenominationPanel = ({
     removeRow,
     reset
   } = useDenominationCalculator({ currency, targetAmount, notes, coins, onRowsChange, availabilityByDenomination, initialRows });
+  // console.log({
+  //   rows,
+  //   totalDispensed,
+  //   difference,
+  //   isBalanced,
+  //   isOver,
+  //   updateCount,
+  //   step,
+  //   removeRow,
+  //   reset
+  // })
 
   const statusLabel = isBalanced
     ? 'Balanced'
@@ -38,23 +49,25 @@ export const DenominationPanel = ({
         </div>
         {targetAmount > 0 && (
           <span className="text-xs font-semibold text-gray-700 bg-gray-50 border border-gray-200 px-2.5 py-1 rounded-md">
-            {symbol}{targetAmount.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:4})} {currency}
+            {symbol}{targetAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })} {currency}
           </span>
         )}
       </div>
 
       <div className="grid grid-cols-3 divide-x divide-gray-100 border-b border-gray-100 bg-gray-50/50">
         {[
-          { label:'Expected', val: targetAmount||0, color:'#374151' },
-          { label:'Counted',  val: totalDispensed,  color: accentColor },
-          { label: isBalanced ? 'Balanced' : isOver ? 'Overage' : 'Shortfall',
+          { label: 'Expected', val: targetAmount || 0, color: '#374151' },
+          { label: 'Counted', val: totalDispensed, color: accentColor },
+          {
+            label: isBalanced ? 'Balanced' : isOver ? 'Overage' : 'Shortfall',
             val: Math.abs(difference), color: statusColor,
-            prefix: isBalanced ? '' : isOver ? '+' : '-' },
-        ].map(({ label, val, color, prefix='' }) => (
+            prefix: isBalanced ? '' : isOver ? '+' : '-'
+          },
+        ].map(({ label, val, color, prefix = '' }) => (
           <div key={label} className="flex flex-col items-center py-2.5 px-2">
             <span className="text-overline text-gray-600 font-semibold uppercase tracking-wider mb-0.5">{label}</span>
             <span className="text-sm font-semibold tnum" style={{ color }}>
-              {prefix}{symbol}{val.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:4})}
+              {prefix}{symbol}{val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
             </span>
           </div>
         ))}
@@ -74,7 +87,7 @@ export const DenominationPanel = ({
       </div>
 
       <div className="grid grid-cols-12 gap-2 px-4 py-1.5 border-b border-gray-100 bg-gray-50/30">
-        {[['col-span-4','Denomination'],['col-span-5','Count / Available'],['col-span-2 text-right','Subtotal'],['col-span-1','']].map(([cls,h]) => (
+        {[['col-span-4', 'Denomination'], ['col-span-5', 'Count / Available'], ['col-span-2 text-right', 'Subtotal'], ['col-span-1', '']].map(([cls, h]) => (
           <div key={h} className={`${cls} text-overline font-semibold text-gray-700 uppercase tracking-wider`}>{h}</div>
         ))}
       </div>
@@ -88,7 +101,7 @@ export const DenominationPanel = ({
         )}
         {rows.map(row => {
           const subtotal = row.denom * row.count;
-          const active   = row.count > 0;
+          const active = row.count > 0;
           const available = availabilityByDenomination?.[String(Number(row.denom))];
           return (
             <div key={row.id}
@@ -97,15 +110,15 @@ export const DenominationPanel = ({
               <div className="col-span-4 flex min-w-0 items-center">
                 <span className="inline-flex shrink-0 items-center gap-0.5 px-2 py-1 rounded-md border text-xs font-semibold transition-colors"
                   style={active
-                    ? { background:`${accentColor}10`, borderColor:`${accentColor}30`, color:accentColor }
-                    : { borderColor:'#e5e7eb', color:'#374151' }}>
+                    ? { background: `${accentColor}10`, borderColor: `${accentColor}30`, color: accentColor }
+                    : { borderColor: '#e5e7eb', color: '#374151' }}>
                   <span className="opacity-50 text-overline">{symbol}</span>
                   {row.denom < 1 ? row.denom.toFixed(2) : row.denom.toLocaleString()}
                   <span className="ml-0.5 text-overline opacity-60">{currency}</span>
                 </span>
               </div>
               <div className="col-span-5 flex min-w-0 items-center gap-1">
-                <button type="button" onClick={() => step(row.id,-1)}
+                <button type="button" onClick={() => step(row.id, -1)}
                   className="h-7 w-6 shrink-0 rounded border border-gray-200 flex items-center justify-center text-gray-300 hover:text-[#E00000] hover:border-[#E00000]/20 transition-colors">
                   <MinusCircle size={14} strokeWidth={1.5} />
                 </button>
@@ -113,21 +126,21 @@ export const DenominationPanel = ({
                   onChange={e => updateCount(row.id, available === undefined ? e.target.value : Math.min(Number(e.target.value || 0), Number(available)))}
                   className="h-7 min-w-0 flex-1 rounded border text-center text-sm font-semibold focus:outline-none transition-colors"
                   style={active
-                    ? { borderColor:`${accentColor}50`, background:`${accentColor}06` }
-                    : { borderColor:'#e5e7eb' }} />
+                    ? { borderColor: `${accentColor}50`, background: `${accentColor}06` }
+                    : { borderColor: '#e5e7eb' }} />
                 {available !== undefined && <span className="shrink-0 whitespace-nowrap text-caption font-semibold tnum text-gray-500">/ {Number(available).toLocaleString()}</span>}
-                <button type="button" onClick={() => step(row.id,1)} disabled={available !== undefined && row.count >= Number(available)}
+                <button type="button" onClick={() => step(row.id, 1)} disabled={available !== undefined && row.count >= Number(available)}
                   className="h-7 w-6 shrink-0 rounded border flex items-center justify-center transition-colors"
                   style={active
-                    ? { color:accentColor, borderColor:`${accentColor}40`, background:`${accentColor}08` }
-                    : { color:'#d1d5db', borderColor:'#e5e7eb' }}>
+                    ? { color: accentColor, borderColor: `${accentColor}40`, background: `${accentColor}08` }
+                    : { color: '#d1d5db', borderColor: '#e5e7eb' }}>
                   <PlusCircle size={14} strokeWidth={1.5} />
                 </button>
               </div>
               <div className="col-span-2 text-right min-w-0">
                 <span className="text-sm font-semibold tnum transition-colors"
                   style={{ color: active ? accentColor : '#e5e7eb' }}>
-                  {symbol}{subtotal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
+                  {symbol}{subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
               <div className="col-span-1 flex justify-end">
@@ -143,11 +156,11 @@ export const DenominationPanel = ({
 
       <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/40 flex items-center justify-between">
         <div className="text-xs text-gray-400">
-          {rows.filter(r=>r.count>0).length} denominations · {rows.reduce((s,r)=>s+r.count,0)} notes
+          {rows.filter(r => r.count > 0).length} denominations · {rows.reduce((s, r) => s + r.count, 0)} notes
         </div>
         <div className="text-right">
           <span className="text-lg font-bold" style={{ color: accentColor }}>
-            {symbol}{totalDispensed.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:4})}
+            {symbol}{totalDispensed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
           </span>
           <span className="text-xs text-gray-400 ml-1.5">{currency}</span>
         </div>

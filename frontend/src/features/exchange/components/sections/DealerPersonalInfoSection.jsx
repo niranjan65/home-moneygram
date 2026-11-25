@@ -262,8 +262,6 @@ export const DealerPersonalInfoSection = ({
     }
 
     if (hadSelectedDealer && val !== prevName) {
-      onResetAllFields?.();
-      handleClearDealer(true);
       setValue('fullName', val, { shouldValidate: true, shouldDirty: true });
       setNameQuery(val);
     }
@@ -296,9 +294,6 @@ export const DealerPersonalInfoSection = ({
 
   // Handle typing in separate name fields
   const handleSeparateNameChange = (fieldName, val) => {
-    if (selectedDealer) {
-      handleUserDetailEdit();
-    }
     setValue(fieldName, val, { shouldValidate: true, shouldDirty: true });
     if (!selectedDealer) {
       const curFirst = fieldName === 'firstName' ? val : (watch('firstName') || '');
@@ -312,13 +307,10 @@ export const DealerPersonalInfoSection = ({
     }
   };
 
-  // Handle user detail edit when an existing dealer was loaded -> reset the form!
+  // Handle user detail edit when an existing dealer was loaded
   const handleUserDetailEdit = useCallback(() => {
-    if (selectedDealer) {
-      onResetAllFields?.();
-      handleClearDealer(true);
-    }
-  }, [selectedDealer, onResetAllFields]);
+    // Do not reset the form on editing dealer details
+  }, []);
 
   // Keyboard navigation for dropdown
   const handleKeyDown = (e) => {
@@ -357,24 +349,8 @@ export const DealerPersonalInfoSection = ({
   const handleSelectDealer = async (c) => {
     if (!c) return;
 
-    const hadSelectedDealer = Boolean(
-      selectedDealer && (selectedDealer.name || selectedDealer.customer_id || selectedDealer.custom_customer_id)
-    );
-
-    const currentDealerIdentifier =
-      selectedDealer?.name || selectedDealer?.customer_id || selectedDealer?.custom_customer_id || '';
-    const newDealerIdentifier =
-      c?.name || c?.customer_id || c?.custom_customer_id || '';
-
-    const isDifferentDealer =
-      hadSelectedDealer &&
-      Boolean(currentDealerIdentifier) &&
-      Boolean(newDealerIdentifier) &&
-      currentDealerIdentifier !== newDealerIdentifier;
-
-    if (hadSelectedDealer && isDifferentDealer) {
-      onResetAllFields?.();
-    }
+    // Reset previous dealer fields when selecting an existing dealer
+    onResetAllFields?.();
 
     setSelectedDealer(c);
     onDealerChange?.(c);
@@ -435,40 +411,37 @@ export const DealerPersonalInfoSection = ({
   };
 
   return (
-    <div id="section-dealer-personal-info" className={hideCardWrapper ? "flex flex-col gap-5 w-full min-w-0" : "rounded-2xl border border-gray-200/90 overflow-hidden bg-white shadow-xs"}>
+    <div id="section-dealer-personal-info" className={hideCardWrapper ? "flex flex-col gap-5 w-full min-w-0" : "rounded-2xl border border-line overflow-hidden bg-surface shadow-xs"}>
       {!hideCardWrapper ? (
-        <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-3 bg-white">
+        <div className="px-5 sm:px-6 py-4 border-b border-line flex items-center justify-between gap-3 bg-surface">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-gray-50 border border-gray-200/60 flex items-center justify-center text-gray-700 shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-surface-alt border border-line flex items-center justify-center text-ink shrink-0">
               <User size={16} strokeWidth={2} />
             </div>
             <div className="min-w-0">
-              <h3 className="text-sm font-bold text-gray-900 leading-tight">Personal Information</h3>
-              <p className="text-xs text-gray-500 mt-0.5 truncate">Select an existing registered dealer or enter new details</p>
+              <h3 className="text-sm font-bold text-ink leading-tight">Personal Information</h3>
+              <p className="text-xs text-muted mt-0.5 truncate">Select an existing registered dealer or enter new details</p>
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-brand-50 text-brand-700 border border-brand-200 shrink-0">
               <User size={12} strokeWidth={2.5} /> Dealer Check
             </span>
           </div>
         </div>
       ) : (
-        <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+        <div className="flex items-center justify-between pb-3 ">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-gray-50 border border-gray-200/60 flex items-center justify-center text-gray-700 shrink-0">
+            <div className="w-7 h-7 rounded-lg bg-surface-alt border border-line flex items-center justify-center text-ink shrink-0">
               <User size={15} strokeWidth={2} />
             </div>
             <div>
-              <h4 className="text-xs uppercase font-bold text-gray-700 tracking-wider">
+              <h4 className="text-xs uppercase font-bold text-ink tracking-wider">
                 Dealer Details &amp; Lookup
               </h4>
-              <p className="text-caption text-gray-400">Select an existing registered dealer or enter new details</p>
+              <p className="text-caption text-muted">Select an existing registered dealer or enter new details</p>
             </div>
           </div>
-          <span className="text-overline font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
-            Dealer Check
-          </span>
         </div>
       )}
 
@@ -518,11 +491,11 @@ export const DealerPersonalInfoSection = ({
               }}
               onChange={(e) => handleNameQueryChange(e.target.value)}
               onKeyDown={handleKeyDown}
-              className={`${fieldCls(errors.fullName)} pr-10 bg-white`}
+              className={`${fieldCls(errors.fullName)} pr-10 bg-surface`}
             />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 flex items-center gap-1.5">
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted flex items-center gap-1.5">
               {dealersLoading ? (
-                <RefreshCw size={14} className="animate-spin text-[#E00000]" />
+                <RefreshCw size={14} className="animate-spin text-brand-600" />
               ) : nameQuery || selectedDealer ? (
                 <button
                   type="button"
@@ -530,7 +503,7 @@ export const DealerPersonalInfoSection = ({
                     if (selectedDealer) onResetAllFields?.();
                     handleClearDealer(false);
                   }}
-                  className="p-0.5 hover:text-gray-600 text-gray-400 cursor-pointer"
+                  className="p-0.5 hover:text-ink text-muted cursor-pointer"
                   title="Clear"
                 >
                   <X size={14} />
@@ -544,31 +517,31 @@ export const DealerPersonalInfoSection = ({
 
           {/* Autocomplete Dropdown for Dealer */}
           {isDropdownOpen && (
-            <div className="absolute left-0 top-full mt-1.5 w-full min-w-[320px] bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in duration-100">
-              <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between text-[11px] text-gray-500 font-medium">
-                <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-gray-500">
-                  <User size={12} className="text-[#E00000]" />
+            <div className="absolute left-0 top-full mt-1.5 w-full min-w-[320px] bg-surface border border-line rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in duration-100">
+              <div className="px-3.5 py-2 bg-surface-alt border-b border-line flex items-center justify-between text-[11px] text-muted font-medium">
+                <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-muted">
+                  <User size={12} className="text-brand-600" />
                   Matching Dealers ({visibleDealers.length})
                 </span>
                 {dealersLoading ? (
-                  <span className="flex items-center gap-1 text-gray-400 text-overline">
+                  <span className="flex items-center gap-1 text-muted text-overline">
                     <RefreshCw size={10} className="animate-spin" /> Searching…
                   </span>
                 ) : (
-                  <span className="text-overline text-gray-400">Select to auto-fill details</span>
+                  <span className="text-overline text-muted">Select to auto-fill details</span>
                 )}
               </div>
 
-              <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+              <div className="max-h-64 overflow-y-auto divide-y divide-line">
                 {dealersLoading && visibleDealers.length === 0 ? (
-                  <div className="px-4 py-5 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
-                    <RefreshCw size={13} className="animate-spin text-gray-400" />
+                  <div className="px-4 py-5 text-center text-xs text-muted flex items-center justify-center gap-2">
+                    <RefreshCw size={13} className="animate-spin text-muted" />
                     <span>Searching dealer records…</span>
                   </div>
                 ) : visibleDealers.length === 0 ? (
-                  <div className="px-4 py-4 text-center text-xs text-gray-500">
-                    <p className="font-semibold text-gray-700">No matching dealer</p>
-                    <p className="text-caption text-gray-400 mt-0.5">
+                  <div className="px-4 py-4 text-center text-xs text-muted">
+                    <p className="font-semibold text-ink">No matching dealer</p>
+                    <p className="text-caption text-muted mt-0.5">
                       Enter details to register as new dealer
                     </p>
                   </div>
@@ -585,23 +558,22 @@ export const DealerPersonalInfoSection = ({
                         key={c.name || cId || idx}
                         onClick={() => handleSelectDealer(c)}
                         onMouseEnter={() => setHighlightedIndex(idx)}
-                        className={`px-3.5 py-2.5 flex items-center justify-between cursor-pointer transition-colors ${
-                          isHighlighted ? 'bg-red-50/70 text-gray-900' : 'hover:bg-gray-50 text-gray-700'
-                        }`}
+                        className={`px-3.5 py-2.5 flex items-center justify-between cursor-pointer transition-colors ${isHighlighted ? 'bg-danger-bg text-ink' : 'hover:bg-chip text-ink'
+                          }`}
                       >
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-xs text-gray-900 truncate">{cName}</span>
-                            <span className="text-overline font-mono font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                            <span className="font-bold text-xs text-ink truncate">{cName}</span>
+                            <span className="text-overline font-mono font-semibold px-1.5 py-0.5 rounded bg-chip text-muted">
                               {cId}
                             </span>
                           </div>
-                          <div className="flex items-center gap-3 text-caption text-gray-500 mt-0.5">
+                          <div className="flex items-center gap-3 text-caption text-muted mt-0.5">
                             {dob && <span>DOB: {dob}</span>}
-                            {phoneNum && <span className="text-gray-600 font-medium">📞 {phoneNum}</span>}
+                            {phoneNum && <span className="text-ink font-medium">📞 {phoneNum}</span>}
                           </div>
                         </div>
-                        <div className="text-overline font-mono font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 whitespace-nowrap ml-2">
+                        <div className="text-overline font-mono font-semibold px-2 py-0.5 rounded bg-brand-50 text-brand-700 border border-brand-200 whitespace-nowrap ml-2">
                           Dealer
                         </div>
                       </div>
@@ -750,9 +722,8 @@ export const DealerPersonalInfoSection = ({
                 placeholder="Auto-generating ID..."
                 value={customerId || ''}
                 {...register('customer_id')}
-                className={`w-full px-3.5 py-2.5 rounded-lg border font-mono font-bold tracking-widest text-sm bg-gray-50 ${
-                  customerId ? 'text-[#E00000] border-gray-300' : 'text-gray-400 border-gray-200'
-                }`}
+                className={`w-full px-3.5 py-2.5 rounded-lg border font-mono font-bold tracking-widest text-sm bg-gray-50 ${customerId ? 'text-[#E00000] border-gray-300' : 'text-gray-400 border-gray-200'
+                  }`}
               />
             </div>
             <ErrorMsg message={errors.customer_id?.message} />
@@ -767,26 +738,26 @@ export const DealerPersonalInfoSection = ({
             </FieldLabel>
             <div className="mt-1">
               {previewUrl ? (
-                <div className={`rounded-lg border overflow-hidden ${errors.docFile ? 'border-[#E00000]/30' : 'border-gray-200'}`}>
+                <div className={`rounded-lg border overflow-hidden ${errors.docFile ? 'border-brand-600/30' : 'border-line'}`}>
                   {previewFile?.type === 'application/pdf' ? (
-                    <div className="flex items-center gap-3 px-4 py-3 bg-white">
-                      <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#E00000]/5">
-                        <FileText size={16} className="text-[#E00000]" />
+                    <div className="flex items-center gap-3 px-4 py-3 bg-surface">
+                      <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-brand-50">
+                        <FileText size={16} className="text-brand-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-800 text-sm truncate">{previewFile.name}</p>
-                        <p className="text-xs text-gray-400">{(previewFile.size / 1024).toFixed(1)} KB · PDF</p>
+                        <p className="font-medium text-ink text-sm truncate">{previewFile.name}</p>
+                        <p className="text-xs text-muted">{(previewFile.size / 1024).toFixed(1)} KB · PDF</p>
                       </div>
                       <button type="button" onClick={removeFile}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#E00000] hover:bg-[#E00000]/5 transition-colors cursor-pointer">
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-muted hover:text-brand-600 hover:bg-brand-50 transition-colors cursor-pointer">
                         <X size={14} />
                       </button>
                     </div>
                   ) : (
                     <div className="relative">
-                      <img src={previewUrl} alt="Passport" className="w-full max-h-48 object-contain p-3 bg-gray-50" />
+                      <img src={previewUrl} alt="Passport" className="w-full max-h-48 object-contain p-3 bg-surface-alt" />
                       <button type="button" onClick={removeFile}
-                        className="absolute top-2 right-2 w-7 h-7 bg-white border border-gray-200 rounded-lg shadow-sm flex items-center justify-center text-gray-400 hover:text-[#E00000] transition-colors cursor-pointer">
+                        className="absolute top-2 right-2 w-7 h-7 bg-surface border border-line rounded-lg shadow-sm flex items-center justify-center text-muted hover:text-brand-600 transition-colors cursor-pointer">
                         <X size={13} />
                       </button>
                       <div className="flex items-center gap-1.5 px-4 py-2 bg-green-50 border-t border-green-100 text-xs font-medium text-green-700">

@@ -45,30 +45,30 @@ const TransactionHistory = () => {
     <>
       <Navbar />
 
-      <section className="min-h-screen bg-[var(--color-background-light)] py-16 px-6">
-        <div className="max-w-[80%] mx-auto bg-white rounded-3xl shadow-lg p-10">
+      <section className="min-h-screen bg-page text-ink py-16 px-6 transition-colors">
+        <div className="max-w-[80%] mx-auto bg-surface border border-line rounded-3xl shadow-lg p-10">
 
-          <h1 className="text-3xl font-bold mb-8">
+          <h1 className="text-3xl font-bold mb-8 text-ink">
             Transaction History
           </h1>
 
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
               <div className="relative flex items-center justify-center">
-                <div className="w-12 h-12 rounded-full border-4 border-[#E00000]/20 animate-ping absolute" />
-                <div className="w-10 h-10 rounded-full border-3 border-gray-200 border-t-[#E00000] animate-spin" />
+                <div className="w-12 h-12 rounded-full border-4 border-brand-500/20 animate-ping absolute" />
+                <div className="w-10 h-10 rounded-full border-3 border-line border-t-brand-600 animate-spin" />
               </div>
-              <p className="mt-4 text-sm font-semibold text-gray-700 animate-pulse">Loading transaction records…</p>
-              <p className="text-xs text-gray-400 mt-1">Please wait while transactions are being retrieved…</p>
+              <p className="mt-4 text-sm font-semibold text-ink-soft animate-pulse">Loading transaction records…</p>
+              <p className="text-xs text-muted mt-1">Please wait while transactions are being retrieved…</p>
             </div>
           ) : transactions.length === 0 ? (
-            <p>No transactions found.</p>
+            <p className="text-muted">No transactions found.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
 
                 <thead>
-                  <tr className="bg-gray-100 text-left">
+                  <tr className="bg-surface-alt text-left text-muted border-b border-line text-xs uppercase tracking-wider font-semibold">
                     <th className="p-4">ID</th>
                     <th className="p-4">Customer</th>
                     <th className="p-4">Receiver</th>
@@ -79,19 +79,19 @@ const TransactionHistory = () => {
                   </tr>
                 </thead>
 
-                <tbody>
+                <tbody className="divide-y divide-line">
                   {transactions.map((txn) => (
                     <tr
                       key={txn.name}
-                      className="border-b hover:bg-gray-50"
+                      className="border-b border-line hover:bg-surface-alt/60 transition-colors text-ink"
                     >
-                      <td className="p-4">{txn.name}</td>
-                      <td className="p-4">{txn.customer_name}</td>
+                      <td className="p-4 font-mono text-sm">{txn.name}</td>
+                      <td className="p-4 font-medium">{txn.customer_name}</td>
                       <td className="p-4">{txn.receiver_name}</td>
-                      <td className="p-4">{txn.date}</td>
+                      <td className="p-4 text-muted text-sm">{txn.date}</td>
                       <td className="p-4">{txn.local_currency}</td>
                       <td className="p-4">{txn.foreign_currency}</td>
-                      <td className="p-4 font-semibold">
+                      <td className="p-4 font-semibold text-ink">
                         {txn.total_payable}
                       </td>
                     </tr>

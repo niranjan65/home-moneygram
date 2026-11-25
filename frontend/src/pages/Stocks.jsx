@@ -32,10 +32,10 @@ function inStockQty(items) { return items?.filter(i => i.stock_qty > 0).reduce((
 // ── Stat Card ─────────────────────────────────────────────────────────────
 function StatCard({ label, value, sub, type = "default", suffix }) {
   const styles = {
-    default: { card: "bg-white border-gray-200",         label: "text-gray-500",  val: "text-gray-900",  sub: "text-gray-400"  },
-    green:   { card: "bg-green-50 border-green-200",     label: "text-green-600", val: "text-green-700", sub: "text-green-400" },
-    red:     { card: "bg-red-50 border-red-200",         label: "text-red-500",   val: "text-red-600",   sub: "text-red-400"   },
-    muted:   { card: "bg-gray-50 border-gray-100",       label: "text-gray-400",  val: "text-gray-400",  sub: "text-gray-300"  },
+    default: { card: "bg-surface border-line text-ink", label: "text-muted", val: "text-ink", sub: "text-muted" },
+    green: { card: "bg-emerald-500/10 border-emerald-500/30 text-emerald-500", label: "text-emerald-500", val: "text-emerald-500", sub: "text-emerald-500/70" },
+    red: { card: "bg-red-500/10 border-red-500/30 text-red-500", label: "text-red-500", val: "text-red-500", sub: "text-red-500/70" },
+    muted: { card: "bg-surface-alt border-line text-muted", label: "text-muted", val: "text-muted", sub: "text-muted" },
   };
   const s = styles[type];
   return (
@@ -44,7 +44,7 @@ function StatCard({ label, value, sub, type = "default", suffix }) {
       <div className="flex items-baseline gap-2 flex-wrap">
         <p className={`text-h1 font-bold tnum leading-tight ${s?.val}`}>{value}</p>
         {suffix && (
-          <span className="text-body font-semibold text-gray-500 tracking-wide">
+          <span className="text-body font-semibold text-muted tracking-wide">
             {suffix}
           </span>
         )}
@@ -57,10 +57,10 @@ function StatCard({ label, value, sub, type = "default", suffix }) {
 // ── Qty Badge ─────────────────────────────────────────────────────────────
 function QtyBadge({ qty }) {
   if (qty < 0)
-    return <span className="inline-block text-caption font-semibold px-3 py-1 rounded-full tnum bg-red-50 text-red-500 border border-red-200">{qty}</span>;
+    return <span className="inline-block text-caption font-semibold px-3 py-1 rounded-full tnum bg-red-500/10 text-red-500 border border-red-500/30">{qty}</span>;
   if (qty === 0)
-    return <span className="inline-block text-caption font-semibold px-3 py-1 rounded-full bg-gray-100 text-gray-400 border border-gray-200">—</span>;
-  return <span className="inline-block text-caption font-semibold px-3 py-1 rounded-full tnum bg-green-50 text-green-700 border border-green-200">{qty.toLocaleString()}</span>;
+    return <span className="inline-block text-caption font-semibold px-3 py-1 rounded-full bg-surface-alt text-muted border border-line">—</span>;
+  return <span className="inline-block text-caption font-semibold px-3 py-1 rounded-full tnum bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">{qty.toLocaleString()}</span>;
 }
 
 // ── Report Loader ──────────────────────────────────────────────────────────
@@ -68,11 +68,11 @@ function ReportLoader({ label = "Loading stock records…" }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
       <div className="relative flex items-center justify-center">
-        <div className="w-12 h-12 rounded-full border-4 border-[#E00000]/20 animate-ping absolute" />
-        <div className="w-10 h-10 rounded-full border-3 border-gray-200 border-t-[#E00000] animate-spin" />
+        <div className="w-12 h-12 rounded-full border-4 border-brand-500/20 animate-ping absolute" />
+        <div className="w-10 h-10 rounded-full border-3 border-line border-t-brand-600 animate-spin" />
       </div>
-      <p className="mt-4 text-body font-semibold text-gray-700 animate-pulse">{label}</p>
-      <p className="text-caption text-gray-400 mt-1">Please wait while stock data is being fetched…</p>
+      <p className="mt-4 text-body font-semibold text-ink animate-pulse">{label}</p>
+      <p className="text-caption text-muted mt-1">Please wait while stock data is being fetched…</p>
     </div>
   );
 }
@@ -174,28 +174,28 @@ export default function Stocks() {
   return (
     <div>
         <Navbar />
-        <div className="min-h-screen bg-gray-100 font-sans">
+        <div className="min-h-screen bg-page text-ink font-sans transition-colors">
       <div className="max-w-[80%] mx-auto px-4 py-10 flex flex-col gap-6">
 
 
-        {/* ── Main white card — matches SettingsPanel ───────────────── */}
-        <div className="bg-white rounded-3xl border border-gray-100 shadow-xl p-6 md:p-8 flex flex-col gap-7">
+        {/* ── Main card ───────────────── */}
+        <div className="bg-surface rounded-3xl border border-line shadow-xl p-6 md:p-8 flex flex-col gap-7 text-ink">
 
           {/* Location View Switcher */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-gray-50 border border-gray-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-surface-alt border border-line">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-overline font-semibold uppercase tracking-wider text-gray-500">Stock Location:</span>
-              <div className="inline-flex p-1 rounded-xl bg-white border border-gray-200 shadow-xs">
+              <span className="text-overline font-semibold uppercase tracking-wider text-muted">Stock Location:</span>
+              <div className="inline-flex p-1 rounded-xl bg-surface border border-line shadow-xs">
                 <button
                   type="button"
                   onClick={() => setLocationMode("counter")}
                   className={`px-3.5 py-1.5 rounded-lg text-label font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
                     locationMode === "counter"
-                      ? "bg-gray-900 text-white shadow-xs font-bold"
-                      : "text-gray-500 hover:text-gray-800"
+                      ? "bg-chip text-ink shadow-xs font-bold border border-line"
+                      : "text-muted hover:text-ink"
                   }`}
                 >
-                  <span className="w-2 h-2 rounded-full bg-[#E00000]" />
+                  <span className="w-2 h-2 rounded-full bg-brand-600" />
                   <span>Cash Counter</span>
                   <span className="text-caption opacity-75 font-normal">
                     ({vaultInfo?.branch_warehouse || activeBranch})
@@ -208,8 +208,8 @@ export default function Stocks() {
                   disabled={!vaultInfo?.vault_warehouse}
                   className={`px-3.5 py-1.5 rounded-lg text-label font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
                     locationMode === "vault"
-                      ? "bg-gray-900 text-white shadow-xs font-bold"
-                      : "text-gray-500 hover:text-gray-800"
+                      ? "bg-chip text-ink shadow-xs font-bold border border-line"
+                      : "text-muted hover:text-ink"
                   } disabled:opacity-40 disabled:cursor-not-allowed`}
                 >
                   <span className="w-2 h-2 rounded-full bg-amber-500" />
@@ -221,16 +221,16 @@ export default function Stocks() {
               </div>
             </div>
 
-            <div className="text-caption text-gray-500 flex items-center gap-1.5">
+            <div className="text-caption text-muted flex items-center gap-1.5">
               <span>Viewing:</span>
-              <strong className="text-gray-900 font-semibold bg-white px-2.5 py-1 rounded-md border border-gray-200">
+              <strong className="text-ink font-semibold bg-surface px-2.5 py-1 rounded-md border border-line">
                 {queryWarehouse}
               </strong>
             </div>
           </div>
 
           {loading ? (
-            <div className="rounded-2xl border border-gray-200 bg-white shadow-xs">
+            <div className="rounded-2xl border border-line bg-surface shadow-xs">
               <ReportLoader label="Loading currency stock records…" />
             </div>
           ) : countries.length === 0 ? (
@@ -251,10 +251,10 @@ export default function Stocks() {
                 <button
                   key={c}
                   onClick={() => setActive(c)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-label font-semibold border transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E00000]
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-label font-semibold border transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-600
                     ${isActive
-                      ? "bg-[#E00000] text-white border-[#E00000] shadow-md shadow-[#E00000]/25"
-                      : "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#E00000]/40 hover:text-[#E00000] hover:bg-red-50"
+                      ? "bg-brand-600 text-white border-brand-600 shadow-md shadow-brand-600/25"
+                      : "bg-surface-alt text-muted border-line hover:border-brand-600/40 hover:text-brand-600 hover:bg-brand-500/10"
                     }`}
                 >
                   <span>{c}</span>
@@ -314,20 +314,20 @@ export default function Stocks() {
           </div>
 
           {/* Table */}
-          <div className="rounded-2xl border border-gray-200 overflow-hidden">
+          <div className="rounded-2xl border border-line overflow-hidden bg-surface">
             <table className="w-full text-body border-collapse">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-5 py-3 text-left text-overline font-semibold uppercase tracking-wider text-gray-500 w-10">#</th>
-                  <th className="px-5 py-3 text-left text-overline font-semibold uppercase tracking-wider text-gray-500">Item Code</th>
-                  <th className="px-5 py-3 text-left text-overline font-semibold uppercase tracking-wider text-gray-500">Denomination</th>
-                  <th className="px-5 py-3 text-left text-overline font-semibold uppercase tracking-wider text-gray-500 hidden sm:table-cell">Warehouse</th>
-                  <th className="px-5 py-3 text-left text-overline font-semibold uppercase tracking-wider text-gray-500">Rate</th>
-                  <th className="px-5 py-3 text-left text-overline font-semibold uppercase tracking-wider text-gray-500">Item Value</th>
-                  <th className="px-5 py-3 text-right text-overline font-semibold uppercase tracking-wider text-gray-500">Stock Qty</th>
+                <tr className="bg-surface-alt border-b border-line">
+                  <th className="px-5 py-3 text-left text-overline font-semibold uppercase tracking-wider text-muted w-10">#</th>
+                  <th className="px-5 py-3 text-left text-overline font-semibold uppercase tracking-wider text-muted">Item Code</th>
+                  <th className="px-5 py-3 text-left text-overline font-semibold uppercase tracking-wider text-muted">Denomination</th>
+                  <th className="px-5 py-3 text-left text-overline font-semibold uppercase tracking-wider text-muted hidden sm:table-cell">Warehouse</th>
+                  <th className="px-5 py-3 text-left text-overline font-semibold uppercase tracking-wider text-muted">Rate</th>
+                  <th className="px-5 py-3 text-left text-overline font-semibold uppercase tracking-wider text-muted">Item Value</th>
+                  <th className="px-5 py-3 text-right text-overline font-semibold uppercase tracking-wider text-muted">Stock Qty</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-line">
                 {items?.map((row, idx) => {
                   const isVault = locationMode === "vault";
                   const qty = parseFloat(row.stock_qty) || 0;
@@ -336,16 +336,16 @@ export default function Stocks() {
                   return (
                     <tr
                       key={row.item_code}
-                      className={`border-b border-gray-100 transition-colors hover:bg-gray-50 ${idx % 2 === 1 ? "bg-gray-50/40" : "bg-white"}`}
+                      className={`border-b border-line transition-colors hover:bg-surface-alt/60 text-ink ${idx % 2 === 1 ? "bg-surface-alt/30" : "bg-surface"}`}
                     >
-                      <td className="px-5 py-3.5 text-caption text-gray-400 tnum">{idx + 1}</td>
+                      <td className="px-5 py-3.5 text-caption text-muted tnum">{idx + 1}</td>
                       <td className="px-5 py-3.5">
-                        <span className="inline-block border border-gray-200 rounded-xl px-3 py-1.5 text-caption font-medium tracking-wide text-gray-700 bg-gray-50 font-mono">
+                        <span className="inline-block border border-line rounded-xl px-3 py-1.5 text-caption font-medium tracking-wide text-ink bg-surface-alt font-mono">
                           {row.item_code}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 font-semibold text-gray-900">{row.item_name}</td>
-                      <td className="px-5 py-3.5 text-caption text-gray-500 hidden sm:table-cell">{row.warehouse}</td>
+                      <td className="px-5 py-3.5 font-semibold text-ink">{row.item_name}</td>
+                      <td className="px-5 py-3.5 text-caption text-muted hidden sm:table-cell">{row.warehouse}</td>
                       <td className="px-5 py-3.5 text-right"><QtyBadge qty={valRate} /></td>
                       <td className="px-5 py-3.5 text-right"><QtyBadge qty={stVal} /></td>
                       <td className="px-5 py-3.5 text-right"><QtyBadge qty={row.stock_qty} /></td>
@@ -354,17 +354,17 @@ export default function Stocks() {
                 })}
               </tbody>
               <tfoot>
-                <tr className="bg-gray-50 border-t-2 border-[#E00000]/15">
-                  <td colSpan={4} className="px-5 py-3 text-overline font-semibold uppercase tracking-wider text-[#E00000]">
+                <tr className="bg-surface-alt border-t-2 border-brand-500/20 text-ink">
+                  <td colSpan={4} className="px-5 py-3 text-overline font-semibold uppercase tracking-wider text-brand-600">
                     Total
                   </td>
-                  <td className="px-5 py-3 text-right font-bold text-gray-900 tnum">
+                  <td className="px-5 py-3 text-right font-bold text-ink tnum">
                     {total?.toLocaleString()}
                   </td>
-                  <td className="px-5 py-3 text-right font-bold text-gray-900 tnum">
+                  <td className="px-5 py-3 text-right font-bold text-ink tnum">
                     {totalValuecount?.toLocaleString()}
                   </td>
-                  <td className="px-5 py-3 text-right font-bold text-gray-900 tnum">
+                  <td className="px-5 py-3 text-right font-bold text-ink tnum">
                     {total?.toLocaleString()}
                   </td>
                 </tr>

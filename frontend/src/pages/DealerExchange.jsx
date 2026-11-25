@@ -6,6 +6,7 @@ import { DealerForm } from '../features/exchange/components/DealerForm';
 import { ReviewStep } from '../components/exchange-new/ReviewStep';
 import Navbar from '../components/layout/Navbar';
 import TransactionTabBar from '../components/common/TransactionTabBar';
+import BoardRatesBar from '../components/common/BoardRatesBar';
 import { TransferSuccessNew } from '../components/exchange-new/TransferSuccessNew';
 import { ExchangeProvider } from '../context/ExchangeContext';
 import { useERPNextRates } from '../hooks/useERPNextRates';
@@ -112,30 +113,6 @@ const DealerExchange = () => {
     return { ...initial, exchangeType: currentExchangeType };
   });
 
-  const boardCurrencies = useMemo(() => {
-    if (ratesData?.availableCurrencies && ratesData.availableCurrencies.length > 0) {
-      return ratesData.availableCurrencies.map(c => {
-        const rate = summary.exchangeType === 'SELL'
-          ? (c.sellingRate ?? c.buyingRate)
-          : (c.buyingRate ?? c.sellingRate);
-        return {
-          code: c.code,
-          rate: rate ? Number(rate).toFixed(4) : '—',
-        };
-      });
-    }
-    return [
-      { code: 'USD', rate: '2.2410' },
-      { code: 'AUD', rate: '1.4590' },
-      { code: 'NZD', rate: '1.3320' },
-      { code: 'EUR', rate: '2.4350' },
-      { code: 'GBP', rate: '2.8240' },
-      { code: 'CAD', rate: '1.6210' },
-      { code: 'JPY', rate: '0.0148' },
-      { code: 'SGD', rate: '1.6820' },
-      { code: 'CNY', rate: '0.3120' },
-    ];
-  }, [ratesData?.availableCurrencies, summary.exchangeType]);
 
   const [transferPayload, setTransferPayload] = useState(() => {
     const saved = sessionStorage.getItem('dealerTransferPayload');
@@ -680,20 +657,20 @@ const DealerExchange = () => {
   };
 
   return (
-    <div className="money-exchange-new dealer-exchange min-h-screen flex flex-col bg-[#F4F5F7] text-[#14171F]">
+    <div className="money-exchange-new dealer-exchange min-h-screen flex flex-col bg-page text-ink transition-colors">
       <style>{`
         .money-exchange-new,
         .dealer-exchange {
-          background: #F4F5F7;
+          background-color: var(--color-page);
           min-height: 100vh;
-          font-family: Inter, system-ui, -apple-system, sans-serif;
-          color: #14171F;
+          font-family: var(--font-sans);
+          color: var(--color-ink);
         }
         .money-exchange-new .card,
         .dealer-exchange .card {
-          background: #fff;
-          border: 1px solid #E3E6EB;
-          border-radius: 16px;
+          background-color: var(--color-surface);
+          border: 1px solid var(--color-line);
+          border-radius: var(--radius-card);
         }
         .money-exchange-new .lbl,
         .dealer-exchange .lbl {
@@ -702,32 +679,32 @@ const DealerExchange = () => {
           font-weight: 600;
           letter-spacing: .04em;
           text-transform: uppercase;
-          color: #5B6270;
+          color: var(--color-muted);
           margin-bottom: 6px;
         }
         .money-exchange-new .inp,
         .dealer-exchange .inp {
           width: 100%;
           height: 48px;
-          border: 1px solid #BFC5CE;
-          border-radius: 10px;
+          border: 1px solid var(--color-line-strong);
+          border-radius: var(--radius-input);
           padding: 0 14px;
-          font: 500 15px Inter, system-ui, -apple-system, sans-serif;
-          color: #14171F;
-          background: #fff;
+          font: 500 15px var(--font-sans);
+          color: var(--color-ink);
+          background-color: var(--color-surface);
           box-sizing: border-box;
           transition: border-color .15s, box-shadow .15s;
         }
         .money-exchange-new .inp:focus,
         .dealer-exchange .inp:focus {
           outline: none;
-          border-color: #C8102E;
-          box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.12);
+          border-color: var(--color-brand-600);
+          box-shadow: 0 0 0 3px rgba(200, 16, 46, 0.15);
         }
         .money-exchange-new .sec,
         .dealer-exchange .sec {
           padding: 28px;
-          border-bottom: 1px solid #E3E6EB;
+          border-bottom: 1px solid var(--color-line);
         }
         .money-exchange-new .h,
         .dealer-exchange .h {
@@ -737,15 +714,15 @@ const DealerExchange = () => {
           margin: 0 0 20px;
           font-size: 18px;
           font-weight: 700;
-          color: #14171F;
+          color: var(--color-ink);
         }
         .money-exchange-new .n,
         .dealer-exchange .n {
           width: 28px;
           height: 28px;
           border-radius: 50%;
-          background: #14171F;
-          color: #fff;
+          background-color: var(--color-ink);
+          color: var(--color-surface);
           font-size: 13px;
           font-weight: 700;
           display: grid;
@@ -779,38 +756,37 @@ const DealerExchange = () => {
           height: 32px;
           padding: 0 12px;
           border-radius: 999px;
-          font-size: 13px;
           font-weight: 600;
-          background: #EEF0F3;
-          color: #2C323D;
+          background-color: var(--color-chip);
+          color: var(--color-ink-soft);
         }
         .money-exchange-new .ok,
         .dealer-exchange .ok {
-          background: #E3F3EA;
-          color: #0B5A33;
+          background-color: var(--color-success-bg);
+          color: var(--color-success-fg);
         }
         .money-exchange-new .warn,
         .dealer-exchange .warn {
-          background: #FFF3D6;
-          color: #7A4B00;
+          background-color: var(--color-warning-bg);
+          color: var(--color-warning-fg);
         }
         .money-exchange-new .opt,
         .dealer-exchange .opt {
-          border: 1.5px solid #CDD2DA;
+          border: 1.5px solid var(--color-line-strong);
           border-radius: 12px;
           padding: 16px;
-          background: #fff;
+          background-color: var(--color-surface);
           cursor: pointer;
           transition: all .15s;
         }
         .money-exchange-new .opt:hover,
         .dealer-exchange .opt:hover {
-          border-color: #BFC5CE;
+          border-color: var(--color-brand-600);
         }
         .money-exchange-new .opt.sel,
         .dealer-exchange .opt.sel {
-          border-color: #C8102E;
-          background: #FDF1F3;
+          border-color: var(--color-brand-600);
+          background-color: var(--color-brand-50);
         }
         .money-exchange-new .row,
         .dealer-exchange .row {
@@ -818,10 +794,15 @@ const DealerExchange = () => {
           justify-content: space-between;
           font-size: 15px;
           padding: 8px 0;
+          border-bottom: 1px solid var(--color-line-subtle);
         }
         .money-exchange-new .row span:first-child,
         .dealer-exchange .row span:first-child {
-          color: #4A5160;
+          color: var(--color-muted);
+        }
+        .money-exchange-new .row span:last-child,
+        .dealer-exchange .row span:last-child {
+          color: var(--color-ink);
         }
         .money-exchange-new .btn,
         .dealer-exchange .btn {
@@ -829,9 +810,9 @@ const DealerExchange = () => {
           padding: 0 28px;
           border-radius: 12px;
           border: 0;
-          background: #C8102E;
+          background-color: var(--color-brand-600);
           color: #fff;
-          font: 600 16px Inter, system-ui, -apple-system, sans-serif;
+          font: 600 16px var(--font-sans);
           cursor: pointer;
           transition: all .15s;
           display: inline-flex;
@@ -841,7 +822,7 @@ const DealerExchange = () => {
         }
         .money-exchange-new .btn:hover:not(:disabled),
         .dealer-exchange .btn:hover:not(:disabled) {
-          background: #a60d26;
+          background-color: var(--color-brand-700);
         }
         .money-exchange-new .btn:disabled,
         .dealer-exchange .btn:disabled {
@@ -850,13 +831,13 @@ const DealerExchange = () => {
         }
         .money-exchange-new .ghost,
         .dealer-exchange .ghost {
-          background: #fff;
-          color: #14171F;
-          border: 1px solid #BFC5CE;
+          background-color: var(--color-surface);
+          color: var(--color-ink);
+          border: 1px solid var(--color-line-strong);
         }
         .money-exchange-new .ghost:hover:not(:disabled),
         .dealer-exchange .ghost:hover:not(:disabled) {
-          background: #F4F5F7;
+          background-color: var(--color-surface-alt);
         }
         .money-exchange-new .tab,
         .dealer-exchange .tab {
@@ -864,8 +845,8 @@ const DealerExchange = () => {
           padding: 0 28px;
           border: 0;
           background: transparent;
-          font: 600 16px Inter, system-ui, -apple-system, sans-serif;
-          color: #4A5160;
+          font: 600 16px var(--font-sans);
+          color: var(--color-muted);
           border-radius: 12px;
           cursor: pointer;
           transition: all .15s;
@@ -876,7 +857,7 @@ const DealerExchange = () => {
         }
         .money-exchange-new .tab.on,
         .dealer-exchange .tab.on {
-          background: #C8102E;
+          background: var(--color-brand-600, #C8102E);
           color: #fff;
         }
         .money-exchange-new .chk,
@@ -886,14 +867,14 @@ const DealerExchange = () => {
           align-items: center;
           font-size: 14px;
           padding: 6px 0;
-          color: #14171F;
+          color: var(--color-ink);
         }
         .money-exchange-new .dot,
         .dealer-exchange .dot {
           width: 18px;
           height: 18px;
           border-radius: 50%;
-          background: #0B7A44;
+          background: var(--color-success, #0B7A44);
           flex: none;
           display: grid;
           place-items: center;
@@ -902,37 +883,8 @@ const DealerExchange = () => {
         }
         .money-exchange-new .dot.o,
         .dealer-exchange .dot.o {
-          background: #fff;
-          border: 2px solid #BFC5CE;
-        }
-        @keyframes boardRateMarquee {
-          0% {
-            transform: translateX(0);
-          }
-          100% {
-            transform: translateX(-50%);
-          }
-        }
-        .money-exchange-new .marquee-container,
-        .dealer-exchange .marquee-container {
-          overflow: hidden;
-          position: relative;
-          width: 100%;
-          min-width: 0;
-          mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
-          -webkit-mask-image: linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);
-        }
-        .money-exchange-new .marquee-track,
-        .dealer-exchange .marquee-track {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          width: max-content;
-          animation: boardRateMarquee 40s linear infinite;
-        }
-        .money-exchange-new .marquee-track:hover,
-        .dealer-exchange .marquee-track:hover {
-          animation-play-state: paused;
+          background: var(--color-surface, #fff);
+          border: 2px solid var(--color-line-strong, #BFC5CE);
         }
         @media (max-width: 1024px) {
           .money-exchange-new .main-layout,
@@ -949,59 +901,7 @@ const DealerExchange = () => {
           <div className="max-w-[80%] mx-auto">
 
             {/* Top Board Rates Bar with Scrolling Marquee */}
-            <div
-              className="card"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "16px",
-                padding: "12px 20px 24px 20px",
-                fontSize: "14px",
-                overflow: "hidden",
-                marginBottom: "0px",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  whiteSpace: "nowrap",
-                  flexShrink: 0,
-                  paddingRight: "14px",
-                  borderRight: "1.5px solid #E3E6EB",
-                }}
-              >
-                <strong style={{ fontSize: "14px", color: "#14171F" }}>
-                  Board rates · 1 unit in FJD
-                </strong>
-              </div>
-
-              <div className="marquee-container">
-                <div className="marquee-track">
-                  {boardCurrencies.map((c, idx) => (
-                    <span
-                      key={`curr-1-${c.code}-${idx}`}
-                      className="chip"
-                      style={{ flexShrink: 0, whiteSpace: "nowrap", gap: "6px" }}
-                    >
-                      <strong style={{ color: "#14171F" }}>{c.code}</strong>
-                      <span style={{ color: "#4A5160" }}>{c.rate}</span>
-                    </span>
-                  ))}
-                  {boardCurrencies.map((c, idx) => (
-                    <span
-                      key={`curr-2-${c.code}-${idx}`}
-                      className="chip"
-                      style={{ flexShrink: 0, whiteSpace: "nowrap", gap: "6px" }}
-                    >
-                      <strong style={{ color: "#14171F" }}>{c.code}</strong>
-                      <span style={{ color: "#4A5160" }}>{c.rate}</span>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <BoardRatesBar exchangeType={currentExchangeType || summary.exchangeType || 'BUY'} />
 
             {/* Service Mode Navigation Tabs */}
             <TransactionTabBar
@@ -1027,7 +927,7 @@ const DealerExchange = () => {
               {/* Left Column */}
               <div>
                 {!selectedWarehouse?.warehouse && (
-                  <div style={{ padding: "16px 28px", background: "#FFF3D6", color: "#7A4B00", border: "1px solid #E3E6EB", borderRadius: "16px", fontSize: "14px", marginBottom: "20px" }}>
+                  <div style={{ padding: "16px 28px", background: "var(--color-warning-bg, #FFF3D6)", color: "var(--color-warning-fg, #7A4B00)", border: "1px solid var(--color-warning-border, #E3E6EB)", borderRadius: "16px", fontSize: "14px", marginBottom: "20px" }}>
                     <strong>Branch location required:</strong> Please select a branch location in Settings before processing transactions.
                   </div>
                 )}
@@ -1041,26 +941,26 @@ const DealerExchange = () => {
                   <Summary transferPayload={summaryChange} isDealer={true} />
 
                   {/* Ready to submit checklist card */}
-                  <div className="card" style={{ padding: "24px" }}>
+                  {currentStep === Step.DETAILS && <div className="card" style={{ padding: "24px" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: "14px", marginBottom: "8px" }}>
-                      <strong>Ready to submit</strong>
-                      <span style={{ color: "#4A5160" }}>
+                      <strong style={{ color: "var(--color-ink)" }}>Ready to submit</strong>
+                      <span style={{ color: "var(--color-muted)" }}>
                         {progressInfo.completedCount || 0} of {progressInfo.totalCount || 4}
                       </span>
                     </div>
-                    <div style={{ height: "8px", borderRadius: "8px", background: "#E3E6EB", marginBottom: "12px", overflow: "hidden" }}>
+                    <div style={{ height: "8px", borderRadius: "8px", background: "var(--color-surface-alt, #E3E6EB)", marginBottom: "12px", overflow: "hidden" }}>
                       <div
                         style={{
                           width: `${Math.min(100, Math.round(((progressInfo.completedCount || 0) / (progressInfo.totalCount || 4)) * 100))}%`,
                           height: "8px",
                           borderRadius: "8px",
-                          background: "#0B7A44",
+                          background: "var(--color-success, #0B7A44)",
                           transition: "width .3s ease",
                         }}
                       />
                     </div>
                     <div
-                      className="chk cursor-pointer select-none transition-all hover:bg-gray-50 p-1.5 -mx-1.5 rounded-lg flex items-center gap-2 group"
+                      className="chk cursor-pointer select-none transition-all hover:bg-surface-alt p-1.5 -mx-1.5 rounded-lg flex items-center gap-2 group"
                       role="button"
                       tabIndex={0}
                       onClick={() => scrollToSection('amount')}
@@ -1070,10 +970,10 @@ const DealerExchange = () => {
                       <span className={`dot ${progressInfo.amountDone ? "" : "o"}`}>
                         {progressInfo.amountDone ? "✓" : ""}
                       </span>
-                      <span className="group-hover:text-[#0B7A44] transition-colors font-medium">Exchange details</span>
+                      <span className="text-ink group-hover:text-success transition-colors font-medium">Exchange details</span>
                     </div>
                     <div
-                      className="chk cursor-pointer select-none transition-all hover:bg-gray-50 p-1.5 -mx-1.5 rounded-lg flex items-center gap-2 group"
+                      className="chk cursor-pointer select-none transition-all hover:bg-surface-alt p-1.5 -mx-1.5 rounded-lg flex items-center gap-2 group"
                       role="button"
                       tabIndex={0}
                       onClick={() => scrollToSection('dealer')}
@@ -1083,10 +983,10 @@ const DealerExchange = () => {
                       <span className={`dot ${progressInfo.dealerVerified ? "" : "o"}`}>
                         {progressInfo.dealerVerified ? "✓" : ""}
                       </span>
-                      <span className="group-hover:text-[#0B7A44] transition-colors font-medium">Dealer information</span>
+                      <span className="text-ink group-hover:text-success transition-colors font-medium">Dealer information</span>
                     </div>
                     <div
-                      className="chk cursor-pointer select-none transition-all hover:bg-gray-50 p-1.5 -mx-1.5 rounded-lg flex items-center gap-2 group"
+                      className="chk cursor-pointer select-none transition-all hover:bg-surface-alt p-1.5 -mx-1.5 rounded-lg flex items-center gap-2 group"
                       role="button"
                       tabIndex={0}
                       onClick={() => scrollToSection('documents')}
@@ -1096,10 +996,10 @@ const DealerExchange = () => {
                       <span className={`dot ${progressInfo.docsDone ? "" : "o"}`}>
                         {progressInfo.docsDone ? "✓" : ""}
                       </span>
-                      <span className="group-hover:text-[#0B7A44] transition-colors font-medium">Supporting documents</span>
+                      <span className="text-ink group-hover:text-success transition-colors font-medium">Supporting documents</span>
                     </div>
                     <div
-                      className="chk cursor-pointer select-none transition-all hover:bg-gray-50 p-1.5 -mx-1.5 rounded-lg flex items-center gap-2 group"
+                      className="chk cursor-pointer select-none transition-all hover:bg-surface-alt p-1.5 -mx-1.5 rounded-lg flex items-center gap-2 group"
                       role="button"
                       tabIndex={0}
                       onClick={() => scrollToSection('cash')}
@@ -1109,14 +1009,14 @@ const DealerExchange = () => {
                       <span className={`dot ${progressInfo.cashDone ? "" : "o"}`}>
                         {progressInfo.cashDone ? "✓" : ""}
                       </span>
-                      <span className="group-hover:text-[#0B7A44] transition-colors font-medium">Cash denomination</span>
+                      <span className="text-ink group-hover:text-success transition-colors font-medium">Cash denomination</span>
                     </div>
-                  </div>
+                  </div>}
 
                   {/* Security badge at bottom of right sidebar */}
-                  <div className="flex items-center justify-center gap-2 py-2.5 rounded-lg bg-gray-50 border border-gray-100">
-                    <ShieldCheck size={13} className="text-[#E00000]" strokeWidth={2} />
-                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <div className="flex items-center justify-center gap-2 py-2.5 rounded-lg bg-surface-alt border border-line">
+                    <ShieldCheck size={13} className="text-brand-600" strokeWidth={2} />
+                    <span className="text-xs font-medium text-muted uppercase tracking-wider">
                       Encrypted &amp; Secure Transaction
                     </span>
                   </div>
@@ -1129,17 +1029,17 @@ const DealerExchange = () => {
 
       {/* Location required modal */}
       {showLocationModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 flex flex-col items-center gap-5">
-            <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center">
-              <svg className="w-7 h-7 text-[#E00000]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-surface border border-line rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 flex flex-col items-center gap-5">
+            <div className="w-14 h-14 rounded-full bg-danger-bg text-brand-600 flex items-center justify-center">
+              <svg className="w-7 h-7 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
               </svg>
             </div>
             <div className="text-center">
-              <h2 className="text-gray-900 text-xl font-bold mb-2">No Location Selected</h2>
-              <p className="text-gray-500 text-sm leading-relaxed">
-                Please select a <span className="font-semibold text-gray-700">Location</span> before confirming the transaction. You can change it from the settings.
+              <h2 className="text-ink text-xl font-bold mb-2">No Location Selected</h2>
+              <p className="text-muted text-sm leading-relaxed">
+                Please select a <span className="font-semibold text-ink">Location</span> before confirming the transaction. You can change it from the settings.
               </p>
             </div>
             <button

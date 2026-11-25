@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { getCurrencyMaster } from "../api/currencyMaster";
 import { useUser } from "../../../context/UserContext";
+import { CurrencyInput } from "../../../components/common/CurrencyInput";
 
 const TransferAmountSection = ({ form, handleChange }) => {
   const { user } = useUser();
@@ -9,10 +10,10 @@ const TransferAmountSection = ({ form, handleChange }) => {
   const [selectedRate, setSelectedRate] = useState(0);
 
   const inputStyle =
-    "w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#E00000] focus:bg-white transition-all duration-200";
+    "w-full bg-surface-alt border border-line text-ink rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-surface transition-all duration-200";
 
   const labelStyle =
-    "text-xs font-semibold text-gray-500 mb-1.5 block tracking-wide";
+    "text-xs font-semibold text-muted mb-1.5 block tracking-wide";
 
   // ✅ Fetch currency master
   useEffect(() => {
@@ -93,8 +94,7 @@ const TransferAmountSection = ({ form, handleChange }) => {
             You Send (FJD)
           </h4>
 
-          <input
-            type="number"
+          <CurrencyInput
             className={inputStyle}
             value={form.sending_amount || ""}
             onChange={(e) =>
@@ -152,8 +152,7 @@ const TransferAmountSection = ({ form, handleChange }) => {
         {/* Fee */}
         {/* <div>
           <label className={labelStyle}>Transfer Fee</label>
-          <input
-            type="number"
+          <CurrencyInput
             className={inputStyle}
             value={form.transfer_fee || ""}
             onChange={(e) =>

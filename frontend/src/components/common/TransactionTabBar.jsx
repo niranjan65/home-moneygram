@@ -257,7 +257,7 @@ export default function TransactionTabBar({
           font-family: var(--font-sans);
           border: 0;
           background: transparent;
-          color: #4A5160;
+          color: var(--color-muted);
           cursor: pointer;
           display: inline-flex;
           align-items: center;
@@ -267,24 +267,21 @@ export default function TransactionTabBar({
           text-decoration: none;
         }
         .tab:hover {
-          color: #14171F;
-          background: #F3F4F6;
+          color: var(--color-ink);
+          background: var(--color-surface-alt);
         }
         .tab.on {
-          background: #C8102E !important;
+          background: var(--color-brand-600) !important;
           color: #fff !important;
         }
       `}</style>
       <div
+        className="flex items-center gap-2  p-2 justify-evenly"
         style={{
-          display: "flex",
-          gap: "8px",
-          padding: "6px",
-          background: "#fff",
-          border: "1px solid #E3E6EB",
+          background: "var(--color-surface)",
+          border: "1px solid var(--color-line)",
           borderRadius: "16px",
-          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.08)",
-          width: "max-content",
+          boxShadow: "var(--shadow-card)",
         }}
       >
         <Link
@@ -335,11 +332,11 @@ export default function TransactionTabBar({
                 left: 0,
                 zIndex: 50,
                 minWidth: "290px",
-                background: "#181C24",
-                border: "1px solid #282D3B",
+                background: "var(--color-surface-elevated)",
+                border: "1px solid var(--color-line)",
                 borderRadius: "16px",
                 padding: "8px",
-                boxShadow: "0 16px 36px rgba(0,0,0,0.3)",
+                boxShadow: "var(--shadow-sheet)",
                 display: "flex",
                 flexDirection: "column",
                 gap: "4px",
@@ -356,13 +353,13 @@ export default function TransactionTabBar({
                   cursor: "pointer",
                   background:
                     isDealerActive && resolvedDealerType === "Buy"
-                      ? "rgba(255, 255, 255, 0.12)"
+                      ? "var(--color-chip)"
                       : "transparent",
                   transition: "background 0.15s ease",
                 }}
                 onMouseEnter={(e) => {
                   if (!(isDealerActive && resolvedDealerType === "Buy")) {
-                    e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
+                    e.currentTarget.style.background = "var(--color-surface-alt)";
                   }
                 }}
                 onMouseLeave={(e) => {
@@ -376,10 +373,10 @@ export default function TransactionTabBar({
                     width: "38px",
                     height: "38px",
                     borderRadius: "10px",
-                    background: "rgba(255, 255, 255, 0.08)",
+                    background: "var(--color-chip)",
                     display: "grid",
                     placeItems: "center",
-                    color: "#E2E8F0",
+                    color: "var(--color-ink)",
                     flexShrink: 0,
                   }}
                 >
@@ -391,7 +388,7 @@ export default function TransactionTabBar({
                       fontSize: "14px",
                       lineHeight: "20px",
                       fontWeight: 600,
-                      color: "#FFFFFF",
+                      color: "var(--color-ink)",
                       display: "block",
                     }}
                   >
@@ -401,7 +398,7 @@ export default function TransactionTabBar({
                     style={{
                       fontSize: "13px",
                       lineHeight: "18px",
-                      color: "#8C96A8",
+                      color: "var(--color-muted)",
                       display: "block",
                       marginTop: "2px",
                     }}
@@ -422,13 +419,13 @@ export default function TransactionTabBar({
                   cursor: "pointer",
                   background:
                     isDealerActive && resolvedDealerType === "Sell"
-                      ? "rgba(255, 255, 255, 0.12)"
+                      ? "var(--color-chip)"
                       : "transparent",
                   transition: "background 0.15s ease",
                 }}
                 onMouseEnter={(e) => {
                   if (!(isDealerActive && resolvedDealerType === "Sell")) {
-                    e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
+                    e.currentTarget.style.background = "var(--color-surface-alt)";
                   }
                 }}
                 onMouseLeave={(e) => {
@@ -442,10 +439,10 @@ export default function TransactionTabBar({
                     width: "38px",
                     height: "38px",
                     borderRadius: "10px",
-                    background: "rgba(255, 255, 255, 0.08)",
+                    background: "var(--color-chip)",
                     display: "grid",
                     placeItems: "center",
-                    color: "#E2E8F0",
+                    color: "var(--color-ink)",
                     flexShrink: 0,
                   }}
                 >
@@ -457,7 +454,7 @@ export default function TransactionTabBar({
                       fontSize: "14px",
                       lineHeight: "20px",
                       fontWeight: 600,
-                      color: "#FFFFFF",
+                      color: "var(--color-ink)",
                       display: "block",
                     }}
                   >
@@ -467,7 +464,7 @@ export default function TransactionTabBar({
                     style={{
                       fontSize: "13px",
                       lineHeight: "18px",
-                      color: "#8C96A8",
+                      color: "var(--color-muted)",
                       display: "block",
                       marginTop: "2px",
                     }}
@@ -512,11 +509,11 @@ export default function TransactionTabBar({
                 left: 0,
                 zIndex: 50,
                 minWidth: "290px",
-                background: "#181C24",
-                border: "1px solid #282D3B",
+                background: "var(--color-surface-elevated)",
+                border: "1px solid var(--color-line)",
                 borderRadius: "16px",
                 padding: "8px",
-                boxShadow: "0 16px 36px rgba(0,0,0,0.3)",
+                boxShadow: "var(--shadow-sheet)",
                 display: "flex",
                 flexDirection: "column",
                 gap: "4px",
@@ -533,13 +530,13 @@ export default function TransactionTabBar({
                   cursor: "pointer",
                   background:
                     isTransferActive && resolvedTransferType === "Send"
-                      ? "rgba(255, 255, 255, 0.12)"
+                      ? "var(--color-chip)"
                       : "transparent",
                   transition: "background 0.15s ease",
                 }}
                 onMouseEnter={(e) => {
                   if (!(isTransferActive && resolvedTransferType === "Send")) {
-                    e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
+                    e.currentTarget.style.background = "var(--color-surface-alt)";
                   }
                 }}
                 onMouseLeave={(e) => {
@@ -553,10 +550,10 @@ export default function TransactionTabBar({
                     width: "38px",
                     height: "38px",
                     borderRadius: "10px",
-                    background: "rgba(255, 255, 255, 0.08)",
+                    background: "var(--color-chip)",
                     display: "grid",
                     placeItems: "center",
-                    color: "#E2E8F0",
+                    color: "var(--color-ink)",
                     flexShrink: 0,
                   }}
                 >
@@ -567,7 +564,7 @@ export default function TransactionTabBar({
                     style={{
                       fontSize: "14px",
                       fontWeight: 600,
-                      color: "#FFFFFF",
+                      color: "var(--color-ink)",
                       display: "block",
                     }}
                   >
@@ -576,7 +573,7 @@ export default function TransactionTabBar({
                   <span
                     style={{
                       fontSize: "12px",
-                      color: "#8C96A8",
+                      color: "var(--color-muted)",
                       display: "block",
                       marginTop: "2px",
                     }}
@@ -597,13 +594,13 @@ export default function TransactionTabBar({
                   cursor: "pointer",
                   background:
                     isTransferActive && resolvedTransferType === "Receive"
-                      ? "rgba(255, 255, 255, 0.12)"
+                      ? "var(--color-chip)"
                       : "transparent",
                   transition: "background 0.15s ease",
                 }}
                 onMouseEnter={(e) => {
                   if (!(isTransferActive && resolvedTransferType === "Receive")) {
-                    e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
+                    e.currentTarget.style.background = "var(--color-surface-alt)";
                   }
                 }}
                 onMouseLeave={(e) => {
@@ -617,10 +614,10 @@ export default function TransactionTabBar({
                     width: "38px",
                     height: "38px",
                     borderRadius: "10px",
-                    background: "rgba(255, 255, 255, 0.08)",
+                    background: "var(--color-chip)",
                     display: "grid",
                     placeItems: "center",
-                    color: "#E2E8F0",
+                    color: "var(--color-ink)",
                     flexShrink: 0,
                   }}
                 >
@@ -631,7 +628,7 @@ export default function TransactionTabBar({
                     style={{
                       fontSize: "14px",
                       fontWeight: 600,
-                      color: "#FFFFFF",
+                      color: "var(--color-ink)",
                       display: "block",
                     }}
                   >
@@ -640,7 +637,7 @@ export default function TransactionTabBar({
                   <span
                     style={{
                       fontSize: "12px",
-                      color: "#8C96A8",
+                      color: "var(--color-muted)",
                       display: "block",
                       marginTop: "2px",
                     }}
@@ -685,11 +682,11 @@ export default function TransactionTabBar({
                 left: 0,
                 zIndex: 50,
                 minWidth: "290px",
-                background: "#181C24",
-                border: "1px solid #282D3B",
+                background: "var(--color-surface-elevated)",
+                border: "1px solid var(--color-line)",
                 borderRadius: "16px",
                 padding: "8px",
-                boxShadow: "0 16px 36px rgba(0,0,0,0.3)",
+                boxShadow: "var(--shadow-sheet)",
                 display: "flex",
                 flexDirection: "column",
                 gap: "4px",
@@ -710,13 +707,13 @@ export default function TransactionTabBar({
                       borderRadius: "12px",
                       cursor: "pointer",
                       background: isItemActive
-                        ? "rgba(255, 255, 255, 0.12)"
+                        ? "var(--color-chip)"
                         : "transparent",
                       transition: "background 0.15s ease",
                     }}
                     onMouseEnter={(e) => {
                       if (!isItemActive) {
-                        e.currentTarget.style.background = "rgba(255, 255, 255, 0.08)";
+                        e.currentTarget.style.background = "var(--color-surface-alt)";
                       }
                     }}
                     onMouseLeave={(e) => {
@@ -730,10 +727,10 @@ export default function TransactionTabBar({
                         width: "38px",
                         height: "38px",
                         borderRadius: "10px",
-                        background: "rgba(255, 255, 255, 0.08)",
+                        background: "var(--color-chip)",
                         display: "grid",
                         placeItems: "center",
-                        color: "#E2E8F0",
+                        color: "var(--color-ink)",
                         flexShrink: 0,
                       }}
                     >
@@ -744,7 +741,7 @@ export default function TransactionTabBar({
                         style={{
                           fontSize: "14px",
                           fontWeight: 600,
-                          color: "#FFFFFF",
+                          color: "var(--color-ink)",
                           display: "block",
                         }}
                       >
@@ -753,7 +750,7 @@ export default function TransactionTabBar({
                       <span
                         style={{
                           fontSize: "12px",
-                          color: "#8C96A8",
+                          color: "var(--color-muted)",
                           display: "block",
                           marginTop: "2px",
                         }}

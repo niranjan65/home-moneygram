@@ -4,12 +4,13 @@ import { ChevronDown, Eye } from 'lucide-react';
 import { sessionFetch as fetch } from '../../../../api/sessionClient';
 import { useERPFileUpload } from '../../../../hooks/useERPFileUpload';
 import DocumentPreviewModal from '../../../../components/DocumentPreviewModal';
+import { CurrencyInput } from '../../../../components/common/CurrencyInput';
 
 const money = value => `FJ$${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const labelStyle = "text-xs uppercase font-bold text-gray-700 tracking-wider mb-2 block";
-const selectStyle = "w-full min-w-0 box-border bg-gray-50 border border-gray-200 text-gray-900 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#E00000] focus:bg-white placeholder:text-gray-400 transition-all duration-200 appearance-none pr-10 cursor-pointer";
-const inputStyle = "w-full min-w-0 box-border bg-gray-50 border border-gray-200 text-gray-900 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#E00000] focus:bg-white placeholder:text-gray-400 transition-all duration-200";
+const labelStyle = "text-xs uppercase font-bold text-muted tracking-wider mb-2 block";
+const selectStyle = "w-full min-w-0 box-border bg-surface-alt border border-line text-ink rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-surface placeholder:text-muted transition-all duration-200 appearance-none pr-10 cursor-pointer";
+const inputStyle = "w-full min-w-0 box-border bg-surface-alt border border-line text-ink rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-surface placeholder:text-muted transition-all duration-200";
 
 export function RbfComplianceSection({
   transactionType = 'MONEY_EXCHANGE', fjdAmount, exchangeType, currency = 'FJD', rate,
@@ -318,9 +319,9 @@ export function RbfComplianceSection({
     setDismissedScreeningFingerprint(screeningFingerprint);
   };
 
-  return <section className={hideCardHeader ? "w-full min-w-0" : "mt-8 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"} id="rbf-control">
+  return <section className={hideCardHeader ? "w-full min-w-0" : "mt-8 overflow-hidden rounded-2xl border border-line bg-surface shadow-sm"} id="rbf-control">
     {showSanctionsModal && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-label="UN sanctions screening result">
-      <div className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-2xl bg-surface shadow-2xl">
         <div className={`px-6 py-5 text-white ${sanctions.status === 'DO_NOT_PROCEED' ? 'bg-red-700' : 'bg-amber-600'}`}>
           <p className="text-overline font-semibold uppercase tracking-wider">UN Sanctions Screening</p>
           <h2 className="mt-1 text-h2 font-bold">{sanctions.status === 'DO_NOT_PROCEED' ? 'DO NOT PROCEED' : 'Possible Name Match'}</h2>
@@ -439,9 +440,9 @@ export function RbfComplianceSection({
               }}
               className={selectStyle}
             >
-              <option value="" className="text-gray-400 bg-white">Select Nationality</option>
-              <option value="FIJI" className="text-gray-900 bg-white py-1">Fiji</option>
-              <option value="OTHER" className="text-gray-900 bg-white py-1">Other</option>
+              <option value="" className="text-muted bg-surface">Select Nationality</option>
+              <option value="FIJI" className="text-ink bg-surface py-1">Fiji</option>
+              <option value="OTHER" className="text-ink bg-surface py-1">Other</option>
             </select>
             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-gray-400">
               <ChevronDown size={16} />
@@ -475,9 +476,9 @@ export function RbfComplianceSection({
               onChange={event => setField(value ? 'rbf_residency_status' : 'residency_status', event.target.value)}
               className={selectStyle}
             >
-              <option value="" className="text-gray-400 bg-white">Select Residency Status</option>
-              <option value="RESIDENT" className="text-gray-900 bg-white py-1">Resident</option>
-              <option value="NON_RESIDENT" className="text-gray-900 bg-white py-1">Non-resident</option>
+              <option value="" className="text-muted bg-surface">Select Residency Status</option>
+              <option value="RESIDENT" className="text-ink bg-surface py-1">Resident</option>
+              <option value="NON_RESIDENT" className="text-ink bg-surface py-1">Non-resident</option>
             </select>
             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-gray-400">
               <ChevronDown size={16} />
@@ -496,9 +497,9 @@ export function RbfComplianceSection({
               onChange={event => handlePurposeChange(event.target.value)}
               className={selectStyle}
             >
-              <option value="" className="text-gray-400 bg-white">Select Purpose of Transaction</option>
+              <option value="" className="text-muted bg-surface">Select Purpose of Transaction</option>
               {(config.purposes || []).map(item => (
-                <option key={item.name} value={item.name} className="text-gray-900 bg-white py-1">
+                <option key={item.name} value={item.name} className="text-ink bg-surface py-1">
                   {item.purpose_code} — {item.purpose_name}
                 </option>
               ))}
@@ -520,9 +521,9 @@ export function RbfComplianceSection({
               onChange={event => setField(value ? 'rbf_source_of_funds' : 'source_of_funds', event.target.value)}
               className={selectStyle}
             >
-              <option value="" className="text-gray-400 bg-white">Select Source of Funds</option>
+              <option value="" className="text-muted bg-surface">Select Source of Funds</option>
               {(config.source_of_funds || []).map(item => (
-                <option key={item} value={item} className="text-gray-900 bg-white py-1">
+                <option key={item} value={item} className="text-ink bg-surface py-1">
                   {item.replaceAll('_', ' ')}
                 </option>
               ))}
@@ -598,10 +599,7 @@ export function RbfComplianceSection({
             <label className={labelStyle}>
               Verified Unutilised Imported Funds (FJD) <span className="text-red-500 ml-1">*</span>
             </label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
+            <CurrencyInput
               value={getField('imported_funds_available_fjd') || ''}
               disabled={disabled}
               onChange={event => setField('imported_funds_available_fjd', event.target.value)}
@@ -638,9 +636,9 @@ export function RbfComplianceSection({
                 onChange={event => updateDocument(index, { document_type: event.target.value })}
                 className={selectStyle}
               >
-                <option value="" className="text-gray-400 bg-white">Select Document Type</option>
+                <option value="" className="text-muted bg-surface">Select Document Type</option>
                 {availableDocuments.map(item => (
-                  <option key={item.name} value={item.name} className="text-gray-900 bg-white py-1">
+                  <option key={item.name} value={item.name} className="text-ink bg-surface py-1">
                     {item.document_name}
                   </option>
                 ))}
@@ -649,7 +647,7 @@ export function RbfComplianceSection({
                 <ChevronDown size={16} />
               </div>
             </div>
-            <label className="flex cursor-pointer items-center rounded-xl border border-dashed border-gray-300 bg-white px-3.5 py-2.5 text-xs text-gray-600 hover:border-gray-400 transition-colors">
+            <label className="flex cursor-pointer items-center rounded-xl border border-dashed border-line bg-surface px-3.5 py-2.5 text-xs text-muted hover:border-brand-600 transition-colors">
               <input
                 type="file"
                 className="sr-only"
@@ -753,8 +751,8 @@ export function RbfComplianceSection({
                 Compliance Assessment
               </span>
             </div>
-            <span className="text-xs font-mono text-gray-600 bg-white/80 px-2.5 py-1 rounded-md border border-gray-200 shadow-2xs">
-              Rule: <strong className="text-gray-900 font-bold">{assessment.rule_code || 'Not matched'}</strong>
+            <span className="text-xs font-mono text-muted bg-surface-alt px-2.5 py-1 rounded-md border border-line shadow-2xs">
+              Rule: <strong className="text-ink font-bold">{assessment.rule_code || 'Not matched'}</strong>
             </span>
           </div>
 
@@ -812,26 +810,26 @@ export function RbfComplianceSection({
 
           {/* Stat Tiles: Previous use, Current, RBF approval */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-3.5">
-            <div className="bg-white/90 rounded-xl p-3 border border-gray-200/80 shadow-xs flex flex-col justify-between">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-gray-500">
+            <div className="bg-surface-alt rounded-xl p-3 border border-line shadow-xs flex flex-col justify-between">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-muted">
                 Previous Use
               </span>
-              <span className="text-sm font-bold text-gray-900 tabular-nums font-mono mt-1">
+              <span className="text-sm font-bold text-ink tabular-nums font-mono mt-1">
                 {money(prevUtil)}
               </span>
             </div>
 
-            <div className="bg-white/90 rounded-xl p-3 border border-gray-200/80 shadow-xs flex flex-col justify-between">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-gray-500">
+            <div className="bg-surface-alt rounded-xl p-3 border border-line shadow-xs flex flex-col justify-between">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-muted">
                 Current
               </span>
-              <span className="text-sm font-bold text-gray-900 tabular-nums font-mono mt-1">
+              <span className="text-sm font-bold text-ink tabular-nums font-mono mt-1">
                 {money(currTxn)}
               </span>
             </div>
 
-            <div className="bg-white/90 rounded-xl p-3 border border-gray-200/80 shadow-xs flex flex-col justify-between">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-gray-500">
+            <div className="bg-surface-alt rounded-xl p-3 border border-line shadow-xs flex flex-col justify-between">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-muted">
                 RBF Approval
               </span>
               <div className="mt-1">

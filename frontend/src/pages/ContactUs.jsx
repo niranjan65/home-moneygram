@@ -26,15 +26,15 @@ export default function Contact() {
     <>
       <Navbar />
 
-      <section className="bg-background-light dark:bg-background-dark py-5 px-6 min-h-screen">
+      <section className="bg-page text-ink py-10 px-6 min-h-screen transition-colors">
         
         {/* Header */}
         <div className="max-w-[80%] mx-auto text-center mb-14">
-          <h1 className="text-display font-bold text-gray-900 dark:text-white mb-6">
+          <h1 className="text-display font-bold text-ink mb-6">
             Contact Us
           </h1>
 
-          <p className="text-body font-normal text-gray-600 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-body font-normal text-muted max-w-2xl mx-auto leading-relaxed">
             Have questions about currency exchange or international transfers?
             We're here to help.
           </p>
@@ -44,9 +44,9 @@ export default function Contact() {
         <div className="max-w-[80%] mx-auto grid md:grid-cols-2 gap-12">
 
           {/* Contact Form */}
-          <div className="bg-white dark:bg-[#1a2c20] p-8 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700">
+          <div className="bg-surface p-8 rounded-2xl shadow-xl border border-line text-ink">
 
-            <h2 className="text-h2 font-bold mb-6 text-gray-900 dark:text-white">
+            <h2 className="text-h2 font-bold mb-6 text-ink">
               Send us a Message
             </h2>
 
@@ -54,7 +54,7 @@ export default function Contact() {
 
               {/* Name */}
               <div>
-                <label className="block text-label font-semibold mb-2 text-gray-700 dark:text-gray-300">
+                <label className="block text-label font-semibold mb-2 text-ink">
                   Full Name
                 </label>
                 <input
@@ -63,13 +63,13 @@ export default function Contact() {
                   required
                   value={formData.name}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-background-dark text-body font-normal focus:outline-none focus:ring-2 focus:ring-primary transition"
+                  className="w-full px-4 py-3 rounded-lg border border-line bg-surface text-ink text-body font-normal focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20 transition"
                 />
               </div>
 
               {/* Email */}
               <div>
-                <label className="block text-label font-semibold mb-2 text-gray-700 dark:text-gray-300">
+                <label className="block text-label font-semibold mb-2 text-ink">
                   Email Address
                 </label>
                 <input
@@ -78,13 +78,13 @@ export default function Contact() {
                   required
                   value={formData.email}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-background-dark text-body font-normal focus:outline-none focus:ring-2 focus:ring-primary transition"
+                  className="w-full px-4 py-3 rounded-lg border border-line bg-surface text-ink text-body font-normal focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20 transition"
                 />
               </div>
 
               {/* Subject */}
               <div>
-                <label className="block text-label font-semibold mb-2 text-gray-700 dark:text-gray-300">
+                <label className="block text-label font-semibold mb-2 text-ink">
                   Subject
                 </label>
                 <input
@@ -92,13 +92,13 @@ export default function Contact() {
                   name="subject"
                   value={formData.subject}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-background-dark text-body font-normal focus:outline-none focus:ring-2 focus:ring-primary transition"
+                  className="w-full px-4 py-3 rounded-lg border border-line bg-surface text-ink text-body font-normal focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20 transition"
                 />
               </div>
 
               {/* Message */}
               <div>
-                <label className="block text-label font-semibold mb-2 text-gray-700 dark:text-gray-300">
+                <label className="block text-label font-semibold mb-2 text-ink">
                   Message
                 </label>
                 <textarea
@@ -107,14 +107,14 @@ export default function Contact() {
                   required
                   value={formData.message}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-background-dark text-body font-normal focus:outline-none focus:ring-2 focus:ring-primary transition custom-scrollbar"
+                  className="w-full px-4 py-3 rounded-lg border border-line bg-surface text-ink text-body font-normal focus:outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-500/20 transition custom-scrollbar"
                 />
               </div>
 
               {/* Button */}
               <button
                 type="submit"
-                className="w-full bg-primary text-black text-btn-lg font-semibold py-3 rounded-lg hover:opacity-90 transition"
+                className="w-full bg-brand-600 hover:bg-brand-700 text-white text-btn-lg font-semibold py-3 rounded-lg transition shadow-md cursor-pointer"
               >
                 Send Message
               </button>
@@ -125,36 +125,36 @@ export default function Contact() {
           <div className="flex flex-col justify-center space-y-8">
 
             <div>
-              <h3 className="text-h3 font-bold text-gray-900 dark:text-white mb-2">
+              <h3 className="text-h3 font-bold text-ink mb-2">
                 Email Support
               </h3>
-              <p className="text-body font-normal text-gray-600 dark:text-gray-400">
+              <p className="text-body font-normal text-muted">
                 info@mhmoneyexpress.com
               </p>
             </div>
 
             <div>
-              <h3 className="text-h3 font-bold text-gray-900 dark:text-white mb-2">
+              <h3 className="text-h3 font-bold text-ink mb-2">
                 Phone
               </h3>
-              <p className="text-body font-normal text-gray-600 dark:text-gray-400">
+              <p className="text-body font-normal text-muted">
                 +679 229 5700 / +679  229 5701 / +679 229 5702/ +679 229 5703
               </p>
             </div>
 
             <div>
-              <h3 className="text-h3 font-bold text-gray-900 dark:text-white mb-2">
+              <h3 className="text-h3 font-bold text-ink mb-2">
                 Office Address
               </h3>
-              <p className="text-body font-normal text-gray-600 dark:text-gray-400">
+              <p className="text-body font-normal text-muted">
                 MH MONEY EXPRESS PTE LIMITED
              <br />
                 18 Ellery Street, Suva.
               </p>
             </div>
 
-            <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
-              <p className="text-gray-500 dark:text-gray-400">
+            <div className="pt-6 border-t border-line">
+              <p className="text-muted text-sm">
                 We typically respond within 24 hours.
               </p>
             </div>

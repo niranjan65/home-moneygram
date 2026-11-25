@@ -34,6 +34,7 @@ import TransferAmountSection from "../features/exchange/components/TransferAmoun
 import { DenominationPanel } from "../features/exchange/components/sections/DenominationPanel";
 import { RbfComplianceSection } from "../features/exchange/components/sections/RbfComplianceSection";
 import { MoneyTransferInvoiceDocument } from "../components/MoneyTransferInvoice";
+import { CurrencyInput } from "../components/common/CurrencyInput";
 import { CustomerPhotoCard } from "../features/exchange/components/CustomerPhotoCard";
 import { useBaseCurrency } from "../hooks/useDenomination";
 import { useCountries } from "../hooks/useCountry";
@@ -888,6 +889,57 @@ const MoneyTransfer = () => {
   const denomStatusRef = useRef({ total: 0, target: 0 });
   const denomErrorRef = useRef(null);
 
+  const [availabilityByDenomination, setAvailabilityByDenomination] = useState({});
+
+  useEffect(() => {
+    const warehouseName = selectedWarehouse?.warehouse;
+    if (!warehouseName || !baseCurrencyData) {
+      setAvailabilityByDenomination({});
+      return;
+    }
+
+    const allItems = [
+      ...((baseCurrencyData.notes || []).map((denom, i) => baseCurrencyData.notes_name?.[i]).filter(Boolean).map(item_code => ({ item_code, requested_qty: 0 }))),
+      ...((baseCurrencyData.coins || []).map((denom, i) => baseCurrencyData.coins_name?.[i]).filter(Boolean).map(item_code => ({ item_code, requested_qty: 0 }))),
+    ];
+    if (allItems.length === 0) {
+      setAvailabilityByDenomination({});
+      return;
+    }
+
+    let active = true;
+    validateStockAvailability(allItems, warehouseName, loginUser)
+      .then(res => {
+        if (!active || !res?.qtyMap) return;
+        const avail = {};
+        (baseCurrencyData.notes || []).forEach((denom, i) => {
+          const code = baseCurrencyData.notes_name?.[i];
+          if (code) {
+            avail[String(Number(denom))] = Math.max(0, Number(res.qtyMap[code] ?? 0));
+          }
+        });
+        (baseCurrencyData.coins || []).forEach((denom, i) => {
+          const code = baseCurrencyData.coins_name?.[i];
+          if (code) {
+            avail[String(Number(denom))] = Math.max(0, Number(res.qtyMap[code] ?? 0));
+          }
+        });
+        setAvailabilityByDenomination(avail);
+      })
+      .catch(err => {
+        console.error('[MoneyTransfer Stock Availability Fetch Error]', err);
+        if (active) setAvailabilityByDenomination({});
+      });
+
+    return () => { active = false; };
+  }, [
+    selectedWarehouse?.warehouse,
+    baseCurrencyData?.currency,
+    baseCurrencyData?.notes_name?.join(','),
+    baseCurrencyData?.coins_name?.join(','),
+    loginUser,
+  ]);
+
   const [customerLookupDone, setCustomerLookupDone] = useState(false);
   const [customerFound, setCustomerFound] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -1170,22 +1222,28 @@ const MoneyTransfer = () => {
 
   const idAttachment = form.document_upload || form.custom_government_document || null;
   const additionalAttachment = form.upload_additional_info || null;
-  const documentRows = (Array.isArray(form.documents) && form.documents.length > 0)
+  const documentRows = Array.isArray(form.documents)
     ? form.documents
     : [
         ...(idAttachment ? [{
+          document_category: "Proof of Identity",
           document_type: form.government_id_type || form.custom_government_id || "Passport",
           document_number: form.government_id_number || form.passport_number || "",
           issue_date: form.id_issue_date || form.custom_id_issue_date || "",
           expiry_date: form.id_expiry_date || form.custom_id_expiry_date || "",
           issue_country: form.id_issue_country || form.custom_id_issue_country || "",
           attachment: idAttachment,
+          file_name: typeof idAttachment === "string" ? idAttachment.split("/").pop() : "document.pdf",
           notes: "",
+          isAutoFilled: true,
         }] : []),
         ...(additionalAttachment ? [{
+          document_category: "Other",
           document_type: "Other",
           attachment: additionalAttachment,
+          file_name: typeof additionalAttachment === "string" ? additionalAttachment.split("/").pop() : "document.pdf",
           notes: "",
+          isAutoFilled: true,
         }] : []),
       ];
 
@@ -1199,6 +1257,11 @@ const MoneyTransfer = () => {
         document_upload: rows.find((r) => r.attachment)?.attachment || "",
         upload_additional_info: rows.find((r) => r.document_type === "Additional Info" || r.document_type === "Other")?.attachment || "",
       };
+
+      if (!primaryIdDoc) {
+        next.document_upload = "";
+        next.custom_government_document = "";
+      }
 
       if (primaryIdDoc) {
         if (primaryIdDoc.document_type) {
@@ -1410,6 +1473,8 @@ const MoneyTransfer = () => {
     if (key === "full_name") {
       selectedFromDropdownRef.current = false;
       setCustomerFound(false);
+      setCustomerImageUrl("");
+      setCustomerImageFile(null);
       setForm((prev) => ({
         ...prev,
         customer: "",
@@ -1710,11 +1775,14 @@ const MoneyTransfer = () => {
     if (existingImg) {
       setCustomerImageUrl(existingImg);
       setCustomerImageFile(null);
+    } else {
+      setCustomerImageUrl("");
+      setCustomerImageFile(null);
     }
 
     const existingDoc = c.custom_government_document || c.document_upload || "";
 
-    // Immediately populate all fields from selected customer into form
+    // Immediately populate all fields from selected customer into form (preserving amount section)
     setForm((prev) => ({
       ...prev,
       full_name: nameVal,
@@ -1723,35 +1791,58 @@ const MoneyTransfer = () => {
       customer_id: custId,
       phone_number: phoneVal,
       contact_number: phoneVal,
-      dob: c.custom_date_of_birth || c.dob || prev.dob || "",
-      custom_date_of_birth: c.custom_date_of_birth || c.dob || prev.custom_date_of_birth || "",
-      passport_number: c.custom_passport_number || prev.passport_number || "",
-      custom_passport_number: c.custom_passport_number || prev.custom_passport_number || "",
-      document_upload: existingDoc || prev.document_upload || "",
-      custom_government_document: existingDoc || prev.custom_government_document || "",
+      dob: c.custom_date_of_birth || c.dob || "",
+      custom_date_of_birth: c.custom_date_of_birth || c.dob || "",
+      passport_number: c.custom_passport_number || "",
+      custom_passport_number: c.custom_passport_number || "",
+      document_upload: existingDoc || "",
+      custom_government_document: existingDoc || "",
       documents: existingDoc ? [{
+        document_category: "Proof of Identity",
         document_type: govIdType || "Passport",
         document_number: govIdNumber || "",
         issue_date: c.custom_id_issue_date || c.id_issue_date || "",
         expiry_date: c.custom_id_expiry_date || c.id_expiry_date || "",
         issue_country: c.custom_id_issue_country || c.id_issue_country || "",
         attachment: existingDoc,
+        file_name: typeof existingDoc === "string" ? existingDoc.split("/").pop() : "document.pdf",
         notes: "",
-      }] : (prev.documents && prev.documents.length > 0 ? prev.documents : []),
-      custom_government_id: govIdType || prev.custom_government_id || "",
-      government_id_type: govIdType || prev.government_id_type || "",
-      government_id_number: govIdNumber || prev.government_id_number || "",
-      country: c.custom_country || prev.country || "",
-      city: c.custom_city || prev.city || "",
-      stateprovince: c.custom_id_issue_stateprovince || c.custom_state_province || prev.stateprovince || "",
-      email: c.email_id || c.custom_email || prev.email || "",
-      occupation: c.custom_occupation || prev.occupation || "",
-      tin_number: c.custom_tin_number || prev.tin_number || "",
-      id_issue_date: c.custom_id_issue_date || prev.id_issue_date || "",
-      id_expiry_date: c.custom_id_expiry_date || prev.id_expiry_date || "",
-      id_issue_country: c.custom_id_issue_country || prev.id_issue_country || "",
-      id_issue_state: c.custom_id_issue_stateprovince || prev.id_issue_state || "",
-      risk_level: c.custom_risk_level || c.risk_level || prev.risk_level || "Low",
+        isAutoFilled: true,
+      }] : [],
+      custom_government_id: govIdType || "",
+      government_id_type: govIdType || "",
+      government_id_number: govIdNumber || "",
+      country: c.custom_country || "",
+      city: c.custom_city || "",
+      stateprovince: c.custom_id_issue_stateprovince || c.custom_state_province || "",
+      email: c.email_id || c.custom_email || "",
+      occupation: c.custom_occupation || "",
+      tin_number: c.custom_tin_number || "",
+      id_issue_date: c.custom_id_issue_date || "",
+      id_expiry_date: c.custom_id_expiry_date || "",
+      id_issue_country: c.custom_id_issue_country || "",
+      id_issue_state: c.custom_id_issue_stateprovince || "",
+      risk_level: c.custom_risk_level || c.risk_level || "Low",
+      receiver_name: "",
+      receiver_address: "",
+      receiver_address_line_2: "",
+      receiver_city: "",
+      receiver_stateprovince: "",
+      receiver_postal_code: "",
+      receiver_country: "",
+      destination_country: "",
+      rbf_purpose: "",
+      rbf_source_of_funds: "",
+      rbf_nationality_type: "",
+      rbf_nationality: "",
+      rbf_other_nationality: "",
+      rbf_residency_status: "",
+      rbf_beneficiary_reference: "",
+      rbf_student_reference: "",
+      rbf_family_reference: "",
+      rbf_invoice_reference: "",
+      tf_form_reference: "",
+      passport_endorsement_completed: 0,
     }));
 
     try {
@@ -1764,8 +1855,8 @@ const MoneyTransfer = () => {
         const resolvedId = customer.custom_customer_id || customer.customer_id || customer.name || custId;
 
         // Fetch existing customer photo if present
-        const existingImg = customer.image || customer.custom_image || "";
-        setCustomerImageUrl(existingImg || c.image || c.custom_image || "");
+        const existingImg = customer.image || customer.custom_image || c.image || c.custom_image || "";
+        setCustomerImageUrl(existingImg || "");
         setCustomerImageFile(null);
 
         setForm((prev) => {
@@ -1790,97 +1881,84 @@ const MoneyTransfer = () => {
           dob:
             customer.custom_date_of_birth ||
             customer.dob ||
-            prev.dob ||
             "",
           custom_date_of_birth:
             customer.custom_date_of_birth ||
             customer.dob ||
-            prev.custom_date_of_birth ||
             "",
           passport_number:
             customer.custom_passport_number ||
             customer.passport_number ||
-            prev.passport_number ||
             "",
           custom_passport_number:
             customer.custom_passport_number ||
             customer.passport_number ||
-            prev.custom_passport_number ||
             "",
           document_upload: docUrl,
           custom_government_document: docUrl,
           documents: docUrl ? [{
+            document_category: "Proof of Identity",
             document_type: finalGovId,
             document_number: finalGovIdNum,
-            issue_date: customer.custom_id_issue_date || customer.id_issue_date || prev.id_issue_date || "",
-            expiry_date: customer.custom_id_expiry_date || customer.id_expiry_date || prev.id_expiry_date || "",
-            issue_country: customer.custom_id_issue_country || customer.id_issue_country || prev.id_issue_country || "",
+            issue_date: customer.custom_id_issue_date || customer.id_issue_date || "",
+            expiry_date: customer.custom_id_expiry_date || customer.id_expiry_date || "",
+            issue_country: customer.custom_id_issue_country || customer.id_issue_country || "",
             attachment: docUrl,
+            file_name: typeof docUrl === "string" ? docUrl.split("/").pop() : "document.pdf",
             notes: "",
-          }] : (prev.documents && prev.documents.length > 0 ? prev.documents : []),
+            isAutoFilled: true,
+          }] : [],
           custom_government_id:
             customer.custom_government_id ||
             customer.government_id_type ||
-            prev.custom_government_id ||
             "",
           government_id_type:
             customer.custom_government_id ||
             customer.government_id_type ||
-            prev.government_id_type ||
             "",
           government_id_number:
             customer.custom_passport_number ||
             customer.custom_drivers_licence_number ||
             customer.custom_tin_number ||
             customer.custom_voter_id_number ||
-            prev.government_id_number ||
             "",
           customer: customer.name,
           country:
             customer.custom_country ||
             customer.country ||
-            prev.country ||
             "",
           address:
             customer.custom_address ||
             customer.address ||
-            prev.address ||
             "",
           city:
             customer.custom_city ||
             customer.city ||
-            prev.city ||
             "",
           stateprovince:
             customer.custom_state_province ||
             customer.custom_stateprovince ||
             customer.stateprovince ||
-            prev.stateprovince ||
             "",
           postal_code:
             customer.custom_postal_code ||
             customer.postal_code ||
-            prev.postal_code ||
             "",
           email:
             customer.custom_email ||
             customer.email ||
-            prev.email ||
             "",
           contact_number:
             customer.custom_contact_number ||
             customer.contact_number ||
-            prev.contact_number ||
             "",
           gender:
             customer.custom_gender ||
             customer.gender ||
-            prev.gender ||
             "",
           occupation:
             customer.custom_occupation ||
             customer.occupation ||
-            prev.occupation ||
             "",
           phone_number:
             customer.mobile_no ||
@@ -1916,12 +1994,15 @@ const MoneyTransfer = () => {
 
         // Fetch customer's last transaction and auto-fill form (skipping amount, reference_number, remarks)
         try {
-          const lastTxResult = await fetchCustomerLastTransaction(customer || c, "Money Transfer");
+          const activeTransferType = form.transfer_type || "Send";
+          const lastTxResult = await fetchCustomerLastTransaction(customer || c, "Money Transfer", activeTransferType);
           if (lastTxResult?.data) {
             const prefill = extractMoneyTransferPrefill(lastTxResult.data);
             setForm((prev) => ({
               ...prev,
               ...prefill,
+              amount: prev.amount,
+              transfer_type: prev.transfer_type,
               documents:
                 prefill.documents && prefill.documents.length > 0
                   ? prefill.documents
@@ -2043,7 +2124,7 @@ const MoneyTransfer = () => {
 
           // Fetch existing customer photo if present
           const existingImg = customer.image || customer.custom_image || "";
-          setCustomerImageUrl(existingImg);
+          setCustomerImageUrl(existingImg || "");
           setCustomerImageFile(null);
 
           setForm((prev) => ({
@@ -2091,13 +2172,16 @@ const MoneyTransfer = () => {
               "",
 
             documents: (customer.custom_government_document || customer.document_upload) ? [{
+              document_category: "Proof of Identity",
               document_type: customer.custom_government_id || customer.government_id_type || "Passport",
               document_number: customer.custom_passport_number || customer.custom_drivers_licence_number || customer.custom_tin_number || customer.custom_voter_id_number || prev.government_id_number || "",
               issue_date: customer.custom_id_issue_date || customer.id_issue_date || prev.id_issue_date || "",
               expiry_date: customer.custom_id_expiry_date || customer.id_expiry_date || prev.id_expiry_date || "",
               issue_country: customer.custom_id_issue_country || customer.id_issue_country || prev.id_issue_country || "",
               attachment: customer.custom_government_document || customer.document_upload,
+              file_name: typeof (customer.custom_government_document || customer.document_upload) === "string" ? (customer.custom_government_document || customer.document_upload).split("/").pop() : "document.pdf",
               notes: "",
+              isAutoFilled: true,
             }] : (prev.documents && prev.documents.length > 0 ? prev.documents : []),
 
             custom_government_id:
@@ -3390,6 +3474,8 @@ const MoneyTransfer = () => {
                   ) {
                     setSelectedCustomer(null);
                     setCustomerFound(false);
+                    setCustomerImageUrl("");
+                    setCustomerImageFile(null);
                     setForm((prev) => ({ ...prev, customer: "" }));
                   }
                 }}
@@ -3482,6 +3568,8 @@ const MoneyTransfer = () => {
                   } else if (selectedCustomer && val !== (selectedCustomer.custom_full_name || selectedCustomer.customer_name || selectedCustomer.full_name)) {
                     setSelectedCustomer(null);
                     setCustomerFound(false);
+                    setCustomerImageUrl("");
+                    setCustomerImageFile(null);
                     setForm((prev) => ({ ...prev, customer: "" }));
                   }
                 }}
@@ -3510,6 +3598,8 @@ const MoneyTransfer = () => {
                   } else if (selectedCustomer && val !== (selectedCustomer.phone_number || selectedCustomer.mobile_no || selectedCustomer.phone)) {
                     setSelectedCustomer(null);
                     setCustomerFound(false);
+                    setCustomerImageUrl("");
+                    setCustomerImageFile(null);
                     setForm((prev) => ({ ...prev, customer: "" }));
                   }
                 }}
@@ -3543,11 +3633,8 @@ const MoneyTransfer = () => {
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4 z-10">
                   <span className="text-gray-500 font-bold text-h3">FJ$</span>
                 </div>
-                <input
+                <CurrencyInput
                   {...commonProps}
-                  type="number"
-                  step="0.01"
-                  min="0"
                   placeholder="0.00"
                   className={getInputStyle(
                     field.fieldname,
@@ -3822,7 +3909,7 @@ const MoneyTransfer = () => {
 
   const isFormLocked = Boolean(successInfo);
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-page text-ink transition-colors">
       <Navbar />
 
       <main className="grow py-8 sm:py-10 px-4 sm:px-6 lg:px-8 xl:px-12 w-full pb-28 sm:pb-32">
@@ -3830,9 +3917,9 @@ const MoneyTransfer = () => {
 
           {/* HEADER */}
           <div>
-            <h1 className="text-gray-900 text-h1 font-bold tracking-tight">
+            <h1 className="text-ink text-h1 font-bold tracking-tight">
               MH Money{" "}
-              <span className="text-[#E00000] italic">
+              <span className="text-brand-600 italic">
                 Transfer
               </span>
             </h1>
@@ -4111,6 +4198,8 @@ const MoneyTransfer = () => {
                           coins={baseCurrencyData.coins}
                           targetAmount={parseFloat(form.amount || 0)}
                           onRowsChange={handleDenominationRowsChange}
+                          availabilityByDenomination={availabilityByDenomination}
+                          enforceStockLimit={form.transfer_type === "Receive"}
                           accentColor="#E00000"
                         />
                       ) : (

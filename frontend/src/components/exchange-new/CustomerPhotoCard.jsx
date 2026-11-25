@@ -89,6 +89,7 @@ export const CustomerPhotoCard = ({
   onImageRemove,
   disabled = false,
   customerFound = false,
+  isSavedPhoto,
 }) => {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
@@ -239,7 +240,7 @@ export const CustomerPhotoCard = ({
   const handleDrag = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (disabled) return;
+    if (disabled || isSavedFromBackend) return;
     if (e.type === "dragenter" || e.type === "dragover") {
       setDragActive(true);
     } else if (e.type === "dragleave") {
@@ -251,7 +252,7 @@ export const CustomerPhotoCard = ({
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    if (disabled) return;
+    if (disabled || isSavedFromBackend) return;
 
     const file = e.dataTransfer.files?.[0];
     if (file && file.type.startsWith("image/")) {
@@ -271,6 +272,11 @@ export const CustomerPhotoCard = ({
 
   const hasPhoto = Boolean(customerImageUrl);
   const isPendingUpload = Boolean(customerImageFile);
+  const isSavedFromBackend = Boolean(
+    isSavedPhoto !== undefined
+      ? isSavedPhoto
+      : customerImageUrl && !customerImageFile && customerFound
+  );
 
   return (
     <div className="card" style={{ padding: "24px" }}>
@@ -279,7 +285,7 @@ export const CustomerPhotoCard = ({
         <span className="lbl" style={{ marginBottom: 0 }}>Customer photo</span>
         {hasPhoto ? (
           <span className="chip ok text-overline font-semibold" style={{ height: "24px", padding: "0 10px" }}>
-            {isPendingUpload ? "New Photo" : "Photo Attached"}
+            {isSavedFromBackend ? "Photo on Record" : isPendingUpload ? "New Photo" : "Photo Attached"}
           </span>
         ) : (
           <span className="chip text-overline font-semibold" style={{ height: "24px", padding: "0 10px" }}>
@@ -383,7 +389,7 @@ export const CustomerPhotoCard = ({
       ) : hasPhoto ? (
         /* ── PHOTO PRESENT (PREVIEW) ── */
         <div className="flex flex-col gap-3">
-          <div className="relative group w-full aspect-4/3 max-h-56 rounded-2xl overflow-hidden bg-gray-50 border border-gray-200/80 shadow-sm flex items-center justify-center">
+          <div className="relative group w-full aspect-4/3 max-h-56 rounded-2xl overflow-hidden bg-surface-alt border border-line shadow-sm flex items-center justify-center">
             <img
               src={resolveCustomerImageUrl(customerImageUrl)}
               alt="Customer"
@@ -400,16 +406,16 @@ export const CustomerPhotoCard = ({
                 href={resolveCustomerImageUrl(customerImageUrl)}
                 target="_blank"
                 rel="noreferrer"
-                className="p-2.5 bg-white/90 hover:bg-white text-gray-800 rounded-full shadow-lg transition"
+                className="p-2.5 bg-surface/90 hover:bg-surface text-ink rounded-full shadow-lg transition"
                 title="View Full Size"
               >
                 <Eye size={15} />
               </a>
-              {!disabled && (
+              {!disabled && !isSavedFromBackend && (
                 <button
                   type="button"
                   onClick={onImageRemove}
-                  className="p-2.5 bg-red-600/90 hover:bg-red-600 text-white rounded-full shadow-lg transition cursor-pointer"
+                  className="p-2.5 bg-danger-fg/90 hover:bg-danger-fg text-white rounded-full shadow-lg transition cursor-pointer"
                   title="Remove Photo"
                 >
                   <Trash2 size={15} />
@@ -419,23 +425,29 @@ export const CustomerPhotoCard = ({
           </div>
 
           {/* Action Buttons */}
-          {!disabled && (
+          {!disabled && !isSavedFromBackend && (
             <div className="grid grid-cols-2 gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => startCamera()}
-                className="px-3 py-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 text-label font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                className="px-3 py-2 rounded-xl border border-line bg-surface hover:bg-surface-alt text-ink text-label font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
-                <Camera size={13} className="text-[#E00000]" /> Retake
+                <Camera size={13} className="text-brand-600" /> Retake
               </button>
 
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="px-3 py-2 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 text-label font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                className="px-3 py-2 rounded-xl border border-line bg-surface hover:bg-surface-alt text-ink text-label font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
-                <Upload size={13} className="text-gray-500" /> Upload New
+                <Upload size={13} className="text-muted" /> Upload New
               </button>
+            </div>
+          )}
+
+          {isSavedFromBackend && (
+            <div className="text-xs text-muted text-center pt-1 font-medium">
+              Customer photo on record
             </div>
           )}
         </div>
@@ -448,21 +460,21 @@ export const CustomerPhotoCard = ({
           onDrop={handleDrop}
           className={`rounded-2xl border-2 border-dashed p-5 text-center flex flex-col items-center justify-center gap-3 transition ${
             dragActive
-              ? "border-[#E00000] bg-red-50/50"
-              : "border-gray-200/90 bg-gray-50/60 hover:border-gray-300"
+              ? "border-brand-600 bg-brand-50/50"
+              : "border-line bg-surface-alt hover:border-line-strong"
           }`}
         >
-          <div className="w-12 h-12 rounded-full bg-white shadow-xs border border-gray-100 flex items-center justify-center text-gray-400">
+          <div className="w-12 h-12 rounded-full bg-surface shadow-xs border border-line flex items-center justify-center text-muted">
             <User size={22} />
           </div>
 
           <div>
-            <p className="text-label font-semibold text-gray-700">
+            <p className="text-label font-semibold text-ink">
               {customerFound
                 ? "No photo attached to customer"
                 : "No customer photo attached"}
             </p>
-            <p className="text-caption text-gray-400 mt-0.5">
+            <p className="text-caption text-muted mt-0.5">
               Capture live with webcam or upload an image file
             </p>
           </div>
@@ -472,7 +484,7 @@ export const CustomerPhotoCard = ({
               <button
                 type="button"
                 onClick={() => startCamera()}
-                className="px-3.5 py-2.5 rounded-xl bg-[#E00000] hover:bg-[#c70000] text-white text-label font-semibold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                className="px-3.5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-label font-semibold shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
               >
                 <Camera size={14} /> Live Camera
               </button>
@@ -480,9 +492,9 @@ export const CustomerPhotoCard = ({
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="px-3.5 py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 text-label font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                className="px-3.5 py-2.5 rounded-xl border border-line bg-surface hover:bg-surface-alt text-ink text-label font-semibold transition flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
-                <Upload size={14} className="text-gray-500" /> Upload File
+                <Upload size={14} className="text-muted" /> Upload File
               </button>
             </div>
           )}

@@ -6,6 +6,7 @@ import { useSettings } from "../context/SettingsContext";
 import { useUser } from "../context/UserContext";
 import { sessionAxios as axios } from "../api/sessionClient.js";
 import { DenominationPanel } from "../features/exchange/components/sections/DenominationPanel";
+import { CurrencyInput } from "../components/common/CurrencyInput";
 import {
   Building2,
   ArrowRight,
@@ -397,54 +398,36 @@ export default function BranchTransfer() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/60 pb-16">
+    <div className="min-h-screen bg-page text-ink pb-16 transition-colors">
       <Navbar />
 
       <main className="max-w-[80%] mx-auto px-4 sm:px-6 lg:px-8 pt-8">
         {/* Service Mode Navigation Tabs */}
         <TransactionTabBar activeTab="OPERATIONAL" className="mb-6" />
 
-        {/* Sub-Navigation Tabs */}
-        <div className="flex items-center gap-1.5 mb-6 p-1 bg-gray-200/70 rounded-2xl w-fit">
-          <Link
-            to="/vault-transfer"
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all text-gray-600 hover:text-gray-900"
-          >
-            <Landmark size={15} className="text-gray-400" />
-            <span>Vault Transfer</span>
-          </Link>
-          <Link
-            to="/branch-transfer"
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-label font-semibold transition-all bg-white text-gray-900 shadow-xs"
-          >
-            <Truck size={15} className="text-[#E00000]" />
-            <span>Branch Transfer</span>
-          </Link>
-        </div>
-
         {/* Page Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-8 border-b border-gray-200">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-8 border-b border-line">
           <div>
-            <div className="flex items-center gap-2 text-overline font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+            <div className="flex items-center gap-2 text-overline font-semibold text-muted uppercase tracking-wider mb-1.5">
               <span>Transfer</span>
               <span>&gt;</span>
-              <span className="text-[#E00000]">Branch to Branch</span>
+              <span className="text-brand-600">Branch to Branch</span>
             </div>
-            <h1 className="text-h1 font-bold text-gray-900 tracking-tight flex items-center gap-3">
-              <Truck size={28} className="text-[#E00000]" />
+            <h1 className="text-h1 font-bold text-ink tracking-tight flex items-center gap-3">
+              <Truck size={28} className="text-brand-600" />
               Branch Transfer
             </h1>
-            <p className="text-gray-500 text-body mt-1">
+            <p className="text-muted text-body mt-1">
               Inter-branch foreign currency transfer with automated Sales Invoice, Purchase Invoice, Cash Payments, and local stock adjustments.
             </p>
           </div>
 
           {/* Quick Route Status Pill */}
           {isRouteConfirmed && (
-            <div className="flex items-center gap-3 bg-white px-4 py-2.5 rounded-2xl border border-gray-200 shadow-xs">
+            <div className="flex items-center gap-3 bg-surface px-4 py-2.5 rounded-2xl border border-line shadow-xs">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                <span className="text-label font-semibold text-gray-900">{fromBranch}</span>
+                <span className="text-label font-semibold text-ink">{fromBranch}</span>
               </div>
               <ArrowRight size={14} className="text-gray-400" />
               <div className="text-label font-semibold text-gray-900">{toBranch}</div>
@@ -650,11 +633,10 @@ export default function BranchTransfer() {
                               foreignDenomRowsRef.current = [];
                               fjdDenomRowsRef.current = [];
                             }}
-                            className={`px-4 py-2.5 rounded-xl text-label font-semibold transition-all shrink-0 cursor-pointer border flex items-center gap-1.5 ${
-                              isActive
+                            className={`px-4 py-2.5 rounded-xl text-label font-semibold transition-all shrink-0 cursor-pointer border flex items-center gap-1.5 ${isActive
                                 ? "bg-[#E00000] text-white border-[#E00000] shadow-sm"
                                 : "bg-gray-50 text-gray-700 border-gray-200 hover:border-gray-300 hover:bg-gray-100"
-                            }`}
+                              }`}
                           >
                             <span>{c.code}</span>
                             <span className="opacity-80 text-caption">({c.symbol})</span>
@@ -692,7 +674,12 @@ export default function BranchTransfer() {
                     <label>
                       <span className="mb-1.5 block text-overline font-semibold uppercase tracking-wider text-gray-500">Foreign amount to transfer</span>
                       <div className="flex overflow-hidden rounded-xl border border-gray-300 focus-within:border-[#E00000] focus-within:ring-2 focus-within:ring-[#E00000]/10">
-                        <input type="number" min="0" step="0.01" value={transferAmount} onChange={(event) => setTransferAmount(event.target.value)} placeholder="0.00" className="min-w-0 flex-1 px-4 py-3 text-amount font-bold tnum outline-none" />
+                        <CurrencyInput
+                          value={transferAmount}
+                          onChange={(event) => setTransferAmount(event.target.value)}
+                          placeholder="0.00"
+                          className="min-w-0 flex-1 px-4 py-3 text-amount font-bold tnum outline-none"
+                        />
                         <span className="flex items-center bg-gray-50 px-4 text-label font-bold text-gray-600">{activeCurrency.code}</span>
                       </div>
                     </label>
@@ -730,233 +717,229 @@ export default function BranchTransfer() {
                 </div>
 
                 {false && <>
-                {/* Legacy denomination layout retained temporarily for rollback safety. */}
-                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 md:p-8">
-                  <div className="flex items-center justify-between pb-4 mb-6 border-b border-gray-100">
-                    <div>
-                      <h2 className="text-h3 font-bold text-gray-900">
-                        Enter Transfer Denominations ({activeCurrency.code})
-                      </h2>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        Stock available in source branch: <span className="font-bold text-gray-700">{fromBranch}</span>
-                      </p>
+                  {/* Legacy denomination layout retained temporarily for rollback safety. */}
+                  <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 md:p-8">
+                    <div className="flex items-center justify-between pb-4 mb-6 border-b border-gray-100">
+                      <div>
+                        <h2 className="text-h3 font-bold text-gray-900">
+                          Enter Transfer Denominations ({activeCurrency.code})
+                        </h2>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          Stock available in source branch: <span className="font-bold text-gray-700">{fromBranch}</span>
+                        </p>
+                      </div>
+                      {totalPieces > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleClearAll}
+                          className="text-xs font-bold text-red-500 hover:text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+                        >
+                          Reset All
+                        </button>
+                      )}
                     </div>
-                    {totalPieces > 0 && (
-                      <button
-                        type="button"
-                        onClick={handleClearAll}
-                        className="text-xs font-bold text-red-500 hover:text-red-700 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
-                      >
-                        Reset All
-                      </button>
+
+                    {loadingCurrencies ? (
+                      <div className="py-16 text-center flex flex-col items-center justify-center gap-2">
+                        <RefreshCw size={22} className="animate-spin text-[#E00000]" />
+                        <span className="text-xs font-semibold text-gray-400">
+                          Loading denomination stock balances...
+                        </span>
+                      </div>
+                    ) : allItemsList.length === 0 ? (
+                      <div className="py-12 text-center text-gray-400">
+                        <Banknote size={32} className="mx-auto mb-2 text-gray-300" />
+                        <p className="text-sm font-semibold">
+                          No denomination items found for {activeCurrency.country}.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-6">
+                        {/* Banknotes */}
+                        {notesList.length > 0 && (
+                          <div>
+                            <p className="text-xs font-bold tracking-widest uppercase text-gray-400 mb-3 flex items-center gap-1.5">
+                              <Banknote size={14} className="text-[#E00000]" />
+                              Banknotes
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {notesList.map((item) => {
+                                const count = denomCounts[item.item_code] || 0;
+                                const maxAvail = item.available_qty || 0;
+                                const subtotal = count * item.value;
+                                const outOfStock = maxAvail <= 0;
+
+                                return (
+                                  <div
+                                    key={item.item_code}
+                                    className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${count > 0
+                                        ? "bg-red-50/40 border-red-200 shadow-2xs"
+                                        : outOfStock
+                                          ? "bg-gray-50 border-gray-100 opacity-60"
+                                          : "bg-white border-gray-200 hover:border-gray-300"
+                                      }`}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2.5">
+                                        <div className="w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                                          {activeCurrency.symbol}
+                                        </div>
+                                        <div>
+                                          <div className="font-bold text-sm text-gray-900">
+                                            {item.value} {activeCurrency.code}
+                                          </div>
+                                          <div className="text-[11px] text-gray-500">
+                                            In Branch: <span className="font-bold text-gray-700">{maxAvail}</span>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {count > 0 && (
+                                        <div className="text-right">
+                                          <div className="text-xs font-bold tnum text-[#E00000]">
+                                            {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} {activeCurrency.code}
+                                          </div>
+                                          <div className="text-[10px] text-gray-400 font-semibold">{count} pcs</div>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                      <CurrencyInput
+                                        allowDecimals={false}
+                                        max={maxAvail}
+                                        placeholder="0"
+                                        value={denomCounts[item.item_code] || ""}
+                                        disabled={outOfStock}
+                                        onChange={(e) => handleCountChange(item.item_code, e.target.value, maxAvail)}
+                                        className="w-full text-center py-2 px-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#E00000]/20 focus:border-[#E00000] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                      />
+                                      {maxAvail > 0 && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleCountChange(item.item_code, maxAvail, maxAvail)}
+                                          className="px-2.5 py-2 text-[11px] font-bold rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors shrink-0 cursor-pointer"
+                                        >
+                                          All
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Coins */}
+                        {coinsList.length > 0 && (
+                          <div>
+                            <p className="text-xs font-bold tracking-widest uppercase text-gray-400 mb-3 flex items-center gap-1.5">
+                              <Coins size={14} className="text-[#E00000]" />
+                              Coins
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              {coinsList.map((item) => {
+                                const count = denomCounts[item.item_code] || 0;
+                                const maxAvail = item.available_qty || 0;
+                                const subtotal = count * item.value;
+                                const outOfStock = maxAvail <= 0;
+
+                                return (
+                                  <div
+                                    key={item.item_code}
+                                    className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${count > 0
+                                        ? "bg-red-50/40 border-red-200 shadow-2xs"
+                                        : outOfStock
+                                          ? "bg-gray-50 border-gray-100 opacity-60"
+                                          : "bg-white border-gray-200 hover:border-gray-300"
+                                      }`}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2.5">
+                                        <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                                          {activeCurrency.symbol}
+                                        </div>
+                                        <div>
+                                          <div className="font-bold text-sm text-gray-900">
+                                            {item.value} {activeCurrency.code}
+                                          </div>
+                                          <div className="text-[11px] text-gray-500">
+                                            In Branch: <span className="font-bold text-gray-700">{maxAvail}</span>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {count > 0 && (
+                                        <div className="text-right">
+                                          <div className="text-xs font-bold tnum text-[#E00000]">
+                                            {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} {activeCurrency.code}
+                                          </div>
+                                          <div className="text-[10px] text-gray-400 font-semibold">{count} pcs</div>
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    <div className="flex items-center gap-2">
+                                      <CurrencyInput
+                                        allowDecimals={false}
+                                        max={maxAvail}
+                                        placeholder="0"
+                                        value={denomCounts[item.item_code] || ""}
+                                        disabled={outOfStock}
+                                        onChange={(e) => handleCountChange(item.item_code, e.target.value, maxAvail)}
+                                        className="w-full text-center py-2 px-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#E00000]/20 focus:border-[#E00000] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                      />
+                                      {maxAvail > 0 && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleCountChange(item.item_code, maxAvail, maxAvail)}
+                                          className="px-2.5 py-2 text-[11px] font-bold rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors shrink-0 cursor-pointer"
+                                        >
+                                          All
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
 
-                  {loadingCurrencies ? (
-                    <div className="py-16 text-center flex flex-col items-center justify-center gap-2">
-                      <RefreshCw size={22} className="animate-spin text-[#E00000]" />
-                      <span className="text-xs font-semibold text-gray-400">
-                        Loading denomination stock balances...
-                      </span>
-                    </div>
-                  ) : allItemsList.length === 0 ? (
-                    <div className="py-12 text-center text-gray-400">
-                      <Banknote size={32} className="mx-auto mb-2 text-gray-300" />
-                      <p className="text-sm font-semibold">
-                        No denomination items found for {activeCurrency.country}.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-6">
-                      {/* Banknotes */}
-                      {notesList.length > 0 && (
-                        <div>
-                          <p className="text-xs font-bold tracking-widest uppercase text-gray-400 mb-3 flex items-center gap-1.5">
-                            <Banknote size={14} className="text-[#E00000]" />
-                            Banknotes
-                          </p>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {notesList.map((item) => {
-                              const count = denomCounts[item.item_code] || 0;
-                              const maxAvail = item.available_qty || 0;
-                              const subtotal = count * item.value;
-                              const outOfStock = maxAvail <= 0;
-
-                              return (
-                                <div
-                                  key={item.item_code}
-                                  className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
-                                    count > 0
-                                      ? "bg-red-50/40 border-red-200 shadow-2xs"
-                                      : outOfStock
-                                      ? "bg-gray-50 border-gray-100 opacity-60"
-                                      : "bg-white border-gray-200 hover:border-gray-300"
-                                  }`}
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2.5">
-                                      <div className="w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
-                                        {activeCurrency.symbol}
-                                      </div>
-                                      <div>
-                                        <div className="font-bold text-sm text-gray-900">
-                                          {item.value} {activeCurrency.code}
-                                        </div>
-                                        <div className="text-[11px] text-gray-500">
-                                          In Branch: <span className="font-bold text-gray-700">{maxAvail}</span>
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    {count > 0 && (
-                                      <div className="text-right">
-                                        <div className="text-xs font-bold tnum text-[#E00000]">
-                                          {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} {activeCurrency.code}
-                                        </div>
-                                        <div className="text-[10px] text-gray-400 font-semibold">{count} pcs</div>
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      max={maxAvail}
-                                      placeholder="0"
-                                      value={denomCounts[item.item_code] || ""}
-                                      disabled={outOfStock}
-                                      onChange={(e) => handleCountChange(item.item_code, e.target.value, maxAvail)}
-                                      className="w-full text-center py-2 px-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#E00000]/20 focus:border-[#E00000] disabled:bg-gray-100 disabled:cursor-not-allowed"
-                                    />
-                                    {maxAvail > 0 && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleCountChange(item.item_code, maxAvail, maxAvail)}
-                                        className="px-2.5 py-2 text-[11px] font-bold rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors shrink-0 cursor-pointer"
-                                      >
-                                        All
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
+                  {/* FJD cash is paid by the destination branch and received by the source branch. */}
+                  <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 md:p-8">
+                    <div className="flex flex-col gap-3 border-b border-gray-100 pb-4 mb-5 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h2 className="text-h3 font-bold text-gray-900">Select Local Currency Denominations (FJD)</h2>
+                        <p className="mt-0.5 text-xs text-gray-400">
+                          FJD stock goes out from destination branch <span className="font-bold text-gray-700">{toBranch}</span> and comes into <span className="font-bold text-gray-700">{fromBranch}</span>.
+                        </p>
+                      </div>
+                      <div className={`rounded-xl border px-3 py-2 text-right ${isFjdBalanced ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Expected / Counted</div>
+                        <div className={`text-body font-bold tnum ${isFjdBalanced ? "text-emerald-700" : "text-[#E00000]"}`}>
+                          ${roundedLocalFjdAmount.toFixed(2)} / ${totalSelectedFjd.toFixed(2)} FJD
                         </div>
-                      )}
-
-                      {/* Coins */}
-                      {coinsList.length > 0 && (
-                        <div>
-                          <p className="text-xs font-bold tracking-widest uppercase text-gray-400 mb-3 flex items-center gap-1.5">
-                            <Coins size={14} className="text-[#E00000]" />
-                            Coins
-                          </p>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {coinsList.map((item) => {
-                              const count = denomCounts[item.item_code] || 0;
-                              const maxAvail = item.available_qty || 0;
-                              const subtotal = count * item.value;
-                              const outOfStock = maxAvail <= 0;
-
-                              return (
-                                <div
-                                  key={item.item_code}
-                                  className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-3 ${
-                                    count > 0
-                                      ? "bg-red-50/40 border-red-200 shadow-2xs"
-                                      : outOfStock
-                                      ? "bg-gray-50 border-gray-100 opacity-60"
-                                      : "bg-white border-gray-200 hover:border-gray-300"
-                                  }`}
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2.5">
-                                      <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-xs shadow-xs">
-                                        {activeCurrency.symbol}
-                                      </div>
-                                      <div>
-                                        <div className="font-bold text-sm text-gray-900">
-                                          {item.value} {activeCurrency.code}
-                                        </div>
-                                        <div className="text-[11px] text-gray-500">
-                                          In Branch: <span className="font-bold text-gray-700">{maxAvail}</span>
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    {count > 0 && (
-                                      <div className="text-right">
-                                        <div className="text-xs font-bold tnum text-[#E00000]">
-                                          {subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })} {activeCurrency.code}
-                                        </div>
-                                        <div className="text-[10px] text-gray-400 font-semibold">{count} pcs</div>
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      max={maxAvail}
-                                      placeholder="0"
-                                      value={denomCounts[item.item_code] || ""}
-                                      disabled={outOfStock}
-                                      onChange={(e) => handleCountChange(item.item_code, e.target.value, maxAvail)}
-                                      className="w-full text-center py-2 px-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-[#E00000]/20 focus:border-[#E00000] disabled:bg-gray-100 disabled:cursor-not-allowed"
-                                    />
-                                    {maxAvail > 0 && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleCountChange(item.item_code, maxAvail, maxAvail)}
-                                        className="px-2.5 py-2 text-[11px] font-bold rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors shrink-0 cursor-pointer"
-                                      >
-                                        All
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* FJD cash is paid by the destination branch and received by the source branch. */}
-                <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 md:p-8">
-                  <div className="flex flex-col gap-3 border-b border-gray-100 pb-4 mb-5 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h2 className="text-h3 font-bold text-gray-900">Select Local Currency Denominations (FJD)</h2>
-                      <p className="mt-0.5 text-xs text-gray-400">
-                        FJD stock goes out from destination branch <span className="font-bold text-gray-700">{toBranch}</span> and comes into <span className="font-bold text-gray-700">{fromBranch}</span>.
-                      </p>
-                    </div>
-                    <div className={`rounded-xl border px-3 py-2 text-right ${isFjdBalanced ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}>
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Expected / Counted</div>
-                      <div className={`text-body font-bold tnum ${isFjdBalanced ? "text-emerald-700" : "text-[#E00000]"}`}>
-                        ${roundedLocalFjdAmount.toFixed(2)} / ${totalSelectedFjd.toFixed(2)} FJD
                       </div>
                     </div>
+                    <FjdDenominationSelector
+                      items={fjdItemsList}
+                      counts={fjdDenomCounts}
+                      onCountChange={handleFjdCountChange}
+                      loading={loadingDestinationFjd}
+                      warehouse={toBranch}
+                    />
+                    {!isFjdBalanced && totalForeignAmount > 0 && (
+                      <div className="mt-3 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+                        <AlertCircle size={14} />
+                        FJD denomination count is {fjdDifference > 0 ? "over" : "short"} by ${Math.abs(fjdDifference).toFixed(2)}.
+                      </div>
+                    )}
                   </div>
-                  <FjdDenominationSelector
-                    items={fjdItemsList}
-                    counts={fjdDenomCounts}
-                    onCountChange={handleFjdCountChange}
-                    loading={loadingDestinationFjd}
-                    warehouse={toBranch}
-                  />
-                  {!isFjdBalanced && totalForeignAmount > 0 && (
-                    <div className="mt-3 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
-                      <AlertCircle size={14} />
-                      FJD denomination count is {fjdDifference > 0 ? "over" : "short"} by ${Math.abs(fjdDifference).toFixed(2)}.
-                    </div>
-                  )}
-                </div>
                 </>}
 
                 <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 md:p-8">

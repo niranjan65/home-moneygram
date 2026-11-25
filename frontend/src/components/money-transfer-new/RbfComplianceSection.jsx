@@ -8,9 +8,9 @@ import { CurrencyInput } from '../common/CurrencyInput';
 
 const money = value => `FJ$${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const labelStyle = "text-xs uppercase font-bold text-gray-700 tracking-wider mb-2 block";
-const selectStyle = "w-full min-w-0 box-border bg-gray-50 border border-gray-200 text-gray-900 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#E00000] focus:bg-white placeholder:text-gray-400 transition-all duration-200 appearance-none pr-10 cursor-pointer";
-const inputStyle = "w-full min-w-0 box-border bg-gray-50 border border-gray-200 text-gray-900 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#E00000] focus:bg-white placeholder:text-gray-400 transition-all duration-200";
+const labelStyle = "text-xs uppercase font-bold text-muted tracking-wider mb-2 block";
+const selectStyle = "w-full min-w-0 box-border bg-surface-alt border border-line text-ink rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-surface placeholder:text-muted transition-all duration-200 appearance-none pr-10 cursor-pointer";
+const inputStyle = "w-full min-w-0 box-border bg-surface-alt border border-line text-ink rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-surface placeholder:text-muted transition-all duration-200";
 
 export function RbfComplianceSection({
   transactionType = 'MONEY_EXCHANGE', fjdAmount, exchangeType, currency = 'FJD', rate,
@@ -19,6 +19,7 @@ export function RbfComplianceSection({
   hideCardHeader = false,
   onAssessmentChange,
   onConfigChange,
+  disablePrefill = false,
 }) {
   const formContext = useFormContext();
   const { uploadFile } = useERPFileUpload();
@@ -158,7 +159,7 @@ export function RbfComplianceSection({
   }, [transactionType, direction]);
 
   useEffect(() => {
-    if (!customerId || !direction) return;
+    if (disablePrefill || !customerId || !direction) return;
     const query = new URLSearchParams({ customer_id: customerId, transaction_type: transactionType, transaction_direction: direction });
     fetch(`/api/method/moneygram.moneygram.api.rbf_compliance.get_last_transaction_prefill?${query}`, { credentials: 'include' })
       .then(response => response.ok ? response.json() : Promise.reject(new Error('Unable to load previous RBF values.')))
@@ -176,7 +177,7 @@ export function RbfComplianceSection({
         if (Object.keys(updates).length) setFields(updates);
       })
       .catch(() => { });
-  }, [customerId, transactionType, direction]);
+  }, [customerId, transactionType, direction, disablePrefill]);
 
   useEffect(() => {
     if (!purpose || !fjdAmount) {
@@ -319,9 +320,9 @@ export function RbfComplianceSection({
     setDismissedScreeningFingerprint(screeningFingerprint);
   };
 
-  return <section className={hideCardHeader ? "w-full min-w-0" : "mt-8 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"} id="rbf-control">
+  return <section className={hideCardHeader ? "w-full min-w-0" : "mt-8 overflow-hidden rounded-2xl border border-line bg-surface shadow-sm"} id="rbf-control">
     {showSanctionsModal && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-label="UN sanctions screening result">
-      <div className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-2xl bg-surface shadow-2xl">
         <div className={`px-6 py-5 text-white ${sanctions.status === 'DO_NOT_PROCEED' ? 'bg-red-700' : 'bg-amber-600'}`}>
           <p className="text-overline font-semibold uppercase tracking-wider">UN Sanctions Screening</p>
           <h2 className="mt-1 text-h2 font-bold">{sanctions.status === 'DO_NOT_PROCEED' ? 'DO NOT PROCEED' : 'Possible Name Match'}</h2>
@@ -397,21 +398,21 @@ export function RbfComplianceSection({
       )}
 
       {/* SUMMARY STRIP */}
-      <div className="flex flex-col sm:flex-row items-stretch rounded-2xl border border-gray-200/90 bg-gray-50/80 divide-y sm:divide-y-0 sm:divide-x divide-gray-200/90 overflow-hidden shadow-2xs">
+      <div className="flex flex-col sm:flex-row items-stretch rounded-2xl border border-line bg-surface-alt divide-y sm:divide-y-0 sm:divide-x divide-line overflow-hidden shadow-card">
         <div className="flex-1 px-5 py-3.5 flex flex-col justify-center">
-          <span className="text-overline font-semibold uppercase tracking-wider text-gray-600 mb-1">
+          <span className="text-overline font-semibold uppercase tracking-wider text-muted mb-1">
             Transaction Type
           </span>
-          <span className="text-body font-semibold text-gray-900">
+          <span className="text-body font-semibold text-ink">
             {transactionType ? String(transactionType).replace(/_/g, ' ') : 'MONEY TRANSFER'}
           </span>
         </div>
 
         <div className="flex-1 px-5 py-3.5 flex flex-col justify-center">
-          <span className="text-overline font-semibold uppercase tracking-wider text-gray-600 mb-1">
+          <span className="text-overline font-semibold uppercase tracking-wider text-muted mb-1">
             Currency
           </span>
-          <span className="text-body font-semibold text-gray-900 font-mono tracking-tight">
+          <span className="text-body font-semibold text-ink font-mono tracking-tight">
             {currency || 'FJD'}
           </span>
         </div>
@@ -440,9 +441,9 @@ export function RbfComplianceSection({
               }}
               className={selectStyle}
             >
-              <option value="" className="text-gray-400 bg-white">Select Nationality</option>
-              <option value="FIJI" className="text-gray-900 bg-white py-1">Fiji</option>
-              <option value="OTHER" className="text-gray-900 bg-white py-1">Other</option>
+              <option value="" className="text-muted bg-surface">Select Nationality</option>
+              <option value="FIJI" className="text-ink bg-surface py-1">Fiji</option>
+              <option value="OTHER" className="text-ink bg-surface py-1">Other</option>
             </select>
             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-gray-400">
               <ChevronDown size={16} />
@@ -476,9 +477,9 @@ export function RbfComplianceSection({
               onChange={event => setField(value ? 'rbf_residency_status' : 'residency_status', event.target.value)}
               className={selectStyle}
             >
-              <option value="" className="text-gray-400 bg-white">Select Residency Status</option>
-              <option value="RESIDENT" className="text-gray-900 bg-white py-1">Resident</option>
-              <option value="NON_RESIDENT" className="text-gray-900 bg-white py-1">Non-resident</option>
+              <option value="" className="text-muted bg-surface">Select Residency Status</option>
+              <option value="RESIDENT" className="text-ink bg-surface py-1">Resident</option>
+              <option value="NON_RESIDENT" className="text-ink bg-surface py-1">Non-resident</option>
             </select>
             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-gray-400">
               <ChevronDown size={16} />
@@ -497,9 +498,9 @@ export function RbfComplianceSection({
               onChange={event => handlePurposeChange(event.target.value)}
               className={selectStyle}
             >
-              <option value="" className="text-gray-400 bg-white">Select Purpose of Transaction</option>
+              <option value="" className="text-muted bg-surface">Select Purpose of Transaction</option>
               {(config.purposes || []).map(item => (
-                <option key={item.name} value={item.name} className="text-gray-900 bg-white py-1">
+                <option key={item.name} value={item.name} className="text-ink bg-surface py-1">
                   {item.purpose_code} — {item.purpose_name}
                 </option>
               ))}
@@ -521,9 +522,9 @@ export function RbfComplianceSection({
               onChange={event => setField(value ? 'rbf_source_of_funds' : 'source_of_funds', event.target.value)}
               className={selectStyle}
             >
-              <option value="" className="text-gray-400 bg-white">Select Source of Funds</option>
+              <option value="" className="text-muted bg-surface">Select Source of Funds</option>
               {(config.source_of_funds || []).map(item => (
-                <option key={item} value={item} className="text-gray-900 bg-white py-1">
+                <option key={item} value={item} className="text-ink bg-surface py-1">
                   {item.replaceAll('_', ' ')}
                 </option>
               ))}
@@ -610,25 +611,25 @@ export function RbfComplianceSection({
         )}
       </div>
 
-      <div className="pt-6 border-t border-gray-200/80 mt-6">
+      <div className="pt-6 border-t border-line mt-6">
         <div className="flex items-center justify-between mb-2">
           <label className={labelStyle}>Supporting Documents</label>
           <button
             type="button"
             disabled={disabled}
             onClick={addDocument}
-            className="text-xs font-bold text-[#B70000] hover:text-[#900000] transition-colors mb-2"
+            className="text-xs font-bold text-brand-600 hover:text-brand-700 transition-colors mb-2"
           >
             + Add Another Document
           </button>
         </div>
         {!documents.length && (
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="mt-1 text-xs text-muted">
             Choose a purpose, then add each required supporting document separately.
           </p>
         )}
         {documents.map((row, index) => (
-          <div key={index} className="mt-3 grid gap-3 rounded-xl border border-gray-200 bg-gray-50/50 p-3 md:grid-cols-[1fr_1fr_auto] items-center">
+          <div key={index} className="mt-3 grid gap-3 rounded-xl border border-line bg-surface-alt p-3 md:grid-cols-[1fr_1fr_auto] items-center">
             <div className="relative min-w-0 flex-1">
               <select
                 value={row.document_type || ''}
@@ -636,9 +637,9 @@ export function RbfComplianceSection({
                 onChange={event => updateDocument(index, { document_type: event.target.value })}
                 className={selectStyle}
               >
-                <option value="" className="text-gray-400 bg-white">Select Document Type</option>
+                <option value="" className="text-muted bg-surface">Select Document Type</option>
                 {availableDocuments.map(item => (
-                  <option key={item.name} value={item.name} className="text-gray-900 bg-white py-1">
+                  <option key={item.name} value={item.name} className="text-ink bg-surface py-1">
                     {item.document_name}
                   </option>
                 ))}
@@ -647,7 +648,7 @@ export function RbfComplianceSection({
                 <ChevronDown size={16} />
               </div>
             </div>
-            <label className="flex cursor-pointer items-center rounded-xl border border-dashed border-gray-300 bg-white px-3.5 py-2.5 text-xs text-gray-600 hover:border-gray-400 transition-colors">
+            <label className="flex cursor-pointer items-center rounded-xl border border-dashed border-line bg-surface px-3.5 py-2.5 text-xs text-muted hover:border-brand-600 transition-colors">
               <input
                 type="file"
                 className="sr-only"
@@ -742,17 +743,17 @@ export function RbfComplianceSection({
       {assessment && (
         <div className={`rounded-xl border border-l-4 p-4 sm:p-5 text-sm shadow-xs transition-all ${stateTheme.card}`}>
           {/* Header Row */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-gray-200/60">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-line">
             <div className="flex items-center gap-2">
               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider border ${stateTheme.badge}`}>
                 {assessment.status ? assessment.status.replace(/_/g, ' ') : 'Assessment'}
               </span>
-              <span className="text-xs font-bold text-gray-700">
+              <span className="text-xs font-bold text-ink">
                 Compliance Assessment
               </span>
             </div>
-            <span className="text-xs font-mono text-gray-600 bg-white/80 px-2.5 py-1 rounded-md border border-gray-200 shadow-2xs">
-              Rule: <strong className="text-gray-900 font-bold">{assessment.rule_code || 'Not matched'}</strong>
+            <span className="text-xs font-mono text-muted bg-surface px-2.5 py-1 rounded-md border border-line shadow-2xs">
+              Rule: <strong className="text-ink font-bold">{assessment.rule_code || 'Not matched'}</strong>
             </span>
           </div>
 
@@ -760,28 +761,28 @@ export function RbfComplianceSection({
           <div className="mt-3.5">
             <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs mb-1.5">
               <div className="flex items-center gap-1.5">
-                <span className="font-bold text-gray-700">Used:</span>
-                <span className="font-bold tabular-nums font-mono text-gray-900">{money(totalUsed)}</span>
+                <span className="font-bold text-muted">Used:</span>
+                <span className="font-bold tabular-nums font-mono text-ink">{money(totalUsed)}</span>
                 {hasFixedLimit ? (
-                  <span className="text-gray-500 font-medium">of {money(maxAllowance)} ({percentUsed}%)</span>
+                  <span className="text-muted font-medium">of {money(maxAllowance)} ({percentUsed}%)</span>
                 ) : (
-                  <span className="text-gray-500 font-medium">(No fixed delegated limit)</span>
+                  <span className="text-muted font-medium">(No fixed delegated limit)</span>
                 )}
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="font-bold text-gray-700">Remaining:</span>
-                <span className={`font-bold tabular-nums font-mono ${hasFixedLimit && remainingAllowance <= 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+                <span className="font-bold text-muted">Remaining:</span>
+                <span className={`font-bold tabular-nums font-mono ${hasFixedLimit && remainingAllowance <= 0 ? 'text-danger-fg' : 'text-success-fg'}`}>
                   {hasFixedLimit ? money(remainingAllowance) : 'Subject to evidence'}
                 </span>
               </div>
             </div>
 
             {/* Progress Track */}
-            <div className="w-full bg-gray-200/90 rounded-full h-2.5 overflow-hidden flex shadow-inner">
+            <div className="w-full bg-chip rounded-full h-2.5 overflow-hidden flex shadow-inner">
               {hasFixedLimit ? (
                 isOverLimit ? (
                   <div
-                    className="bg-red-600 h-full w-full rounded-full transition-all duration-300"
+                    className="bg-danger-fg h-full w-full rounded-full transition-all duration-300"
                     title={`Limit exceeded: ${money(totalUsed)} of ${money(maxAllowance)}`}
                   />
                 ) : (
@@ -789,7 +790,7 @@ export function RbfComplianceSection({
                     {prevPercent > 0 && (
                       <div
                         style={{ width: `${prevPercent}%` }}
-                        className="bg-slate-400 h-full transition-all duration-300"
+                        className="bg-muted-light h-full transition-all duration-300"
                         title={`Previous utilisation: ${money(prevUtil)} (${prevPercent}%)`}
                       />
                     )}
@@ -810,35 +811,35 @@ export function RbfComplianceSection({
 
           {/* Stat Tiles: Previous use, Current, RBF approval */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-3.5">
-            <div className="bg-white/90 rounded-xl p-3 border border-gray-200/80 shadow-xs flex flex-col justify-between">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-gray-500">
+            <div className="bg-surface rounded-xl p-3 border border-line shadow-xs flex flex-col justify-between">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-muted">
                 Previous Use
               </span>
-              <span className="text-sm font-bold text-gray-900 tabular-nums font-mono mt-1">
+              <span className="text-sm font-bold text-ink tabular-nums font-mono mt-1">
                 {money(prevUtil)}
               </span>
             </div>
 
-            <div className="bg-white/90 rounded-xl p-3 border border-gray-200/80 shadow-xs flex flex-col justify-between">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-gray-500">
+            <div className="bg-surface rounded-xl p-3 border border-line shadow-xs flex flex-col justify-between">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-muted">
                 Current
               </span>
-              <span className="text-sm font-bold text-gray-900 tabular-nums font-mono mt-1">
+              <span className="text-sm font-bold text-ink tabular-nums font-mono mt-1">
                 {money(currTxn)}
               </span>
             </div>
 
-            <div className="bg-white/90 rounded-xl p-3 border border-gray-200/80 shadow-xs flex flex-col justify-between">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-gray-500">
+            <div className="bg-surface rounded-xl p-3 border border-line shadow-xs flex flex-col justify-between">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-muted">
                 RBF Approval
               </span>
               <div className="mt-1">
                 {assessment.rbf_approval_required ? (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-warning-bg text-warning-fg border border-warning-border">
                     Required
                   </span>
                 ) : (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-success-bg text-success-fg border border-success-border">
                     Not required
                   </span>
                 )}
@@ -848,23 +849,23 @@ export function RbfComplianceSection({
 
           {/* Missing Documents Alert */}
           {Boolean(assessment.missing_documents?.length) && (
-            <div className="mt-3 rounded-lg bg-amber-100/90 border border-amber-300 p-3 text-amber-950">
-              <p className="font-bold flex items-center gap-1.5 text-xs uppercase tracking-wide text-amber-900">
+            <div className="mt-3 rounded-lg bg-warning-bg border border-warning-border p-3 text-warning-fg">
+              <p className="font-bold flex items-center gap-1.5 text-xs uppercase tracking-wide text-warning-fg">
                 <span>🚫 Submission Blocked — Missing Required Documents:</span>
               </p>
-              <p className="mt-1 font-bold text-amber-950">{assessment.missing_documents.join(', ')}</p>
-              <p className="mt-1 text-xs text-amber-800">
+              <p className="mt-1 font-bold text-warning-fg">{assessment.missing_documents.join(', ')}</p>
+              <p className="mt-1 text-xs text-warning-fg">
                 Please attach these documents under Supporting Documents above to satisfy RBF exchange control rules.
               </p>
             </div>
           )}
 
           {/* Remarks Section */}
-          <div className="mt-3.5 pt-3 border-t border-gray-200/60">
-            <h5 className="text-[11px] uppercase font-bold tracking-wider text-gray-700 mb-2">
+          <div className="mt-3.5 pt-3 border-t border-line">
+            <h5 className="text-[11px] uppercase font-bold tracking-wider text-ink mb-2">
               Remarks
             </h5>
-            <ul className="space-y-1.5 text-xs text-gray-700">
+            <ul className="space-y-1.5 text-xs text-ink">
               {assessment.pending_actions && assessment.pending_actions.length > 0 ? (
                 assessment.pending_actions.map((action, idx) => (
                   <li key={idx} className="flex items-start gap-2 leading-relaxed">

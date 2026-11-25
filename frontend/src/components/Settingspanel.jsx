@@ -34,6 +34,28 @@ function EditInput({ value, onChange, placeholder }) {
   );
 }
 
+const FONT_SIZE_MAP = {
+  small: 14,
+  normal: 16,
+  large: 18,
+  larger: 20,
+};
+
+const FONT_SIZE_TO_KEY = {
+  "14": "small",
+  "16": "normal",
+  "18": "large",
+  "20": "larger",
+  "14px": "small",
+  "16px": "normal",
+  "18px": "large",
+  "20px": "larger",
+  small: "small",
+  normal: "normal",
+  large: "large",
+  larger: "larger",
+};
+
 export default function SettingsPanel() {
   const { user, updateUser, selectedWarehouse, setSelectedWarehouse, warehouses } = useSettings();
   const loginUser = useUser();
@@ -42,6 +64,14 @@ export default function SettingsPanel() {
   const [saved, setSaved] = useState(false);
   const [vaultWarehouse, setVaultWarehouse] = useState(null);
   const [vaultLoading, setVaultLoading] = useState(false);
+  const [fontSize, setFontSize] = useState(() => {
+    try {
+      const stored = localStorage.getItem("document_font_size");
+      return FONT_SIZE_TO_KEY[stored] || "normal";
+    } catch {
+      return "normal";
+    }
+  });
 
   useEffect(() => {
     if (!selectedWarehouse?.warehouse) {
@@ -74,8 +104,31 @@ export default function SettingsPanel() {
       .finally(() => setVaultLoading(false));
   }, [selectedWarehouse?.warehouse, selectedWarehouse?.vault_warehouse, loginUser?.user?.email]);
 
+  const applyAndSaveFontSize = (key) => {
+    const px = FONT_SIZE_MAP[key] || 16;
+    document.documentElement.style.fontSize = `${px}px`;
+    try {
+      localStorage.setItem("document_font_size", px);
+    } catch (e) {
+      console.error("Error saving font size to localStorage:", e);
+    }
+  };
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("document_font_size");
+      const key = FONT_SIZE_TO_KEY[stored] || "normal";
+      setFontSize(key);
+      const px = FONT_SIZE_MAP[key] || 16;
+      document.documentElement.style.fontSize = `${px}px`;
+    } catch (e) {
+      console.error("Error loading font size from localStorage:", e);
+    }
+  }, []);
+
   const handleSave = () => {
     updateUser(draft);
+    applyAndSaveFontSize(fontSize);
     setEditing(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
@@ -84,6 +137,12 @@ export default function SettingsPanel() {
   const handleCancel = () => {
     setDraft({ name: user.name, phone: user.phone });
     setEditing(false);
+  };
+
+  const handleFontSizeChange = (event) => {
+    const selectedKey = event.target.value;
+    setFontSize(selectedKey);
+    applyAndSaveFontSize(selectedKey);
   };
 
   return (
@@ -208,6 +267,37 @@ export default function SettingsPanel() {
                 <span className="w-2 h-2 rounded-full bg-amber-500" />
                 Linked Vault:&nbsp;<span className="font-semibold text-ink">{vaultWarehouse || "—"}</span>
               </span>
+            </div>
+          </div>
+
+          <div className="border-t border-gray-100 my-8" />
+
+          {/* preferences */}
+          <div className="mb-2">
+            <p className="text-overline font-semibold tracking-wider uppercase text-brand-600 mb-5">Preferences</p>
+            <div className="grid sm:grid-cols-2 gap-5">
+              <Field label="Font Size">
+                <div className="relative">
+                  <select
+                    value={fontSize}
+                    onChange={handleFontSizeChange}
+                    className="w-full appearance-none border border-gray-300 rounded-xl px-4 py-3 pr-10 text-body font-medium focus:outline-none focus:ring-2 focus:ring-brand-600 bg-gray-50 text-ink transition cursor-pointer"
+                  >
+                    <option value="small">Small</option>
+                    <option value="normal">Normal</option>
+                    <option value="large">Large</option>
+                    <option value="larger">Larger</option>
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+              </Field>
+              {/* <Field label="Email">
+                <InfoCell value={user.email} />
+              </Field> */}
             </div>
           </div>
 

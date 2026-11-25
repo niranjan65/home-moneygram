@@ -87,14 +87,12 @@ export const SenderCard = () => {
   }
 
   if (error) {
-    return <div className="p-6 text-red-500">Failed to load user</div>;
+    return <div className="p-6 text-danger-fg">Failed to load user</div>;
   }
 
-
-
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-      <div className="px-6 py-4 flex items-center justify-between border-b border-gray-50 bg-gray-50/50">
+    <div className="rounded-2xl border border-line bg-surface overflow-hidden shadow-card transition-shadow">
+      <div className="px-6 py-4 flex items-center justify-between border-b border-line bg-surface-alt">
         <h3 className="text-h3 font-bold text-ink flex items-center gap-2">
           <User size={18} className="text-primary" />
           Teller Information
@@ -138,7 +136,7 @@ export const SenderCard = () => {
           <span className="text-overline font-semibold text-muted uppercase tracking-wider">
             Active Location
           </span>
-          <span className={`text-body-value font-medium ${selectedWarehouse?.warehouse ? "text-ink" : "text-amber-600"}`}>
+          <span className={`text-body-value font-medium ${selectedWarehouse?.warehouse ? "text-ink" : "text-warning-fg"}`}>
             {selectedWarehouse?.warehouse || "No branch location assigned"}
           </span>
         </div>

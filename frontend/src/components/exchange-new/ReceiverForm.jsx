@@ -2,8 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import DocumentUploadTable from './DocumentUploadTable';
 import { useForm, FormProvider } from 'react-hook-form';
-import { UserPlus, ArrowRight, AlertCircle, CheckCircle2, User, ArrowLeftRight, Banknote, ShieldCheck, FileText, ShieldAlert, MessageSquare, ChevronDown } from 'lucide-react';
-import { useExchange } from '../../context/ExchangeContext';
+import { UserPlus, ArrowRight, AlertCircle, CheckCircle2, User, ArrowLeftRight, Banknote, ShieldCheck, FileText, ShieldAlert, MessageSquare, ChevronDown, BanIcon } from 'lucide-react';
 import { useUser } from '../../context/UserContext';
 import { useSettings } from '../../context/SettingsContext';
 
@@ -16,7 +15,7 @@ import { useAppConfiguration } from '../../hooks/useAppConfiguration';
 import { GovernmentIdSection } from './GovernmentIdSection';
 import { PersonalInfoSection } from './PersonalInfoSection';
 import { ExchangeSection } from './ExchangeSection';
-import { DenominationSection } from './DenominationSection';
+import { DenominationSection } from '../../features/exchange/components/sections/DenominationSection';
 import { SectionCard, getIdExpiryStatus, FieldLabel, ErrorMsg, fieldCls, selectCls } from './FormUtilities';
 import { RbfComplianceSection } from './RbfComplianceSection';
 import { fetchCustomerLastTransaction, extractExchangePrefill } from '../../features/exchange/api/lastTransaction';
@@ -77,7 +76,6 @@ export const ReceiverForm = ({
   });
 
   const { handleSubmit, setFocus } = methods;
-  const { receiverGets } = useExchange();
   const { uploadFile, loading: uploadLoading } = useERPFileUpload();
   const [stockError, setStockError] = useState('');
   const [stockLoading, setStockLoading] = useState(false);
@@ -111,8 +109,26 @@ export const ReceiverForm = ({
   const idDocument = methods.watch('docFile');
   const ticketDocument = methods.watch('ticket');
   const documentRows = Array.isArray(tableDocuments) ? tableDocuments : [
-    ...(idDocument ? [{ document_type: selectedId || 'Government ID', issue_date: methods.watch('id_issue_date') || '', expiry_date: methods.watch('id_expiry_date') || '', attachment: idDocument, notes: '' }] : []),
-    ...(ticketDocument ? [{ document_type: 'Ticket', issue_date: '', expiry_date: '', attachment: ticketDocument, notes: '' }] : []),
+    ...(idDocument ? [{
+      document_category: 'Proof of Identity',
+      document_type: selectedId || 'Government ID',
+      issue_date: methods.watch('id_issue_date') || '',
+      expiry_date: methods.watch('id_expiry_date') || '',
+      attachment: idDocument,
+      file_name: typeof idDocument === 'string' ? idDocument.split('/').pop() : idDocument?.name || 'document.pdf',
+      notes: '',
+      isAutoFilled: true,
+    }] : []),
+    ...(ticketDocument ? [{
+      document_category: 'Travel & Supporting',
+      document_type: 'Ticket',
+      issue_date: '',
+      expiry_date: '',
+      attachment: ticketDocument,
+      file_name: typeof ticketDocument === 'string' ? ticketDocument.split('/').pop() : ticketDocument?.name || 'ticket.pdf',
+      notes: '',
+      isAutoFilled: true,
+    }] : []),
   ];
   const changeDocuments = rows => {
     const nextRows = Array.isArray(rows) ? rows : [];
@@ -169,11 +185,13 @@ export const ReceiverForm = ({
   const selectedDenomCountry = toCurrency?.country ?? null;
   const { data: foreignCurrencyInfo, loading: denomLoading, error: denomLoadError } = useDenomination(selectedDenomCountry);
 
-  const senderInfo = exchangeType === 'BUY' ? baseCurrencyInfo : foreignCurrencyInfo;
-  const receiverInfo = exchangeType === 'BUY' ? foreignCurrencyInfo : baseCurrencyInfo;
-  const rbfFjdAmount = exchangeType === 'BUY'
-    ? Number(sendAmount || 0)
-    : Number(exchangePreview?.rawAmount || 0);
+  // In BUY FOREX: Currency In = Forex, Currency Out = FJD
+  // In SELL FOREX: Currency In = FJD, Currency Out = Forex
+  const senderInfo = exchangeType === 'BUY' ? foreignCurrencyInfo : baseCurrencyInfo;
+  const receiverInfo = exchangeType === 'BUY' ? baseCurrencyInfo : foreignCurrencyInfo;
+  const rbfFjdAmount = Number(
+    exchangeType === 'BUY' ? fjdSendAmount : (exchangePreview?.rawAmount || 0)
+  );
 
   // ── Shared stock check (called on blur + on submit) ────────────────────────────
   const runStockCheck = async (si = senderInfo, ri = receiverInfo) => {
@@ -196,50 +214,27 @@ export const ReceiverForm = ({
       }).filter(Boolean);
     };
 
-    if (exchangeType === 'BUY') {
-      const selectedItems = getSelectedItems(si, senderDenomRowsRef.current);
-      if (!warehouseName || selectedItems.length === 0) return true; // nothing to check
-      setStockLoading(true);
-      try {
-        const { outOfStock } = await validateStockAvailability(selectedItems, warehouseName, loginUser);
-        if (outOfStock.length > 0) {
-          setStockError(
-            `Sufficient stock for ${si?.currency} not available at ${warehouseName} for the denominations you've entered. (Check: ${outOfStock.join(', ')}) Please adjust the counts or contact admin.`
-          );
-          setTimeout(() => stockErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
-          return false;
-        }
-        setStockError('');
-        return true;
-      } catch (err) {
-        console.error('[Stock Check]', err);
-        setStockError('');
-        return true; // non-blocking on API error
-      } finally {
-        setStockLoading(false);
+    // Stock check validates the currency being disbursed to the customer (receiverInfo)
+    const selectedItems = getSelectedItems(ri, receiverDenomRowsRef.current);
+    if (!warehouseName || selectedItems.length === 0) return true; // nothing to check
+    setStockLoading(true);
+    try {
+      const { outOfStock } = await validateStockAvailability(selectedItems, warehouseName, loginUser);
+      if (outOfStock.length > 0) {
+        setStockError(
+          `Sufficient stock for ${ri?.currency} not available at ${warehouseName} for the denominations you've entered. (Check: ${outOfStock.join(', ')}) Please adjust the counts or contact admin.`
+        );
+        setTimeout(() => stockErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+        return false;
       }
-    } else if (exchangeType === 'SELL') {
-      const selectedItems = getSelectedItems(si, senderDenomRowsRef.current);
-      if (!warehouseName || selectedItems.length === 0) return true; // nothing to check
-      setStockLoading(true);
-      try {
-        const { outOfStock } = await validateStockAvailability(selectedItems, warehouseName, loginUser);
-        if (outOfStock.length > 0) {
-          setStockError(
-            `Sufficient stock for ${si?.currency} not available at ${warehouseName} for the denominations you've entered. (Check: ${outOfStock.join(', ')}) Please adjust the counts or contact admin.`
-          );
-          setTimeout(() => stockErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
-          return false;
-        }
-        setStockError('');
-        return true;
-      } catch (err) {
-        console.error('[Stock Check]', err);
-        setStockError('');
-        return true; // non-blocking on API error
-      } finally {
-        setStockLoading(false);
-      }
+      setStockError('');
+      return true;
+    } catch (err) {
+      console.error('[Stock Check]', err);
+      setStockError('');
+      return true; // non-blocking on API error
+    } finally {
+      setStockLoading(false);
     }
 
 
@@ -247,10 +242,101 @@ export const ReceiverForm = ({
   };
 
   // Clear stock error when currency changes — old error no longer applies
-  React.useEffect(() => { 
-    setStockError(''); 
+  React.useEffect(() => {
+    setStockError('');
     setCashAccountError('');
   }, [toCurrency?.code, selectedWarehouse?.warehouse]);
+
+  const [senderAvailability, setSenderAvailability] = useState({});
+  const [receiverAvailability, setReceiverAvailability] = useState({});
+
+  useEffect(() => {
+    const warehouseName = selectedWarehouse?.warehouse;
+    if (!warehouseName) {
+      setSenderAvailability({});
+      setReceiverAvailability({});
+      return;
+    }
+
+    const senderItems = [
+      ...(senderInfo?.notes_name || []).map(code => ({ item_code: code, requested_qty: 0 })),
+      ...(senderInfo?.coins_name || []).map(code => ({ item_code: code, requested_qty: 0 })),
+    ].filter(i => Boolean(i.item_code));
+
+    const receiverItems = [
+      ...(receiverInfo?.notes_name || []).map(code => ({ item_code: code, requested_qty: 0 })),
+      ...(receiverInfo?.coins_name || []).map(code => ({ item_code: code, requested_qty: 0 })),
+    ].filter(i => Boolean(i.item_code));
+
+    const allItems = [...senderItems, ...receiverItems];
+    if (allItems.length === 0) {
+      setSenderAvailability({});
+      setReceiverAvailability({});
+      return;
+    }
+
+    let active = true;
+    validateStockAvailability(allItems, warehouseName, loginUser)
+      .then(res => {
+        if (!active || !res?.qtyMap) return;
+
+        if (senderInfo) {
+          const sAvail = {};
+          (senderInfo.notes || []).forEach((denom, i) => {
+            const code = senderInfo.notes_name?.[i];
+            if (code) {
+              sAvail[String(Number(denom))] = Math.max(0, Number(res.qtyMap[code] ?? 0));
+            }
+          });
+          (senderInfo.coins || []).forEach((denom, i) => {
+            const code = senderInfo.coins_name?.[i];
+            if (code) {
+              sAvail[String(Number(denom))] = Math.max(0, Number(res.qtyMap[code] ?? 0));
+            }
+          });
+          setSenderAvailability(sAvail);
+        } else {
+          setSenderAvailability({});
+        }
+
+        if (receiverInfo) {
+          const rAvail = {};
+          (receiverInfo.notes || []).forEach((denom, i) => {
+            const code = receiverInfo.notes_name?.[i];
+            if (code) {
+              rAvail[String(Number(denom))] = Math.max(0, Number(res.qtyMap[code] ?? 0));
+            }
+          });
+          (receiverInfo.coins || []).forEach((denom, i) => {
+            const code = receiverInfo.coins_name?.[i];
+            if (code) {
+              rAvail[String(Number(denom))] = Math.max(0, Number(res.qtyMap[code] ?? 0));
+            }
+          });
+          setReceiverAvailability(rAvail);
+        } else {
+          setReceiverAvailability({});
+        }
+      })
+      .catch(err => {
+        console.error('[Stock Availability Fetch Error]', err);
+        if (active) {
+          setSenderAvailability({});
+          setReceiverAvailability({});
+        }
+      });
+
+    return () => { active = false; };
+  }, [
+    selectedWarehouse?.warehouse,
+    senderInfo?.currency,
+    senderInfo?.notes_name?.join(','),
+    senderInfo?.coins_name?.join(','),
+    receiverInfo?.currency,
+    receiverInfo?.notes_name?.join(','),
+    receiverInfo?.coins_name?.join(','),
+    loginUser,
+  ]);
 
   const senderDenomRowsRef = useRef([]);
   const receiverDenomRowsRef = useRef([]);
@@ -280,20 +366,9 @@ export const ReceiverForm = ({
     return null;
   });
 
-  const focusAmountField = React.useCallback(() => {
-    setTimeout(() => {
-      const input = document.getElementById('input-sendAmount') || document.querySelector('#field-sendAmount input');
-      input?.focus();
-    }, 50);
-  }, []);
-
   const handleResetAllFields = React.useCallback(() => {
     setCurrentCustomer(null);
-    focusAmountField();
-    // 1. Reset calculation / amounts
-    setSendAmount('');
-    setSendAmountError('');
-    if (useManualRate) setManualRate('');
+    // Do not clear the amount section when resetting customer fields
 
     // 2. Reset denomination counts & status
     if (senderDenomRowsRef.current) senderDenomRowsRef.current = [];
@@ -351,12 +426,68 @@ export const ReceiverForm = ({
       tf_form_reference: '',
     });
     methods.clearErrors();
-  }, [methods, setSendAmount, setSendAmountError, useManualRate, setManualRate]);
+  }, [methods]);
+
+  const applyCustomerTransactionPrefill = React.useCallback(async (cust, activeExchangeType) => {
+    if (!cust) return;
+
+    // Explicitly reset travel and transaction-specific fields so no residual data persists
+    const txFieldsToReset = [
+      'destination', 'airwaysName', 'flightNumber', 'pnrNumber', 'travelDate',
+      'ticket', 'pastReceiver', 'rbf_purpose', 'source_of_funds', 'nationality',
+      'residency_status', 'passport_endorsed', 'tf_form_reference', 'remarks'
+    ];
+    txFieldsToReset.forEach((field) => {
+      const defaultVal =
+        field === 'passport_endorsed'
+          ? false
+          : field === 'pastReceiver'
+            ? 'New Receiver'
+            : field === 'ticket'
+              ? null
+              : '';
+      methods.setValue(field, defaultVal, { shouldDirty: true });
+    });
+
+    try {
+      const res = await fetchCustomerLastTransaction(cust, 'Currency Exchange', activeExchangeType);
+      const lastTx = res?.data;
+      if (lastTx) {
+        const prefill = extractExchangePrefill(lastTx);
+        Object.entries(prefill).forEach(([k, v]) => {
+          if (v !== undefined && v !== null && v !== '') {
+            // Never autofill transaction or exchange type (preserve user's active session/tab)
+            if (
+              k === 'exchangeType' ||
+              k === 'exchange_type' ||
+              k === 'transfer_type' ||
+              k === 'transaction_type'
+            ) {
+              return;
+            }
+            if (k === 'documents') {
+              const curDocs = methods.getValues('documents');
+              if (!curDocs || curDocs.length === 0) {
+                methods.setValue('documents', v, { shouldValidate: true, shouldDirty: true });
+              }
+            } else if (k === 'docFile') {
+              const curDocFile = methods.getValues('docFile');
+              if (!curDocFile) {
+                methods.setValue('docFile', v, { shouldValidate: true, shouldDirty: true });
+              }
+            } else {
+              methods.setValue(k, v, { shouldValidate: true, shouldDirty: true });
+            }
+          }
+        });
+      }
+    } catch (err) {
+      console.warn('Error applying last transaction prefill in ReceiverForm:', err);
+    }
+  }, [methods]);
 
   const handleCustomerStateChange = React.useCallback(async (custState) => {
     if (custState?.customer) {
-      focusAmountField();
-      setSendAmount('');
       setCurrentCustomer(custState.customer);
       const cust = custState.customer;
       const doc = cust.custom_government_document || cust.image;
@@ -366,64 +497,37 @@ export const ReceiverForm = ({
         const curDocs = methods.getValues('documents');
         if (!curDocs || curDocs.length === 0) {
           methods.setValue('documents', [{
+            document_category: 'Proof of Identity',
             document_type: cust.custom_government_id || cust.government_id_type || 'Passport',
             document_number: cust.custom_passport_number || cust.custom_drivers_licence_number || cust.custom_tin_number || cust.custom_voter_id_number || cust.government_id_number || '',
             issue_date: cust.custom_id_issue_date || cust.id_issue_date || '',
             expiry_date: cust.custom_id_expiry_date || cust.id_expiry_date || '',
             issue_country: cust.custom_id_issue_country || cust.id_issue_country || '',
             attachment: docUrl,
+            file_name: typeof docUrl === 'string' ? docUrl.split('/').pop() : 'document.pdf',
             notes: '',
+            isAutoFilled: true,
           }], { shouldValidate: true, shouldDirty: true });
         }
       }
 
-      // If last transaction data exists or can be fetched, auto fill form
-      try {
-        let lastTx = cust.lastTransaction;
-        if (!lastTx) {
-          const res = await fetchCustomerLastTransaction(cust, 'Currency Exchange');
-          if (res?.data) {
-            lastTx = res.data;
-            cust.lastTransaction = lastTx;
-          }
-        }
-        if (lastTx) {
-          const prefill = extractExchangePrefill(lastTx);
-          Object.entries(prefill).forEach(([k, v]) => {
-            if (v !== undefined && v !== null && v !== '') {
-              // Never autofill transaction or exchange type (preserve user's active session/tab)
-              if (
-                k === 'exchangeType' ||
-                k === 'exchange_type' ||
-                k === 'transfer_type' ||
-                k === 'transaction_type'
-              ) {
-                return;
-              }
-              if (k === 'documents') {
-                const curDocs = methods.getValues('documents');
-                if (!curDocs || curDocs.length === 0) {
-                  methods.setValue('documents', v, { shouldValidate: true, shouldDirty: true });
-                }
-              } else if (k === 'docFile') {
-                const curDocFile = methods.getValues('docFile');
-                if (!curDocFile) {
-                  methods.setValue('docFile', v, { shouldValidate: true, shouldDirty: true });
-                }
-              } else {
-                methods.setValue(k, v, { shouldValidate: true, shouldDirty: true });
-              }
-            }
-          });
-        }
-      } catch (err) {
-        console.warn('Error applying last transaction prefill in ReceiverForm:', err);
-      }
+      const activeExchangeType = methods.getValues('exchangeType') || exchangeType || 'BUY';
+      await applyCustomerTransactionPrefill(cust, activeExchangeType);
     } else if (custState?.customerFound === false) {
       setCurrentCustomer(null);
     }
     onCustomerChange?.(custState);
-  }, [onCustomerChange, methods, setSendAmount, focusAmountField]);
+  }, [onCustomerChange, methods, exchangeType, applyCustomerTransactionPrefill]);
+
+  const prevExchangeTypeRef = React.useRef(exchangeType);
+  React.useEffect(() => {
+    if (prevExchangeTypeRef.current !== exchangeType) {
+      prevExchangeTypeRef.current = exchangeType;
+      if (currentCustomer) {
+        applyCustomerTransactionPrefill(currentCustomer, exchangeType);
+      }
+    }
+  }, [exchangeType, currentCustomer, applyCustomerTransactionPrefill]);
 
 
   const idExpiryVal = methods.watch('id_expiry_date');
@@ -779,15 +883,14 @@ export const ReceiverForm = ({
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-3">
           <div
-            className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-caption transition-colors shrink-0 ${
-              hasExpiredId
-                ? 'bg-red-100 text-red-700'
-                : hasMissingComplianceDocs
+            className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-caption transition-colors shrink-0 ${hasExpiredId
+              ? 'bg-red-100 text-red-700'
+              : hasMissingComplianceDocs
                 ? 'bg-amber-100 text-amber-700'
                 : requiredFieldsInfo.isAllComplete
-                ? 'bg-green-100 text-green-700'
-                : 'bg-blue-50 text-blue-700'
-            }`}
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-blue-50 text-blue-700'
+              }`}
           >
             {hasExpiredId ? (
               <span className="text-base font-bold text-red-600">⚠</span>
@@ -832,15 +935,14 @@ export const ReceiverForm = ({
       {/* Progress Bar Track */}
       <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden my-3">
         <div
-          className={`h-full rounded-full transition-all duration-300 ease-out ${
-            hasExpiredId
-              ? 'bg-red-600'
-              : hasMissingComplianceDocs
+          className={`h-full rounded-full transition-all duration-300 ease-out ${hasExpiredId
+            ? 'bg-red-600'
+            : hasMissingComplianceDocs
               ? 'bg-amber-500'
               : requiredFieldsInfo.isAllComplete
-              ? 'bg-green-600'
-              : 'bg-blue-600'
-          }`}
+                ? 'bg-green-600'
+                : 'bg-blue-600'
+            }`}
           style={{ width: `${requiredFieldsInfo.percent}%` }}
         />
       </div>
@@ -887,14 +989,14 @@ export const ReceiverForm = ({
       {sidebarSlot && createPortal(progressCard, sidebarSlot)}
       {showUploadModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl p-7 max-w-sm w-full mx-4 text-center">
+          <div className="bg-surface rounded-2xl shadow-xl p-7 max-w-sm w-full mx-4 text-center border border-line">
             <div className="text-4xl mb-4">📂</div>
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">No Exchange Rates Found</h2>
-            <p className="text-gray-500 text-sm mb-6 leading-relaxed">
+            <h2 className="text-lg font-semibold text-ink mb-2">No Exchange Rates Found</h2>
+            <p className="text-muted text-sm mb-6 leading-relaxed">
               Please contact admin to update the rates.
             </p>
             <button type="button" onClick={() => setShowUploadModal(false)}
-              className="w-full bg-[#E00000] hover:bg-[#B70000] text-white font-semibold text-sm py-2.5 rounded-xl transition-colors">
+              className="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm py-2.5 rounded-xl transition-colors">
               OK, Got it
             </button>
           </div>
@@ -903,300 +1005,292 @@ export const ReceiverForm = ({
 
       <form onSubmit={handleSubmit(onSubmit, onError)} autoComplete="off" className="flex flex-col gap-6 w-full min-w-0" noValidate>
 
-          {!ratesLoading && availableCurrencies?.length === 0 && (
-            <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-[#E00000]/20 bg-[#E00000]/5">
-              <AlertCircle size={15} className="text-[#E00000] flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="font-semibold text-sm text-red-800">Exchange Rates Unavailable</p>
-                <p className="text-xs text-[#E00000] mt-0.5">
-                  No rates found for today. Please contact admin to update the rates.
-                </p>
-              </div>
+        {!ratesLoading && availableCurrencies?.length === 0 && (
+          <div className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-danger-border bg-danger-bg">
+            <AlertCircle size={15} className="text-danger-fg flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-sm text-danger-fg">Exchange Rates Unavailable</p>
+              <p className="text-xs text-danger-fg mt-0.5">
+                No rates found for today. Please contact admin to update the rates.
+              </p>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Unified Form Card matching exchange.html */}
-          <div className="card" style={{ overflow: "hidden" }}>
+        {/* Unified Form Card matching exchange.html */}
+        <div className="card" style={{ overflow: "hidden" }}>
 
-            {/* SECTION 1: CURRENCY AND AMOUNT */}
-            <div className="sec" id="section-currency-amount">
-              <h2 className="h"><span className="n">1</span>Currency and amount</h2>
-              <ExchangeSection
-                exchangeType={exchangeType}
-                availableCurrencies={availableCurrencies}
-                ratesLoading={ratesLoading}
-                rateError={rateError}
-                toCurrency={toCurrency}
-                setToCurrency={setToCurrency}
-                useManualRate={useManualRate}
-                setManualRate={setManualRate}
-                sendAmount={sendAmount}
-                setSendAmount={setSendAmount}
-                sendAmountError={sendAmountError}
-                setSendAmountError={setSendAmountError}
-                effectiveRate={effectiveRate}
-                exchangePreview={exchangePreview}
-                onAmountBlur={runStockCheck}
-              />
-            </div>
+          {/* SECTION 1: CURRENCY AND AMOUNT */}
+          <div className="sec" id="section-currency-amount">
+            <h2 className="h"><span className="n">1</span>Currency and amount</h2>
+            <ExchangeSection
+              exchangeType={exchangeType}
+              availableCurrencies={availableCurrencies}
+              ratesLoading={ratesLoading}
+              rateError={rateError}
+              toCurrency={toCurrency}
+              setToCurrency={setToCurrency}
+              useManualRate={useManualRate}
+              setManualRate={setManualRate}
+              sendAmount={sendAmount}
+              setSendAmount={setSendAmount}
+              sendAmountError={sendAmountError}
+              setSendAmountError={setSendAmountError}
+              effectiveRate={effectiveRate}
+              exchangePreview={exchangePreview}
+              onAmountBlur={runStockCheck}
+            />
+          </div>
 
-            {/* SECTION 2: CUSTOMER */}
-            <div className="sec" id="section-customer">
-              <h2 className="h"><span className="n">2</span>Customer</h2>
-              {/* Merged Sub-Section: ID Verification */}
-              <GovernmentIdSection
-                hideCardWrapper={true}
-                useDocumentTable
-                prefillCustomerId={initialData?.request_customer_id || ''}
-                exchangeType={exchangeType}
-                onCustomerChange={handleCustomerStateChange}
-                onResetAllFields={handleResetAllFields}
-                selectedCustomer={currentCustomer}
-              />
+          {/* SECTION 2: CUSTOMER */}
+          <div className="sec" id="section-customer">
+            <h2 className="h"><span className="n">2</span>Customer</h2>
+            {/* Merged Sub-Section: ID Verification */}
+            <GovernmentIdSection
+              hideCardWrapper={true}
+              useDocumentTable
+              prefillCustomerId={initialData?.request_customer_id || ''}
+              exchangeType={exchangeType}
+              onCustomerChange={handleCustomerStateChange}
+              onResetAllFields={handleResetAllFields}
+              selectedCustomer={currentCustomer}
+            />
 
-              {/* Divider */}
-              <div className="my-6 border-t border-gray-100" />
+            {/* Divider */}
+            <div className="my-6 border-t border-line" />
 
-              {/* Merged Sub-Section: Regulatory & Transaction Details */}
-              <div className="flex items-center gap-2.5 pb-3 mb-4 border-b border-gray-100">
-                <div className="w-7 h-7 rounded-lg bg-gray-50 border border-gray-200/60 flex items-center justify-center text-gray-700 shrink-0">
-                  <FileText size={15} strokeWidth={2} className="text-[#E00000]" />
+            {/* Sub-Section: Regulatory & Transaction Details */}
+            <div className="flex flex-col gap-5 border-l-2 border-line pl-4 sm:pl-6">
+
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-surface-alt border border-line flex items-center justify-center text-ink shrink-0">
+                  <FileText size={15} strokeWidth={2} className="" />
                 </div>
-                <div>
-                  <h4 className="text-overline font-semibold text-ink tracking-wider">
-                    Regulatory &amp; Transaction Details
-                  </h4>
-                  <p className="text-caption text-muted">OET code classification, risk assessment, and remarks</p>
-                </div>
+                <p className="text-caption text-muted">OET code classification, risk assessment, and remarks</p>
               </div>
-
-              <div className="flex flex-col gap-4 ml-3 sm:ml-3.5 border-l-2 border-gray-200/80 pl-4 sm:pl-6">
-                {/* Row 1: OET Code & Risk Level */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <div id="field-oetCode">
-                    <FieldLabel required icon={FileText}>OET Code</FieldLabel>
-                    {potError ? (
-                      <p className="text-danger text-label font-medium mt-1">Failed to load OET codes</p>
-                    ) : potLoading ? (
-                      <div className="h-12 rounded-lg animate-pulse bg-gray-100 mt-1" />
-                    ) : (
-                      <div className="relative mt-1">
-                        <select
-                          {...methods.register('oet_code', { required: 'OET Code is required' })}
-                          className={selectCls(methods.formState.errors.oet_code)}
-                          value={methods.watch('oet_code') || '18'}
-                          onChange={(e) => {
-                            methods.setValue('oet_code', e.target.value, { shouldValidate: true, shouldDirty: true });
-                          }}
-                        >
-                          <option value="" disabled>Select OET Code</option>
-                          {potOptions?.map(pot => (
-                            <option key={pot.code} value={pot.code}>{pot.label}</option>
-                          ))}
-                        </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
-                          <ChevronDown size={16} />
-                        </div>
-                      </div>
-                    )}
-                    <ErrorMsg message={methods.formState.errors.oet_code?.message} />
-                  </div>
-
-                  <div id="field-riskLevel">
-                    <FieldLabel required icon={ShieldAlert}>Risk Level</FieldLabel>
+              {/* Row 1: OET Code & Risk Level */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div id="field-oetCode">
+                  <FieldLabel required icon={FileText}>OET Code</FieldLabel>
+                  {potError ? (
+                    <p className="text-danger text-label font-medium mt-1">Failed to load OET codes</p>
+                  ) : potLoading ? (
+                    <div className="h-12 rounded-lg animate-pulse bg-gray-100 mt-1" />
+                  ) : (
                     <div className="relative mt-1">
                       <select
-                        {...methods.register('risk_level', { required: 'Risk Level is required' })}
-                        value={methods.watch('risk_level') || ''}
+                        {...methods.register('oet_code', { required: 'OET Code is required' })}
+                        className={selectCls(methods.formState.errors.oet_code)}
+                        value={methods.watch('oet_code') || '18'}
                         onChange={(e) => {
-                          methods.setValue('risk_level', e.target.value, { shouldValidate: true, shouldDirty: true });
+                          methods.setValue('oet_code', e.target.value, { shouldValidate: true, shouldDirty: true });
                         }}
-                        className={selectCls(methods.formState.errors.risk_level)}
                       >
-                        <option value="" disabled>Select Risk Level</option>
-                        <option value="Low">Low</option>
-                        <option value="Medium">Medium</option>
-                        <option value="High">High</option>
+                        <option value="" disabled>Select OET Code</option>
+                        {potOptions?.map(pot => (
+                          <option key={pot.code} value={pot.code}>{pot.label}</option>
+                        ))}
                       </select>
                       <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
                         <ChevronDown size={16} />
                       </div>
                     </div>
-                    <ErrorMsg message={methods.formState.errors.risk_level?.message} />
-                  </div>
+                  )}
+                  <ErrorMsg message={methods.formState.errors.oet_code?.message} />
                 </div>
 
-                {/* Row 2: Full width small textarea for Remarks */}
-                <div id="field-remarks" className="w-full">
-                  <FieldLabel icon={MessageSquare}>Remarks</FieldLabel>
+                <div id="field-riskLevel">
+                  <FieldLabel required icon={ShieldAlert}>Risk Level</FieldLabel>
                   <div className="relative mt-1">
-                    <textarea
-                      rows={2}
-                      placeholder="Enter remarks..."
-                      {...methods.register('remarks')}
-                      className={`${fieldCls(methods.formState.errors.remarks)} resize-y min-h-[52px]`}
-                    />
+                    <select
+                      {...methods.register('risk_level', { required: 'Risk Level is required' })}
+                      value={methods.watch('risk_level') || ''}
+                      onChange={(e) => {
+                        methods.setValue('risk_level', e.target.value, { shouldValidate: true, shouldDirty: true });
+                      }}
+                      className={selectCls(methods.formState.errors.risk_level)}
+                    >
+                      <option value="" disabled>Select Risk Level</option>
+                      <option value="Low">Low</option>
+                      <option value="Medium">Medium</option>
+                      <option value="High">High</option>
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
+                      <ChevronDown size={16} />
+                    </div>
                   </div>
-                  <ErrorMsg message={methods.formState.errors.remarks?.message} />
+                  <ErrorMsg message={methods.formState.errors.risk_level?.message} />
                 </div>
               </div>
 
-              {/* Divider */}
-              <div className="my-6 border-t border-gray-100" />
-
-              {/* Merged Sub-Section: Address & Personal Details */}
-              <div className="flex items-center gap-2.5 pb-3 mb-4 border-b border-gray-100">
-                <div className="w-7 h-7 rounded-lg bg-gray-50 border border-gray-200/60 flex items-center justify-center text-gray-700 shrink-0">
-                  <User size={15} strokeWidth={2} />
+              {/* Row 2: Full width small textarea for Remarks */}
+              <div id="field-remarks" className="w-full">
+                <FieldLabel icon={MessageSquare}>Remarks</FieldLabel>
+                <div className="relative mt-1">
+                  <textarea
+                    rows={2}
+                    placeholder="Enter remarks..."
+                    {...methods.register('remarks')}
+                    className={`${fieldCls(methods.formState.errors.remarks)} resize-y min-h-[52px]`}
+                  />
                 </div>
-                <div>
-                  <h4 className="text-overline font-semibold text-ink tracking-wider">
-                    Personal Details &amp; Address
-                  </h4>
-                  <p className="text-caption text-muted">Occupation, country and contact address</p>
-                </div>
-              </div>
-              <div className="ml-3 sm:ml-3.5 border-l-2 border-gray-200/80 pl-4 sm:pl-6">
-                <PersonalInfoSection />
-              </div>
-
-              {/* Divider */}
-              <div className="my-6 border-t border-gray-100" />
-
-              {/* Merged Sub-Section: Identification Documents Table */}
-              <div id="exchange-documents" className="ml-3 sm:ml-3.5 border-l-2 border-gray-200/80 pl-4 sm:pl-6">
-                <DocumentUploadTable
-                  rows={documentRows}
-                  onChange={changeDocuments}
-                  disabled={uploadLoading || stockLoading}
-                  title="Identification Documents"
-                  subtitle="Passport, ID or other supporting identity document"
-                  defaultDocumentNumber={methods.watch('idNumber') || methods.watch('id_number') || ''}
-                />
-                {['documents', 'docFile', 'ticket'].map(field => methods.formState.errors[field] && (
-                  <p key={field} role="alert" className="mt-2 text-label text-danger">{methods.formState.errors[field].message}</p>
-                ))}
+                <ErrorMsg message={methods.formState.errors.remarks?.message} />
               </div>
             </div>
 
-            {/* SECTION 3: COMPLIANCE */}
-            <div className="sec">
-              <h2 className="h"><span className="n">3</span>Compliance</h2>
-              <div id="rbf-compliance-section">
-                <RbfComplianceSection
-                  fjdAmount={rbfFjdAmount}
-                  exchangeType={exchangeType}
-                  currency="FJD"
-                  rate={exchangePreview?.rate}
-                  customerId={methods.watch('customer_id')}
-                  onAssessmentChange={setComplianceAssessment}
-                  hideCardHeader={true}
-                  hideIdentityScreening={true}
-                />
+            {/* Divider */}
+            <div className="my-6 border-t border-line" />
+
+            {/* Sub-Section: Address & Personal Details */}
+            <div className="flex flex-col gap-5 border-l-2 border-line pl-4 sm:pl-6">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-surface-alt border border-line flex items-center justify-center text-ink shrink-0">
+                  <User size={15} strokeWidth={2} className="" />
+                </div>
+                <p className="text-caption text-muted">Occupation, country and contact address</p>
               </div>
+              <PersonalInfoSection />
             </div>
 
-            {/* SECTION 4: DOCUMENTS AND CASH COUNT */}
-            <div className="sec">
-              <h2 className="h"><span className="n">4</span>Documents and cash count</h2>
-              {denomBalanceError && (
-                <div ref={denomErrorRef} className="mb-4 flex items-start gap-3 px-4 py-3.5 rounded-xl border border-[#E00000]/30 bg-[#E00000]/5">
-                  <AlertCircle size={15} className="text-[#E00000] flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-label text-red-800">Denomination Imbalance</p>
-                    <p className="text-label text-danger mt-0.5">{denomBalanceError}</p>
-                  </div>
-                </div>
-              )}
-              {stockError && (
-                <div ref={stockErrorRef} className="mb-4 flex items-start gap-3 px-4 py-3.5 rounded-xl border border-[#E00000]/30 bg-[#E00000]/5">
-                  <AlertCircle size={15} className="text-[#E00000] flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-label text-red-800">Out of Stock</p>
-                    <p className="text-label text-danger mt-0.5">{stockError}</p>
-                  </div>
-                </div>
-              )}
-              {cashAccountError && (
-                <div ref={stockErrorRef} className="mb-4 flex items-start gap-3 px-4 py-3.5 rounded-xl border border-[#E00000]/30 bg-[#E00000]/5">
-                  <AlertCircle size={15} className="text-[#E00000] flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-label text-red-800">Warehouse Cash Account Not Mapped</p>
-                    <p className="text-label text-danger mt-0.5">{cashAccountError}</p>
-                  </div>
-                </div>
-              )}
-              <DenominationSection
-                senderInfo={senderInfo}
-                receiverInfo={receiverInfo}
-                exchangeType={exchangeType}
-                sendAmount={fjdSendAmount}
-                receiverGets={exchangePreview?.rawAmount ?? 0}
-                denomLoading={denomLoading}
-                denomError={denomLoadError}
-                selectedDenomCountry={selectedDenomCountry}
-                senderDenomRowsRef={senderDenomRowsRef}
-                receiverDenomRowsRef={receiverDenomRowsRef}
-                initialSenderRows={initialData?.rawSenderDenomRows || initialData?.senderDenominationRows}
-                initialReceiverRows={initialData?.rawReceiverDenomRows || initialData?.receiverDenominationRows}
-                onSenderStatusChange={s => { senderDenomStatusRef.current = s; }}
-                onReceiverStatusChange={s => { receiverDenomStatusRef.current = s; }}
+            {/* Divider */}
+            <div className="my-6 border-t border-line" />
+
+            {/* Merged Sub-Section: Identification Documents Table */}
+            <div id="exchange-documents" className="border-l-2 border-line pl-4 sm:pl-6">
+              <DocumentUploadTable
+                rows={documentRows}
+                onChange={changeDocuments}
+                disabled={uploadLoading || stockLoading}
+                title="Identification Documents"
+                subtitle="Passport, ID or other document"
+                defaultDocumentNumber={methods.watch('idNumber') || methods.watch('id_number') || ''}
               />
-            </div>
-
-            {/* Alert banners if blocked */}
-            {hasExpiredId && (
-              <div style={{ margin: "20px 28px 0" }} className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-red-300 bg-red-50 text-red-950">
-                <span className="text-base">🚫</span>
-                <div>
-                  <p className="font-bold text-label text-red-900">Submission Blocked — Customer ID Expired</p>
-                  <p className="text-body text-red-800 mt-0.5">Customer ID expired on <strong>{idExpiryStatus.formattedDate}</strong> ({idExpiryStatus.daysExpired} days ago). An unexpired ID must be provided to proceed.</p>
-                </div>
-              </div>
-            )}
-
-            {hasMissingComplianceDocs && (
-              <div style={{ margin: "20px 28px 0" }} className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-950">
-                <span className="text-base">🚫</span>
-                <div>
-                  <p className="font-bold text-label text-amber-900">Missing Required Compliance Documents</p>
-                  <p className="text-body text-amber-800 mt-0.5">Submission is blocked until required RBF compliance documents are attached: <strong>{missingComplianceDocs.join(', ')}</strong></p>
-                </div>
-              </div>
-            )}
-
-            {/* CARD FOOTER ACTIONS BAR (exchange.html style) */}
-            <div style={{ padding: "20px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#FAFAFB", borderTop: "1px solid #E3E6EB", flexWrap: "wrap", gap: "12px", marginTop: "20px" }}>
-              <button
-                type="button"
-                onClick={onClear}
-                className="btn ghost"
-              >
-                Clear
-              </button>
-
-              <button
-                type="submit"
-                disabled={!requiredFieldsInfo.isAllComplete || ratesLoading || uploadLoading || stockLoading || hasMissingComplianceDocs || hasExpiredId || (!ratesLoading && availableCurrencies?.length === 0)}
-                className="btn"
-                style={{ padding: "0 40px" }}
-              >
-                {stockLoading
-                  ? 'Checking stock…'
-                  : uploadLoading
-                  ? 'Uploading...'
-                  : hasExpiredId
-                  ? 'Expired ID'
-                  : hasMissingComplianceDocs
-                  ? `Missing Docs (${missingComplianceDocs.length})`
-                  : !requiredFieldsInfo.isAllComplete
-                  ? `Continue (${requiredFieldsInfo.completedCount}/${requiredFieldsInfo.totalCount})`
-                  : `Continue to review · FJD ${Number(exchangeType === 'BUY' ? fjdSendAmount || 0 : exchangePreview?.rawAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                }
-              </button>
+              {['documents', 'docFile', 'ticket'].map(field => methods.formState.errors[field] && (
+                <p key={field} role="alert" className="mt-2 text-label text-danger">{methods.formState.errors[field].message}</p>
+              ))}
             </div>
           </div>
-        </form>
-      </FormProvider>
+
+          {/* SECTION 3: COMPLIANCE */}
+          <div className="sec">
+            <h2 className="h"><span className="n">3</span>Compliance</h2>
+            <div id="rbf-compliance-section">
+              <RbfComplianceSection
+                fjdAmount={rbfFjdAmount}
+                exchangeType={exchangeType}
+                currency="FJD"
+                rate={exchangePreview?.rate}
+                customerId={methods.watch('customer_id')}
+                onAssessmentChange={setComplianceAssessment}
+                hideCardHeader={true}
+                hideIdentityScreening={true}
+              />
+            </div>
+          </div>
+
+          {/* SECTION 4: DOCUMENTS AND CASH COUNT */}
+          <div className="sec">
+            <h2 className="h"><span className="n">4</span>Documents and cash count</h2>
+            {denomBalanceError && (
+              <div ref={denomErrorRef} className="mb-4 flex items-start gap-3 px-4 py-3.5 rounded-xl border border-danger-border bg-danger-bg">
+                <AlertCircle size={15} className="text-danger-fg flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-label text-danger-fg">Denomination Imbalance</p>
+                  <p className="text-label text-danger mt-0.5">{denomBalanceError}</p>
+                </div>
+              </div>
+            )}
+            {stockError && (
+              <div ref={stockErrorRef} className="mb-4 flex items-start gap-3 px-4 py-3.5 rounded-xl border border-danger-border bg-danger-bg">
+                <AlertCircle size={15} className="text-danger-fg flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-label text-danger-fg">Out of Stock</p>
+                  <p className="text-label text-danger mt-0.5">{stockError}</p>
+                </div>
+              </div>
+            )}
+            {cashAccountError && (
+              <div ref={stockErrorRef} className="mb-4 flex items-start gap-3 px-4 py-3.5 rounded-xl border border-danger-border bg-danger-bg">
+                <AlertCircle size={15} className="text-danger-fg flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-label text-danger-fg">Warehouse Cash Account Not Mapped</p>
+                  <p className="text-label text-danger mt-0.5">{cashAccountError}</p>
+                </div>
+              </div>
+            )}
+            <DenominationSection
+              senderInfo={senderInfo}
+              receiverInfo={receiverInfo}
+              exchangeType={exchangeType}
+              sendAmount={fjdSendAmount}
+              receiverGets={exchangePreview?.rawAmount ?? 0}
+              denomLoading={denomLoading}
+              denomError={denomLoadError}
+              selectedDenomCountry={selectedDenomCountry}
+              senderDenomRowsRef={senderDenomRowsRef}
+              receiverDenomRowsRef={receiverDenomRowsRef}
+              initialSenderRows={initialData?.rawSenderDenomRows || initialData?.senderDenominationRows}
+              initialReceiverRows={initialData?.rawReceiverDenomRows || initialData?.receiverDenominationRows}
+              onSenderStatusChange={s => { senderDenomStatusRef.current = s; }}
+              onReceiverStatusChange={s => { receiverDenomStatusRef.current = s; }}
+              senderAvailabilityByDenomination={senderAvailability}
+              receiverAvailabilityByDenomination={receiverAvailability}
+            />
+          </div>
+
+          {/* Alert banners if blocked */}
+          {hasExpiredId && (
+            <div style={{ margin: "20px 28px 0" }} className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-danger-border bg-danger-bg text-danger-fg">
+              <BanIcon className="text-base" />
+              <div>
+                <p className="font-bold text-label text-danger-fg">Submission Blocked — Customer ID Expired</p>
+                <p className="text-body text-danger-fg mt-0.5">Customer ID expired on <strong>{idExpiryStatus.formattedDate}</strong> ({idExpiryStatus.daysExpired} days ago). An unexpired ID must be provided to proceed.</p>
+              </div>
+            </div>
+          )}
+
+          {hasMissingComplianceDocs && (
+            <div style={{ margin: "20px 28px 0" }} className="flex items-start gap-3 px-4 py-3.5 rounded-xl border border-warning-border bg-warning-bg text-warning-fg">
+              <BanIcon className="text-base" />
+              <div>
+                <p className="font-bold text-label text-warning-fg">Missing Required Compliance Documents</p>
+                <p className="text-body text-warning-fg mt-0.5">Submission is blocked until required RBF compliance documents are attached: <strong>{missingComplianceDocs.join(', ')}</strong></p>
+              </div>
+            </div>
+          )}
+
+          {/* CARD FOOTER ACTIONS BAR (exchange.html style) */}
+          <div style={{ padding: "20px 28px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--color-surface-alt)", borderTop: "1px solid var(--color-line)", flexWrap: "wrap", gap: "12px", marginTop: "20px" }}>
+            <button
+              type="button"
+              onClick={onClear}
+              className="btn ghost"
+            >
+              Clear
+            </button>
+
+            <button
+              type="submit"
+              disabled={!requiredFieldsInfo.isAllComplete || ratesLoading || uploadLoading || stockLoading || hasMissingComplianceDocs || hasExpiredId || (!ratesLoading && availableCurrencies?.length === 0)}
+              className="btn"
+              style={{ padding: "0 40px" }}
+            >
+              {stockLoading
+                ? 'Checking stock…'
+                : uploadLoading
+                  ? 'Uploading...'
+                  : hasExpiredId
+                    ? 'Expired ID'
+                    : hasMissingComplianceDocs
+                      ? `Missing Docs (${missingComplianceDocs.length})`
+                      : !requiredFieldsInfo.isAllComplete
+                        ? `Continue (${requiredFieldsInfo.completedCount}/${requiredFieldsInfo.totalCount})`
+                        : `Continue to review · FJD ${Number(exchangeType === 'BUY' ? fjdSendAmount || 0 : exchangePreview?.rawAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              }
+            </button>
+          </div>
+        </div>
+      </form>
+    </FormProvider>
   );
 };

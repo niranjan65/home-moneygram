@@ -49,7 +49,7 @@ export const Summary = ({ transferPayload, isDealer = false, hideSecurityBadge =
         <strong className="text-body-value font-medium tnum">{Number(exchangeRate || 0).toFixed(4)}</strong>
       </div>
 
-      <div style={{ borderTop: "1px solid #E3E6EB", marginTop: "8px", paddingTop: "16px" }}>
+      <div className="border-t border-line mt-2 pt-4">
         <span className="lbl text-label font-semibold text-ink">
           {isDealer
             ? (exchangeType === 'BUY' ? 'MH Pays (FJD)' : 'MH Receives (FJD)')

@@ -18,7 +18,7 @@ export const useExchangeCalculation = ({
   const [toCurrency, setToCurrency] = useState(null);
   const [manualRate, setManualRate] = useState(initialManualRate ? String(initialManualRate) : '');
   const [useManualRate, setUseManualRate] = useState(Boolean(initialUseManualRate || noDataForToday));
-  const [sendAmount, setSendAmount] = useState(externalSendAmount ?? '');
+  const [sendAmount, setSendAmountState] = useState(externalSendAmount ?? '');
   const [sendAmountError, setSendAmountError] = useState('');
   const lastAppliedCurrencyCodeRef = useRef(null);
 
@@ -45,11 +45,25 @@ export const useExchangeCalculation = ({
     }
   }, [initialManualRate]);
 
-  const lastAppliedSendAmountRef = useRef(null);
+  const isLocallyEditedRef = useRef(false);
+  const lastAppliedSendAmountRef = useRef(
+    externalSendAmount !== undefined && externalSendAmount !== null ? String(externalSendAmount) : ''
+  );
+
+  const setSendAmount = (val) => {
+    isLocallyEditedRef.current = true;
+    lastAppliedSendAmountRef.current = val !== undefined && val !== null ? String(val) : '';
+    setSendAmountState(val);
+  };
+
   useEffect(() => {
-    if (externalSendAmount !== undefined && externalSendAmount !== '' && lastAppliedSendAmountRef.current !== externalSendAmount) {
-      setSendAmount(externalSendAmount);
-      lastAppliedSendAmountRef.current = externalSendAmount;
+    if (externalSendAmount !== undefined && externalSendAmount !== null && externalSendAmount !== '') {
+      const strExternal = String(externalSendAmount);
+      // Only apply externalSendAmount if user hasn't edited locally, and it differs from what was initialized
+      if (!isLocallyEditedRef.current && lastAppliedSendAmountRef.current !== strExternal) {
+        setSendAmountState(externalSendAmount);
+        lastAppliedSendAmountRef.current = strExternal;
+      }
     }
   }, [externalSendAmount]);
 

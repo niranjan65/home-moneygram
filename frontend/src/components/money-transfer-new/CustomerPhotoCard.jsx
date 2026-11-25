@@ -89,6 +89,7 @@ export const CustomerPhotoCard = ({
   onImageRemove,
   disabled = false,
   customerFound = false,
+  isSavedPhoto,
 }) => {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
@@ -239,7 +240,7 @@ export const CustomerPhotoCard = ({
   const handleDrag = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (disabled) return;
+    if (disabled || isSavedFromBackend) return;
     if (e.type === "dragenter" || e.type === "dragover") {
       setDragActive(true);
     } else if (e.type === "dragleave") {
@@ -251,7 +252,7 @@ export const CustomerPhotoCard = ({
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    if (disabled) return;
+    if (disabled || isSavedFromBackend) return;
 
     const file = e.dataTransfer.files?.[0];
     if (file && file.type.startsWith("image/")) {
@@ -271,6 +272,11 @@ export const CustomerPhotoCard = ({
 
   const hasPhoto = Boolean(customerImageUrl);
   const isPendingUpload = Boolean(customerImageFile);
+  const isSavedFromBackend = Boolean(
+    isSavedPhoto !== undefined
+      ? isSavedPhoto
+      : customerImageUrl && !customerImageFile && customerFound
+  );
 
   return (
     <div className="card p-6 flex flex-col gap-3">
@@ -279,7 +285,7 @@ export const CustomerPhotoCard = ({
         <span className="lbl" style={{ marginBottom: 0 }}>Customer photo</span>
         {hasPhoto ? (
           <span className="chip ok text-overline font-semibold" style={{ height: "24px", padding: "0 10px" }}>
-            {isPendingUpload ? "New Photo" : "Photo Attached"}
+            {isSavedFromBackend ? "Photo on Record" : isPendingUpload ? "New Photo" : "Photo Attached"}
           </span>
         ) : (
           <span className="chip text-overline font-semibold" style={{ height: "24px", padding: "0 10px" }}>
@@ -383,7 +389,7 @@ export const CustomerPhotoCard = ({
       ) : hasPhoto ? (
         /* ── PHOTO PRESENT (PREVIEW) ── */
         <div className="flex flex-col gap-3">
-          <div className="relative group w-full aspect-4/3 max-h-56 rounded-2xl overflow-hidden bg-gray-50 border border-gray-200/80 shadow-sm flex items-center justify-center">
+          <div className="relative group w-full aspect-4/3 max-h-56 rounded-2xl overflow-hidden bg-surface-alt border border-line shadow-sm flex items-center justify-center">
             <img
               src={resolveCustomerImageUrl(customerImageUrl)}
               alt="Customer"
@@ -400,16 +406,16 @@ export const CustomerPhotoCard = ({
                 href={resolveCustomerImageUrl(customerImageUrl)}
                 target="_blank"
                 rel="noreferrer"
-                className="p-2.5 bg-white/90 hover:bg-white text-gray-800 rounded-full shadow-lg transition"
+                className="p-2.5 bg-surface/90 hover:bg-surface text-ink rounded-full shadow-lg transition"
                 title="View Full Size"
               >
                 <Eye size={15} />
               </a>
-              {!disabled && (
+              {!disabled && !isSavedFromBackend && (
                 <button
                   type="button"
                   onClick={onImageRemove}
-                  className="p-2.5 bg-red-600/90 hover:bg-red-600 text-white rounded-full shadow-lg transition cursor-pointer"
+                  className="p-2.5 bg-danger-fg/90 hover:bg-danger-fg text-white rounded-full shadow-lg transition cursor-pointer"
                   title="Remove Photo"
                 >
                   <Trash2 size={15} />
@@ -419,7 +425,7 @@ export const CustomerPhotoCard = ({
           </div>
 
           {/* Action Buttons */}
-          {!disabled && (
+          {!disabled && !isSavedFromBackend && (
             <div className="g2 pt-1">
               <button
                 type="button"
@@ -427,7 +433,7 @@ export const CustomerPhotoCard = ({
                 className="btn ghost"
                 style={{ height: "40px", padding: "0 12px", fontSize: "13px" }}
               >
-                <Camera size={14} className="text-[#C8102E]" /> Live camera
+                <Camera size={14} className="text-brand-600" /> Live camera
               </button>
 
               <button
@@ -438,6 +444,12 @@ export const CustomerPhotoCard = ({
               >
                 <Upload size={14} /> Upload file
               </button>
+            </div>
+          )}
+
+          {isSavedFromBackend && (
+            <div className="text-xs text-muted text-center pt-1 font-medium">
+              Customer photo on record
             </div>
           )}
         </div>
@@ -452,12 +464,12 @@ export const CustomerPhotoCard = ({
             style={{
               height: "120px",
               borderRadius: "12px",
-              background: dragActive ? "#FDF1F3" : "#EEF0F3",
-              border: dragActive ? "2px dashed #C8102E" : "1px solid #E3E6EB",
+              background: dragActive ? "var(--color-brand-50)" : "var(--color-chip)",
+              border: dragActive ? "2px dashed var(--color-brand-600)" : "1px solid var(--color-line)",
               display: "grid",
               placeItems: "center",
               fontSize: "14px",
-              color: "#4A5160",
+              color: "var(--color-muted)",
             }}
           >
             No photo attached

@@ -10,7 +10,7 @@ const TransferAmountSection = ({ form, handleChange }) => {
   const [selectedRate, setSelectedRate] = useState(0);
 
   const inputStyle =
-    "w-full bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 text-body font-medium tnum focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-white transition-all duration-200 text-ink";
+    "w-full bg-surface-alt border border-line rounded-xl px-4 py-3 text-body font-medium tnum focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-surface transition-all duration-200 text-ink";
 
   const labelStyle =
     "text-label font-semibold text-ink mb-1.5 block tracking-normal";
@@ -73,7 +73,7 @@ const TransferAmountSection = ({ form, handleChange }) => {
   }, [form.sending_amount, form.transfer_fee]);
 
   return (
-    <div className="rounded-3xl border border-gray-100 bg-white shadow-[0_10px_40px_rgba(0,0,0,0.06)] p-6 sm:p-8">
+    <div className="rounded-3xl border border-line bg-surface shadow-card p-6 sm:p-8">
       
       {/* HEADER */}
       <div className="mb-6">
@@ -89,7 +89,7 @@ const TransferAmountSection = ({ form, handleChange }) => {
       <div className="grid md:grid-cols-2 gap-6">
 
         {/* SENDING */}
-        <div className="space-y-5 bg-gray-50/60 p-5 rounded-2xl border border-gray-100">
+        <div className="space-y-5 bg-surface-alt p-5 rounded-2xl border border-line">
           <h4 className="text-body font-semibold text-ink">
             You Send (FJD)
           </h4>
@@ -105,7 +105,7 @@ const TransferAmountSection = ({ form, handleChange }) => {
         </div>
 
         {/* RECEIVING */}
-        <div className="space-y-5 bg-gray-50/60 p-5 rounded-2xl border border-gray-100">
+        <div className="space-y-5 bg-surface-alt p-5 rounded-2xl border border-line">
           <h4 className="text-body font-semibold text-ink">
             Recipient Gets
           </h4>
@@ -128,7 +128,7 @@ const TransferAmountSection = ({ form, handleChange }) => {
 
           {/* Receiving Amount */}
           <input
-            className={`${inputStyle} bg-gray-100`}
+            className={`${inputStyle} bg-chip opacity-80 cursor-not-allowed`}
             value={form.receiving_amount || ""}
             disabled
             placeholder="Auto calculated"
@@ -143,30 +143,17 @@ const TransferAmountSection = ({ form, handleChange }) => {
         <div>
           <label className={labelStyle}>Exchange Rate</label>
           <input
-            className={`${inputStyle} bg-gray-100`}
+            className={`${inputStyle} bg-chip opacity-80 cursor-not-allowed`}
             value={form.exchange_rate || ""}
             disabled
           />
         </div>
 
-        {/* Fee */}
-        {/* <div>
-          <label className={labelStyle}>Transfer Fee</label>
-          <input
-            type="number"
-            className={inputStyle}
-            value={form.transfer_fee || ""}
-            onChange={(e) =>
-              handleChange("transfer_fee", e.target.value)
-            }
-          />
-        </div> */}
-
         {/* Total */}
         <div>
           <label className={labelStyle}>Total Payable (FJD)</label>
           <input
-            className={`${inputStyle} bg-gray-100`}
+            className={`${inputStyle} bg-chip opacity-80 cursor-not-allowed`}
             value={form.total_amount || ""}
             disabled
           />

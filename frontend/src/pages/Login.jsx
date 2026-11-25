@@ -223,18 +223,17 @@ export default function Login() {
     <>
       <Navbar />
 
-      <section className="min-h-[85vh] bg-[var(--color-background-light)] flex items-start justify-center px-6 pt-8 pb-10 font-sans">
+      <section className="min-h-[85vh] bg-page flex items-start justify-center px-6 pt-8 pb-10 font-sans">
         <div className="w-full max-w-md relative">
 
           {/* Background Logo Watermark */}
           <div
-            className="absolute inset-0 bg-center bg-no-repeat bg-contain opacity-15"
+            className="absolute inset-0 bg-center bg-no-repeat bg-contain opacity-10"
             style={{ backgroundImage: `url(${mhlogo})` }}
           />
 
-
           {/* Login Card */}
-          <div className="relative bg-white rounded-2xl shadow-lg p-8">
+          <div className="relative bg-surface border border-line rounded-2xl shadow-lg p-8">
 
             <div className="flex justify-center mb-6">
               <img
@@ -244,17 +243,12 @@ export default function Login() {
               />
             </div>
 
-            <h2 className="text-2xl font-bold text-gray-900 mb-2 text-center">
+            <h2 className="text-2xl font-bold text-ink mb-2 text-center">
               Login
             </h2>
 
-
-            {/* <p className="text-gray-500 text-center mb-6">
-        Access your account to manage transfers.
-      </p> */}
-
             {error && (
-              <div className="mb-4 bg-red-50 text-red-600 p-3 rounded-lg text-sm">
+              <div className="mb-4 bg-danger-bg text-brand-600 border border-danger-border p-3 rounded-lg text-sm">
                 {error}
               </div>
             )}
@@ -263,7 +257,7 @@ export default function Login() {
 
               {/* EMAIL */}
               <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700">
+                <label className="block text-sm font-medium mb-2 text-ink">
                   Email Address
                 </label>
                 <input
@@ -272,13 +266,13 @@ export default function Login() {
                   value={formData.email}
                   onChange={handleChange}
                   required
-                  className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  className="w-full border border-line bg-surface-alt text-ink rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-surface"
                 />
               </div>
 
               {/* PASSWORD */}
               <div>
-                <label className="block text-sm font-medium mb-2 text-gray-700">
+                <label className="block text-sm font-medium mb-2 text-ink">
                   Password
                 </label>
 
@@ -289,12 +283,12 @@ export default function Login() {
                     value={formData.password}
                     onChange={handleChange}
                     required
-                    className="w-full border border-gray-300 rounded-xl px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                    className="w-full border border-line bg-surface-alt text-ink rounded-xl px-4 py-3 pr-12 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:bg-surface"
                   />
 
                   <span
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer text-gray-500 select-none"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer text-muted select-none"
                   >
                     {showPassword ? "🙈" : "👁"}
                   </span>
@@ -305,10 +299,10 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={!isFormValid || isLoading}
-                className="w-full bg-[var(--color-primary)] hover:opacity-90 text-black font-semibold py-3 rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center"
+                className="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold py-3 rounded-xl transition disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center cursor-pointer"
               >
                 {isLoading ? (
-                  <div className="h-5 w-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                  <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 ) : (
                   "Login"
                 )}

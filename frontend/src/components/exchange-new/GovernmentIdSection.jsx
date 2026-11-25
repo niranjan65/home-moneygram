@@ -38,7 +38,6 @@ export const GovernmentIdSection = ({
   onResetAllFields,
   useDocumentTable = false,
   prefillCustomerId = '',
-  hideCardWrapper = false,
   selectedCustomer: controlledCustomer,
 }) => {
   const loginUser = useUser();
@@ -65,6 +64,13 @@ export const GovernmentIdSection = ({
   const idExpiryDateVal = watch('id_expiry_date');
 
   const idExpiryStatus = useMemo(() => getIdExpiryStatus(idExpiryDateVal), [idExpiryDateVal]);
+
+  const isSavedIdFromBackend = Boolean(
+    previewUrl &&
+    typeof previewUrl === 'string' &&
+    !previewUrl.startsWith('blob:') &&
+    !previewFile
+  );
 
   const expiryBadge = idExpiryStatus.isExpired ? (
     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-caption font-semibold bg-red-600 text-white shadow-xs animate-pulse">
@@ -176,13 +182,10 @@ export const GovernmentIdSection = ({
     });
   }, [setValue, removeFile, exchangeType, loginUser, onCustomerChange, useDocumentTable]);
 
-  // Handle user detail edit when an existing customer was loaded -> reset the form!
+  // Handle user detail edit when an existing customer was loaded
   const handleUserDetailEdit = useCallback(() => {
-    if (selectedCustomer) {
-      onResetAllFields?.();
-      clearFetchedFields(true);
-    }
-  }, [selectedCustomer, onResetAllFields, clearFetchedFields]);
+    // Do not reset the form when editing details
+  }, []);
 
   // Auto-generate unique 6-character Customer ID only when customer details are being entered (not on empty load)
   useEffect(() => {
@@ -446,8 +449,7 @@ export const GovernmentIdSection = ({
         (cleanTyped && cleanCust && (cleanCust.includes(cleanTyped) || cleanTyped.includes(cleanCust))) ||
         custPhone.toLowerCase().includes(q);
       console.log(
-        `   👉 Customer: "${c.custom_full_name || c.customer_name || c.name}" | mobile_no: "${c.mobile_no || "(none)"}" | Match: ${
-          isMatch ? "✅ MATCHED" : "❌ NO MATCH"
+        `   👉 Customer: "${c.custom_full_name || c.customer_name || c.name}" | mobile_no: "${c.mobile_no || "(none)"}" | Match: ${isMatch ? "✅ MATCHED" : "❌ NO MATCH"
         }`
       );
     });
@@ -519,9 +521,9 @@ export const GovernmentIdSection = ({
     const isCleared = !val || !val.trim();
     const hadSelectedUser = Boolean(
       selectedCustomer &&
-        (selectedCustomer.name ||
-          selectedCustomer.customer_id ||
-          selectedCustomer.custom_customer_id)
+      (selectedCustomer.name ||
+        selectedCustomer.customer_id ||
+        selectedCustomer.custom_customer_id)
     );
 
     setNameQuery(val);
@@ -541,9 +543,6 @@ export const GovernmentIdSection = ({
     // If an existing customer was loaded and user modifies the Full Name:
     const prevName = selectedCustomer?.custom_full_name || selectedCustomer?.customer_name || selectedCustomer?.name || '';
     if (hadSelectedUser && val !== prevName) {
-      // User was selected and is being changed -> reset the fields!
-      onResetAllFields?.();
-      clearFetchedFields(true);
       setValue('idName', val, { shouldValidate: true, shouldDirty: true });
       setNameQuery(val);
     }
@@ -562,9 +561,9 @@ export const GovernmentIdSection = ({
     const isCleared = !val || !val.trim();
     const hadSelectedUser = Boolean(
       selectedCustomer &&
-        (selectedCustomer.name ||
-          selectedCustomer.customer_id ||
-          selectedCustomer.custom_customer_id)
+      (selectedCustomer.name ||
+        selectedCustomer.customer_id ||
+        selectedCustomer.custom_customer_id)
     );
     const prevPhone = selectedCustomer?.phone_number || selectedCustomer?.mobile_no || selectedCustomer?.phone || '';
 
@@ -575,7 +574,6 @@ export const GovernmentIdSection = ({
 
     if (isCleared) {
       if (hadSelectedUser) {
-        onResetAllFields?.();
         clearFetchedFields(false);
       } else {
         clearCustomerData();
@@ -592,8 +590,6 @@ export const GovernmentIdSection = ({
     }
 
     if (hadSelectedUser && val !== prevPhone) {
-      onResetAllFields?.();
-      clearFetchedFields(true);
       setValue('phone_number', val, { shouldValidate: true, shouldDirty: true });
       setValue('phoneNumber', val, { shouldValidate: true, shouldDirty: true });
       setPhoneQuery(val);
@@ -667,9 +663,9 @@ export const GovernmentIdSection = ({
     const isCleared = !val || !val.trim();
     const hadSelectedUser = Boolean(
       selectedCustomer &&
-        (selectedCustomer.name ||
-          selectedCustomer.customer_id ||
-          selectedCustomer.custom_customer_id)
+      (selectedCustomer.name ||
+        selectedCustomer.customer_id ||
+        selectedCustomer.custom_customer_id)
     );
     const prevId = selectedCustomer?.custom_customer_id || selectedCustomer?.customer_id || selectedCustomer?.name || '';
 
@@ -743,46 +739,16 @@ export const GovernmentIdSection = ({
   const handleSelectCustomer = async (c) => {
     if (!c || (c?.customer_group || '').trim().toLowerCase() === 'dealer') return;
 
-    const hadSelectedUser = Boolean(
-      selectedCustomer &&
-        (selectedCustomer.name ||
-          selectedCustomer.customer_id ||
-          selectedCustomer.custom_customer_id)
-    );
-
-    const currentCustomerIdentifier =
-      selectedCustomer?.name ||
-      selectedCustomer?.customer_id ||
-      selectedCustomer?.custom_customer_id ||
-      '';
-
-    const newCustomerIdentifier =
-      c?.name ||
-      c?.customer_id ||
-      c?.custom_customer_id ||
-      '';
-
-    const isDifferentUser =
-      hadSelectedUser &&
-      Boolean(currentCustomerIdentifier) &&
-      Boolean(newCustomerIdentifier) &&
-      currentCustomerIdentifier !== newCustomerIdentifier;
-
-    if (hadSelectedUser && isDifferentUser) {
-      // We already had a selected user and are changing it to a different user -> completely reset the fields!
-      onResetAllFields?.();
-    } else {
-      // Selected user goes from empty to any user (or re-selecting same user)
-      // -> DO NOT reset the transaction section!
-      if (useDocumentTable) {
-        setValue('documents', [], { shouldDirty: true });
-        for (const field of ['docFile', 'ticket']) {
-          setValue(field, null);
-          clearErrors(field);
-        }
-        clearErrors('documents');
-        removeFile();
+    // When teller selects an existing customer from dropdown, reset previous customer fields
+    onResetAllFields?.();
+    if (useDocumentTable) {
+      setValue('documents', [], { shouldDirty: true });
+      for (const field of ['docFile', 'ticket']) {
+        setValue(field, null);
+        clearErrors(field);
       }
+      clearErrors('documents');
+      removeFile();
     }
     setSelectedCustomer(c);
     const chosenName = c.custom_full_name || c.customer_name || c.name || '';
@@ -983,38 +949,18 @@ export const GovernmentIdSection = ({
   };
 
   return (
-    <div id="section-id-verification" className={hideCardWrapper ? "flex flex-col gap-5 w-full min-w-0" : "rounded-2xl border border-gray-200/90 overflow-hidden bg-white shadow-xs"}>
-      {!hideCardWrapper ? (
-        <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-3 bg-white">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-gray-50 border border-gray-200/60 flex items-center justify-center text-gray-700 shrink-0">
-              <ShieldCheck size={16} strokeWidth={2} />
-            </div>
-            <div className="min-w-0">
-              <h3 className="text-h3 font-bold text-ink leading-tight">ID Verification</h3>
-              <p className="text-caption text-muted mt-0.5 truncate">Required for compliance — data is encrypted and secure</p>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-gray-50 border border-gray-200/60 flex items-center justify-center text-gray-700 shrink-0">
-              <ShieldCheck size={15} strokeWidth={2} />
-            </div>
-            <div>
-              <h4 className="text-overline font-semibold text-ink tracking-wider">
-                ID Verification &amp; Customer Lookup
-              </h4>
-              <p className="text-caption text-muted">Search customer by ID, name, or phone number to auto-populate</p>
-            </div>
-          </div>
-        </div>
-      )}
+    <div id="section-id-verification" className={"flex flex-col gap-5 w-full min-w-0"}>
 
-      <div className={hideCardWrapper ? "flex flex-col gap-5 ml-3 sm:ml-3.5 border-l-2 border-gray-200/80 pl-4 sm:pl-6" : "p-5 sm:p-6 flex flex-col gap-5"}>
+      <div className={"flex flex-col gap-5 border-l-2 border-line pl-4 sm:pl-6"}>
         {/* Hidden input to keep customer_id registered with react-hook-form */}
         <input type="hidden" {...register('customer_id', { required: 'Customer ID is required' })} value={customerId || ''} />
+
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-surface-alt border border-line flex items-center justify-center text-ink shrink-0">
+            <ShieldCheck size={15} strokeWidth={2} />
+          </div>
+          <p className="text-caption text-muted">Search customer by ID, name, or phone number to auto-populate</p>
+        </div>
 
         {/* Row 1: Full Name */}
         <div className="grid grid-cols-1 gap-5">
@@ -1044,30 +990,30 @@ export const GovernmentIdSection = ({
                   handleNameQueryChange(e.target.value);
                 }}
                 onKeyDown={handleNameKeyDown}
-                className={`${fieldCls(errors.idName)} pr-10 bg-white`}
+                className={`${fieldCls(errors.idName)} pr-10`}
               />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
-                {customersLoading ? <RefreshCw size={14} className="animate-spin text-[#E00000]" /> : <Search size={14} />}
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted">
+                {customersLoading ? <RefreshCw size={14} className="animate-spin text-brand-600" /> : <Search size={14} />}
               </div>
             </div>
 
             {isNameDropdownOpen && (
-              <div className="absolute left-0 top-full mt-1.5 w-full min-w-[320px] bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in duration-100">
-                <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between text-caption text-gray-500 font-medium">
-                  <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-gray-500">
-                    <User size={12} className="text-[#E00000]" />
+              <div className="absolute left-0 top-full mt-1.5 w-full min-w-[320px] bg-surface border border-line rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in duration-100">
+                <div className="px-3.5 py-2 bg-surface-alt border-b border-line flex items-center justify-between text-caption text-muted font-medium">
+                  <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-muted">
+                    <User size={12} className="text-brand-600" />
                     Matching Customers ({visibleCustomers.length})
                   </span>
                   {customersLoading ? (
-                    <span className="flex items-center gap-1 text-gray-400 text-overline">
+                    <span className="flex items-center gap-1 text-muted text-overline">
                       <RefreshCw size={10} className="animate-spin" /> Searching…
                     </span>
                   ) : (
-                    <span className="text-overline text-gray-400">Select to auto-fill details</span>
+                    <span className="text-overline text-muted">Select to auto-fill details</span>
                   )}
                 </div>
 
-                <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                <div className="max-h-64 overflow-y-auto divide-y divide-line">
                   {customersLoading && visibleCustomers.length === 0 ? (
                     <div className="px-4 py-5 text-center text-caption text-muted flex items-center justify-center gap-2">
                       <RefreshCw size={13} className="animate-spin text-muted" />
@@ -1095,20 +1041,18 @@ export const GovernmentIdSection = ({
                             handleSelectCustomer(c);
                           }}
                           onMouseEnter={() => setHighlightedIndex(idx)}
-                          className={`px-3.5 py-2.5 cursor-pointer transition-colors flex items-center justify-between ${
-                            isHighlighted
-                              ? 'bg-red-50 text-[#E00000]'
-                              : 'hover:bg-gray-50 text-gray-700'
-                          }`}
+                          className={`px-3.5 py-2.5 cursor-pointer transition-colors flex items-center justify-between ${isHighlighted
+                            ? 'bg-danger-bg text-brand-600'
+                            : 'hover:bg-chip text-ink'
+                            }`}
                         >
                           <div className="truncate pr-2">
                             <div
-                              className={`text-body-value ${
-                                isHighlighted ? 'font-bold text-[#E00000]' : 'font-medium text-ink'
-                              } truncate flex items-center gap-2`}
+                              className={`text-body-value ${isHighlighted ? 'font-bold text-brand-600' : 'font-medium text-ink'
+                                } truncate flex items-center gap-2`}
                             >
                               <span>{name}</span>
-                              <span className="font-mono text-overline font-semibold px-1.5 py-0.2 bg-gray-100 rounded text-gray-700">
+                              <span className="font-mono text-overline font-semibold px-1.5 py-0.2 bg-chip rounded text-muted">
                                 {cId}
                               </span>
                             </div>
@@ -1118,8 +1062,8 @@ export const GovernmentIdSection = ({
                               {phoneNum ? ` • 📞 ${phoneNum}` : ''}
                             </div>
                           </div>
-                          <div className="shrink-0 flex items-center gap-1 text-caption font-semibold text-gray-400">
-                            <span className={isHighlighted ? 'text-[#E00000]' : 'text-gray-400'}>
+                          <div className="shrink-0 flex items-center gap-1 text-caption font-semibold text-muted">
+                            <span className={isHighlighted ? 'text-brand-600' : 'text-muted'}>
                               Select &rarr;
                             </span>
                           </div>
@@ -1136,11 +1080,10 @@ export const GovernmentIdSection = ({
 
         {/* Existing Customer Status Alert */}
         {selectedCustomer && (
-          <div className={`flex flex-wrap items-center justify-between gap-2 text-label px-3.5 py-2.5 rounded-lg font-medium ${
-            getIdExpiryStatus(selectedCustomer.custom_id_expiry_date || selectedCustomer.id_expiry_date).isExpired
-              ? 'text-red-900 bg-red-50 border border-red-300'
-              : 'text-green-700 bg-green-50 border border-green-200'
-          }`}>
+          <div className={`flex flex-wrap items-center justify-between gap-2 text-label px-3.5 py-2.5 rounded-lg font-medium ${getIdExpiryStatus(selectedCustomer.custom_id_expiry_date || selectedCustomer.id_expiry_date).isExpired
+            ? 'text-red-900 bg-red-50 border border-red-300'
+            : 'text-green-700 bg-green-50 border border-green-200'
+            }`}>
             <div className="flex items-center gap-2">
               <CheckCircle2 size={16} className={getIdExpiryStatus(selectedCustomer.custom_id_expiry_date || selectedCustomer.id_expiry_date).isExpired ? 'text-red-600 flex-shrink-0' : 'text-green-600 flex-shrink-0'} />
               <span>
@@ -1176,39 +1119,39 @@ export const GovernmentIdSection = ({
                   handlePhoneQueryChange(e.target.value);
                 }}
                 onKeyDown={handlePhoneKeyDown}
-                className={`${fieldCls(false)} pr-10 bg-white`}
+                className={`${fieldCls(false)} pr-10`}
               />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
-                {customersLoading ? <RefreshCw size={14} className="animate-spin text-[#E00000]" /> : <Phone size={14} />}
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted">
+                {customersLoading ? <RefreshCw size={14} className="animate-spin text-brand-600" /> : <Phone size={14} />}
               </div>
             </div>
 
             {isPhoneDropdownOpen && (
-              <div className="absolute left-0 top-full mt-1.5 w-full min-w-[320px] bg-white border border-gray-200 rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in duration-100">
-                <div className="px-3.5 py-2 bg-gray-50 border-b border-gray-100 flex items-center justify-between text-caption text-gray-500 font-medium">
-                  <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-gray-500">
-                    <Phone size={12} className="text-[#E00000]" />
+              <div className="absolute left-0 top-full mt-1.5 w-full min-w-[320px] bg-surface border border-line rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in duration-100">
+                <div className="px-3.5 py-2 bg-surface-alt border-b border-line flex items-center justify-between text-caption text-muted font-medium">
+                  <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-muted">
+                    <Phone size={12} className="text-brand-600" />
                     Matching Customers by Phone ({visiblePhoneCustomers.length})
                   </span>
                   {customersLoading ? (
-                    <span className="flex items-center gap-1 text-gray-400 text-overline">
+                    <span className="flex items-center gap-1 text-muted text-overline">
                       <RefreshCw size={10} className="animate-spin" /> Searching…
                     </span>
                   ) : (
-                    <span className="text-overline text-gray-400">Select to auto-fill details</span>
+                    <span className="text-overline text-muted">Select to auto-fill details</span>
                   )}
                 </div>
 
-                <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                <div className="max-h-64 overflow-y-auto divide-y divide-line">
                   {customersLoading && visiblePhoneCustomers.length === 0 ? (
-                    <div className="px-4 py-5 text-center text-xs text-gray-400 flex items-center justify-center gap-2">
-                      <RefreshCw size={13} className="animate-spin text-gray-400" />
+                    <div className="px-4 py-5 text-center text-xs text-muted flex items-center justify-center gap-2">
+                      <RefreshCw size={13} className="animate-spin text-muted" />
                       <span>Searching customer records…</span>
                     </div>
                   ) : visiblePhoneCustomers.length === 0 ? (
-                    <div className="px-4 py-4 text-center text-xs text-gray-500">
-                      <p className="font-semibold text-gray-700">No matching customer</p>
-                      <p className="text-caption text-gray-400 mt-0.5">
+                    <div className="px-4 py-4 text-center text-xs text-muted">
+                      <p className="font-semibold text-ink">No matching customer</p>
+                      <p className="text-caption text-muted mt-0.5">
                         Phone number will be saved for this customer
                       </p>
                     </div>
@@ -1227,25 +1170,23 @@ export const GovernmentIdSection = ({
                             handleSelectCustomer(c);
                           }}
                           onMouseEnter={() => setPhoneHighlightedIndex(idx)}
-                          className={`px-3.5 py-2.5 cursor-pointer transition-colors flex items-center justify-between ${
-                            isHighlighted
-                              ? 'bg-red-50 text-[#E00000]'
-                              : 'hover:bg-gray-50 text-gray-700'
-                          }`}
+                          className={`px-3.5 py-2.5 cursor-pointer transition-colors flex items-center justify-between ${isHighlighted
+                            ? 'bg-danger-bg text-brand-600'
+                            : 'hover:bg-chip text-ink'
+                            }`}
                         >
                           <div className="truncate pr-2">
                             <div
-                              className={`text-xs ${
-                                isHighlighted ? 'font-bold text-[#E00000]' : 'font-medium text-gray-800'
-                              } truncate flex items-center gap-2`}
+                              className={`text-xs ${isHighlighted ? 'font-bold text-brand-600' : 'font-medium text-ink'
+                                } truncate flex items-center gap-2`}
                             >
                               <span>{name}</span>
-                              <span className="font-mono text-overline font-semibold px-1.5 py-0.2 bg-gray-100 rounded text-gray-700">
+                              <span className="font-mono text-overline font-semibold px-1.5 py-0.2 bg-chip rounded text-muted">
                                 {cId}
                               </span>
                             </div>
-                            <div className="text-caption text-gray-400 font-mono truncate mt-0.5">
-                              {phoneNum ? <strong className="text-gray-700">📞 {phoneNum}</strong> : <span className="italic text-gray-400">No phone attached</span>}
+                            <div className="text-caption text-muted font-mono truncate mt-0.5">
+                              {phoneNum ? <strong className="text-ink">📞 {phoneNum}</strong> : <span className="italic text-muted">No phone attached</span>}
                               {c.custom_date_of_birth ? ` • DOB: ${c.custom_date_of_birth}` : ''}
                               {idNum ? ` • ID: ${idNum}` : ''}
                             </div>
@@ -1465,41 +1406,47 @@ export const GovernmentIdSection = ({
             <FieldLabel required icon={Upload}>
               {governmentId === 'Passport' ? 'Passport Photo / Scan' : 'Government ID Photo / Scan'}
             </FieldLabel>
-            <button
-              type="button"
-              onClick={() => setIsSelfieModalOpen(true)}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#E00000] hover:text-[#c00000] bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg transition"
-            >
-              <Camera size={13} />
-              <span>Take Live Photo</span>
-            </button>
+            {!isSavedIdFromBackend && (
+              <button
+                type="button"
+                onClick={() => setIsSelfieModalOpen(true)}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#E00000] hover:text-[#c00000] bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg transition"
+              >
+                <Camera size={13} />
+                <span>Take Live Photo</span>
+              </button>
+            )}
           </div>
           <div className="mt-1">
             {previewUrl ? (
-              <div className={`rounded-lg border overflow-hidden ${errors.docFile ? 'border-[#E00000]/30' : 'border-gray-200'}`}>
+              <div className={`rounded-lg border overflow-hidden ${errors.docFile ? 'border-brand-600/30' : 'border-line'}`}>
                 {previewFile?.type === 'application/pdf' ? (
-                  <div className="flex items-center gap-3 px-4 py-3 bg-white">
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-[#E00000]/5">
-                      <FileText size={16} className="text-[#E00000]" />
+                  <div className="flex items-center gap-3 px-4 py-3 bg-surface">
+                    <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-danger-bg">
+                      <FileText size={16} className="text-brand-600" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-800 text-sm truncate">{previewFile.name}</p>
-                      <p className="text-xs text-gray-400">{(previewFile.size / 1024).toFixed(1)} KB · PDF</p>
+                      <p className="font-medium text-ink text-sm truncate">{previewFile.name}</p>
+                      <p className="text-xs text-muted">{(previewFile.size / 1024).toFixed(1)} KB · PDF</p>
                     </div>
-                    <button type="button" onClick={removeFile}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#E00000] hover:bg-[#E00000]/5 transition-colors">
-                      <X size={14} />
-                    </button>
+                    {!isSavedIdFromBackend && (
+                      <button type="button" onClick={removeFile}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-muted hover:text-brand-600 hover:bg-danger-bg transition-colors">
+                        <X size={14} />
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="relative">
-                    <img src={previewUrl} alt="ID" className="w-full max-h-48 object-contain p-3 bg-gray-50" />
-                    <button type="button" onClick={removeFile}
-                      className="absolute top-2 right-2 w-7 h-7 bg-white border border-gray-200 rounded-lg shadow-sm flex items-center justify-center text-gray-400 hover:text-[#E00000] transition-colors">
-                      <X size={13} />
-                    </button>
-                    <div className="flex items-center gap-1.5 px-4 py-2 bg-green-50 border-t border-green-100 text-xs font-medium text-green-700">
-                      <CheckCircle2 size={11} strokeWidth={2.5} /> Document uploaded
+                    <img src={previewUrl} alt="ID" className="w-full max-h-48 object-contain p-3 bg-surface-alt" />
+                    {!isSavedIdFromBackend && (
+                      <button type="button" onClick={removeFile}
+                        className="absolute top-2 right-2 w-7 h-7 bg-surface border border-line rounded-lg shadow-sm flex items-center justify-center text-muted hover:text-brand-600 transition-colors">
+                        <X size={13} />
+                      </button>
+                    )}
+                    <div className="flex items-center gap-1.5 px-4 py-2 bg-success-bg border-t border-success-border text-xs font-medium text-success-fg">
+                      <CheckCircle2 size={11} strokeWidth={2.5} /> {isSavedIdFromBackend ? 'ID document on record' : 'Document uploaded'}
                     </div>
                   </div>
                 )}
@@ -1510,19 +1457,19 @@ export const GovernmentIdSection = ({
                 onDragLeave={() => setDragOver(false)}
                 onDrop={onDrop}
                 className={`flex flex-col items-center justify-center gap-3 py-8 px-5 rounded-lg border-2 border-dashed cursor-pointer transition-all ${dragOver
-                  ? 'border-[#E00000] bg-[#E00000]/5'
+                  ? 'border-brand-600 bg-danger-bg'
                   : errors.docFile
-                    ? 'border-[#E00000]/30 bg-[#E00000]/5/50'
-                    : 'border-gray-200 bg-gray-50/50 hover:border-gray-300 hover:bg-gray-50'
+                    ? 'border-brand-600/30 bg-danger-bg/50'
+                    : 'border-line bg-surface-alt hover:border-line-strong hover:bg-chip'
                   }`}>
                 <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf"
                   className="hidden" onChange={e => handleFile(e.target.files[0])} />
-                <Upload size={20} className={dragOver ? 'text-[#E00000]' : errors.docFile ? 'text-[#E00000]' : 'text-gray-300'} strokeWidth={1.5} />
+                <Upload size={20} className={dragOver ? 'text-brand-600' : errors.docFile ? 'text-brand-600' : 'text-muted'} strokeWidth={1.5} />
                 <div className="text-center">
-                  <p className="text-sm text-gray-600">
-                    Drop here or <span className="text-[#E00000] underline underline-offset-2">browse</span>
+                  <p className="text-sm text-muted">
+                    Drop here or <span className="text-brand-600 underline underline-offset-2">browse</span>
                   </p>
-                  <p className="text-xs text-gray-400 mt-0.5">JPG, PNG, WEBP or PDF · Max 10 MB</p>
+                  <p className="text-xs text-muted mt-0.5">JPG, PNG, WEBP or PDF · Max 10 MB</p>
                 </div>
               </label>
             )}
@@ -1602,27 +1549,27 @@ export const GovernmentIdSection = ({
             {!useDocumentTable && (<div id="field-ticket" className="sm:col-span-2">
               <FieldLabel required icon={Upload}>Ticket Copy</FieldLabel>
               {ticketPreview ? (
-                <div className={`rounded-xl border overflow-hidden mt-1 ${errors.ticket ? 'border-[#E00000]/40' : 'border-gray-200'} bg-white shadow-xs`}>
+                <div className={`rounded-xl border overflow-hidden mt-1 ${errors.ticket ? 'border-brand-600/40' : 'border-line'} bg-surface shadow-xs`}>
                   {ticketFile?.type === 'application/pdf' ? (
-                    <div className="flex items-center justify-between p-3.5 bg-gray-50">
+                    <div className="flex items-center justify-between p-3.5 bg-surface-alt">
                       <div className="flex items-center gap-3 overflow-hidden">
-                        <FileText size={26} className="text-[#E00000] shrink-0" />
+                        <FileText size={26} className="text-brand-600 shrink-0" />
                         <div className="truncate">
-                          <p className="font-semibold text-gray-800 text-xs truncate">{ticketFile.name}</p>
-                          <p className="text-[11px] text-gray-400">{(ticketFile.size / 1024).toFixed(1)} KB · PDF</p>
+                          <p className="font-semibold text-ink text-xs truncate">{ticketFile.name}</p>
+                          <p className="text-[11px] text-muted">{(ticketFile.size / 1024).toFixed(1)} KB · PDF</p>
                         </div>
                       </div>
                       <button
                         type="button"
                         onClick={removeTicketFile}
-                        className="p-1.5 rounded-lg hover:bg-gray-200 text-gray-400 hover:text-gray-600 transition cursor-pointer"
+                        className="p-1.5 rounded-lg hover:bg-chip text-muted hover:text-ink transition cursor-pointer"
                         title="Remove file"
                       >
                         <X size={15} />
                       </button>
                     </div>
                   ) : (
-                    <div className="relative group flex items-center justify-center bg-gray-50 p-2">
+                    <div className="relative group flex items-center justify-center bg-surface-alt p-2">
                       <img src={ticketPreview} alt="Ticket Copy" className="w-full max-h-52 object-contain rounded-lg" />
                       <button
                         type="button"
@@ -1644,18 +1591,17 @@ export const GovernmentIdSection = ({
                     setTicketDragOver(false);
                     handleTicketFile(e.dataTransfer.files[0]);
                   }}
-                  className={`flex flex-col items-center justify-center gap-2 py-5 px-5 mt-1 rounded-xl border-2 border-dashed cursor-pointer transition-all bg-white ${
-                    ticketDragOver
-                      ? 'border-[#E00000] bg-red-50/20'
-                      : errors.ticket
-                      ? 'border-[#E00000]/60 bg-red-50/10'
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50/60'
-                  }`}
+                  className={`flex flex-col items-center justify-center gap-2 py-5 px-5 mt-1 rounded-xl border-2 border-dashed cursor-pointer transition-all bg-surface ${ticketDragOver
+                    ? 'border-brand-600 bg-danger-bg'
+                    : errors.ticket
+                      ? 'border-brand-600/60 bg-danger-bg'
+                      : 'border-line hover:border-line-strong hover:bg-chip'
+                    }`}
                 >
-                  <Upload size={20} className={errors.ticket ? 'text-[#E00000]' : 'text-gray-400'} strokeWidth={1.5} />
+                  <Upload size={20} className={errors.ticket ? 'text-brand-600' : 'text-muted'} strokeWidth={1.5} />
                   <div className="text-center">
-                    <p className="text-xs font-bold text-gray-700">Click to upload or drag &amp; drop Ticket Copy</p>
-                    <p className="text-[11px] text-gray-400 mt-0.5">PDF, PNG, JPG up to 10MB</p>
+                    <p className="text-xs font-bold text-ink">Click to upload or drag &amp; drop Ticket Copy</p>
+                    <p className="text-[11px] text-muted mt-0.5">PDF, PNG, JPG up to 10MB</p>
                   </div>
                   <input
                     type="file"

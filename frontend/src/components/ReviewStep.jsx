@@ -292,12 +292,12 @@ const gradCard = `linear-gradient(135deg, ${R.soft} 0%, #fff 100%)`;
 
 // ── Group Card component (one card per group) ──────────────────────────────────
 const SummaryGroupCard = ({ icon: Icon, title, subtitle, badge, children }) => (
-  <div className="rounded-2xl border border-gray-200/90 bg-white shadow-xs overflow-hidden">
-    <div className="px-5 py-3.5 bg-gray-50/70 border-b border-gray-100 flex items-center justify-between">
+  <div className="rounded-2xl border border-line bg-surface shadow-card overflow-hidden">
+    <div className="px-5 py-3.5 bg-surface-alt border-b border-line flex items-center justify-between">
       <div className="flex items-center gap-2.5">
         {Icon && (
-          <div className="w-8 h-8 rounded-xl bg-white border border-gray-200 flex items-center justify-center flex-shrink-0 shadow-2xs">
-            <Icon size={14} className="text-red-600" strokeWidth={2.3} />
+          <div className="w-8 h-8 rounded-xl bg-surface border border-line flex items-center justify-center flex-shrink-0 shadow-2xs">
+            <Icon size={14} className="text-brand-600" strokeWidth={2.3} />
           </div>
         )}
         <div>

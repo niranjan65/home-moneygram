@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import DocumentUploadTable from '../../../components/DocumentUploadTable';
 import { useForm, FormProvider } from 'react-hook-form';
 import { UserPlus, ArrowRight, AlertCircle, CheckCircle2, User, ArrowLeftRight, Banknote, ShieldCheck } from 'lucide-react';
-import { useExchange } from '../../../context/ExchangeContext';
 import { useUser } from '../../../context/UserContext';
 import { useSettings } from '../../../context/SettingsContext';
 
@@ -74,7 +73,6 @@ export const ReceiverForm = ({
   });
 
   const { handleSubmit, setFocus } = methods;
-  const { receiverGets } = useExchange();
   const { uploadFile, loading: uploadLoading } = useERPFileUpload();
   const [stockError, setStockError] = useState('');
   const [stockLoading, setStockLoading] = useState(false);
@@ -100,24 +98,50 @@ export const ReceiverForm = ({
   const selectedId = methods.watch('government_id');
   const idDocument = methods.watch('docFile');
   const ticketDocument = methods.watch('ticket');
-  const documentRows = (Array.isArray(tableDocuments) && tableDocuments.length > 0) ? tableDocuments : [
-    ...(idDocument ? [{ document_type: selectedId || 'Government ID', issue_date: methods.watch('id_issue_date') || '', expiry_date: methods.watch('id_expiry_date') || '', attachment: idDocument, notes: '' }] : []),
-    ...(ticketDocument ? [{ document_type: 'Ticket', issue_date: '', expiry_date: '', attachment: ticketDocument, notes: '' }] : []),
+  const documentRows = Array.isArray(tableDocuments) ? tableDocuments : [
+    ...(idDocument ? [{
+      document_category: 'Proof of Identity',
+      document_type: selectedId || 'Government ID',
+      issue_date: methods.watch('id_issue_date') || '',
+      expiry_date: methods.watch('id_expiry_date') || '',
+      attachment: idDocument,
+      file_name: typeof idDocument === 'string' ? idDocument.split('/').pop() : idDocument?.name || 'document.pdf',
+      notes: '',
+      isAutoFilled: true,
+    }] : []),
+    ...(ticketDocument ? [{
+      document_category: 'Travel & Supporting',
+      document_type: 'Ticket',
+      issue_date: '',
+      expiry_date: '',
+      attachment: ticketDocument,
+      file_name: typeof ticketDocument === 'string' ? ticketDocument.split('/').pop() : ticketDocument?.name || 'ticket.pdf',
+      notes: '',
+      isAutoFilled: true,
+    }] : []),
   ];
   const changeDocuments = rows => {
-    methods.setValue('documents', rows, { shouldDirty: true });
+    const nextRows = Array.isArray(rows) ? rows : [];
+    methods.setValue('documents', nextRows, { shouldDirty: true });
     for (const [field, type] of [
       ['docFile', selectedId || 'Government ID'],
       ['ticket', 'Ticket'],
     ]) {
-      methods.setValue(field, (rows.find(row => row.document_type === type)?.attachment || (field === 'docFile' ? rows.find(row => row.attachment)?.attachment : null)) || null, { shouldValidate: true, shouldDirty: true });
+      methods.setValue(field, (nextRows.find(row => row.document_type === type)?.attachment || (field === 'docFile' ? nextRows.find(row => row.attachment)?.attachment : null)) || null, { shouldValidate: true, shouldDirty: true });
     }
-    const primaryIdDoc = rows.find(r => r.document_type === selectedId) || rows[0];
+    const primaryIdDoc = nextRows.find(r => r.document_type === selectedId) || nextRows[0];
     if (primaryIdDoc) {
       if (primaryIdDoc.issue_date) methods.setValue('id_issue_date', primaryIdDoc.issue_date, { shouldDirty: true });
       if (primaryIdDoc.expiry_date) methods.setValue('id_expiry_date', primaryIdDoc.expiry_date, { shouldDirty: true });
       if (primaryIdDoc.document_type) methods.setValue('government_id', primaryIdDoc.document_type, { shouldDirty: true });
       if (primaryIdDoc.document_number) methods.setValue('idNumber', primaryIdDoc.document_number, { shouldDirty: true });
+    } else {
+      methods.setValue('docFile', null, { shouldValidate: true, shouldDirty: true });
+      methods.setValue('ticket', null, { shouldValidate: true, shouldDirty: true });
+      methods.setValue('id_issue_date', '', { shouldDirty: true });
+      methods.setValue('id_expiry_date', '', { shouldDirty: true });
+      methods.setValue('idNumber', '', { shouldDirty: true });
+      methods.setValue('id_number', '', { shouldDirty: true });
     }
     methods.clearErrors('documents');
   };
@@ -151,11 +175,13 @@ export const ReceiverForm = ({
   const selectedDenomCountry = toCurrency?.country ?? null;
   const { data: foreignCurrencyInfo, loading: denomLoading, error: denomLoadError } = useDenomination(selectedDenomCountry);
 
-  const senderInfo = exchangeType === 'BUY' ? baseCurrencyInfo : foreignCurrencyInfo;
-  const receiverInfo = exchangeType === 'BUY' ? foreignCurrencyInfo : baseCurrencyInfo;
-  const rbfFjdAmount = exchangeType === 'BUY'
-    ? Number(sendAmount || 0)
-    : Number(exchangePreview?.rawAmount || 0);
+  // In BUY FOREX: Currency In = Forex, Currency Out = FJD
+  // In SELL FOREX: Currency In = FJD, Currency Out = Forex
+  const senderInfo = exchangeType === 'BUY' ? foreignCurrencyInfo : baseCurrencyInfo;
+  const receiverInfo = exchangeType === 'BUY' ? baseCurrencyInfo : foreignCurrencyInfo;
+  const rbfFjdAmount = Number(
+    exchangeType === 'BUY' ? fjdSendAmount : (exchangePreview?.rawAmount || 0)
+  );
 
   // ── Shared stock check (called on blur + on submit) ────────────────────────────
   const runStockCheck = async (si = senderInfo, ri = receiverInfo) => {
@@ -178,50 +204,27 @@ export const ReceiverForm = ({
       }).filter(Boolean);
     };
 
-    if (exchangeType === 'BUY') {
-      const selectedItems = getSelectedItems(si, senderDenomRowsRef.current);
-      if (!warehouseName || selectedItems.length === 0) return true; // nothing to check
-      setStockLoading(true);
-      try {
-        const { outOfStock } = await validateStockAvailability(selectedItems, warehouseName, loginUser);
-        if (outOfStock.length > 0) {
-          setStockError(
-            `Sufficient stock for ${si?.currency} not available at ${warehouseName} for the denominations you've entered. (Check: ${outOfStock.join(', ')}) Please adjust the counts or contact admin.`
-          );
-          setTimeout(() => stockErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
-          return false;
-        }
-        setStockError('');
-        return true;
-      } catch (err) {
-        console.error('[Stock Check]', err);
-        setStockError('');
-        return true; // non-blocking on API error
-      } finally {
-        setStockLoading(false);
+    // Stock check validates the currency being disbursed to the customer (receiverInfo)
+    const selectedItems = getSelectedItems(ri, receiverDenomRowsRef.current);
+    if (!warehouseName || selectedItems.length === 0) return true; // nothing to check
+    setStockLoading(true);
+    try {
+      const { outOfStock } = await validateStockAvailability(selectedItems, warehouseName, loginUser);
+      if (outOfStock.length > 0) {
+        setStockError(
+          `Sufficient stock for ${ri?.currency} not available at ${warehouseName} for the denominations you've entered. (Check: ${outOfStock.join(', ')}) Please adjust the counts or contact admin.`
+        );
+        setTimeout(() => stockErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+        return false;
       }
-    } else if (exchangeType === 'SELL') {
-      const selectedItems = getSelectedItems(si, senderDenomRowsRef.current);
-      if (!warehouseName || selectedItems.length === 0) return true; // nothing to check
-      setStockLoading(true);
-      try {
-        const { outOfStock } = await validateStockAvailability(selectedItems, warehouseName, loginUser);
-        if (outOfStock.length > 0) {
-          setStockError(
-            `Sufficient stock for ${si?.currency} not available at ${warehouseName} for the denominations you've entered. (Check: ${outOfStock.join(', ')}) Please adjust the counts or contact admin.`
-          );
-          setTimeout(() => stockErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
-          return false;
-        }
-        setStockError('');
-        return true;
-      } catch (err) {
-        console.error('[Stock Check]', err);
-        setStockError('');
-        return true; // non-blocking on API error
-      } finally {
-        setStockLoading(false);
-      }
+      setStockError('');
+      return true;
+    } catch (err) {
+      console.error('[Stock Check]', err);
+      setStockError('');
+      return true; // non-blocking on API error
+    } finally {
+      setStockLoading(false);
     }
 
 
@@ -233,6 +236,97 @@ export const ReceiverForm = ({
     setStockError(''); 
     setCashAccountError('');
   }, [toCurrency?.code, selectedWarehouse?.warehouse]);
+
+  const [senderAvailability, setSenderAvailability] = useState({});
+  const [receiverAvailability, setReceiverAvailability] = useState({});
+
+  useEffect(() => {
+    const warehouseName = selectedWarehouse?.warehouse;
+    if (!warehouseName) {
+      setSenderAvailability({});
+      setReceiverAvailability({});
+      return;
+    }
+
+    const senderItems = [
+      ...(senderInfo?.notes_name || []).map(code => ({ item_code: code, requested_qty: 0 })),
+      ...(senderInfo?.coins_name || []).map(code => ({ item_code: code, requested_qty: 0 })),
+    ].filter(i => Boolean(i.item_code));
+
+    const receiverItems = [
+      ...(receiverInfo?.notes_name || []).map(code => ({ item_code: code, requested_qty: 0 })),
+      ...(receiverInfo?.coins_name || []).map(code => ({ item_code: code, requested_qty: 0 })),
+    ].filter(i => Boolean(i.item_code));
+
+    const allItems = [...senderItems, ...receiverItems];
+    if (allItems.length === 0) {
+      setSenderAvailability({});
+      setReceiverAvailability({});
+      return;
+    }
+
+    let active = true;
+    validateStockAvailability(allItems, warehouseName, loginUser)
+      .then(res => {
+        if (!active || !res?.qtyMap) return;
+
+        if (senderInfo) {
+          const sAvail = {};
+          (senderInfo.notes || []).forEach((denom, i) => {
+            const code = senderInfo.notes_name?.[i];
+            if (code) {
+              sAvail[String(Number(denom))] = Math.max(0, Number(res.qtyMap[code] ?? 0));
+            }
+          });
+          (senderInfo.coins || []).forEach((denom, i) => {
+            const code = senderInfo.coins_name?.[i];
+            if (code) {
+              sAvail[String(Number(denom))] = Math.max(0, Number(res.qtyMap[code] ?? 0));
+            }
+          });
+          setSenderAvailability(sAvail);
+        } else {
+          setSenderAvailability({});
+        }
+
+        if (receiverInfo) {
+          const rAvail = {};
+          (receiverInfo.notes || []).forEach((denom, i) => {
+            const code = receiverInfo.notes_name?.[i];
+            if (code) {
+              rAvail[String(Number(denom))] = Math.max(0, Number(res.qtyMap[code] ?? 0));
+            }
+          });
+          (receiverInfo.coins || []).forEach((denom, i) => {
+            const code = receiverInfo.coins_name?.[i];
+            if (code) {
+              rAvail[String(Number(denom))] = Math.max(0, Number(res.qtyMap[code] ?? 0));
+            }
+          });
+          setReceiverAvailability(rAvail);
+        } else {
+          setReceiverAvailability({});
+        }
+      })
+      .catch(err => {
+        console.error('[Stock Availability Fetch Error]', err);
+        if (active) {
+          setSenderAvailability({});
+          setReceiverAvailability({});
+        }
+      });
+
+    return () => { active = false; };
+  }, [
+    selectedWarehouse?.warehouse,
+    senderInfo?.currency,
+    senderInfo?.notes_name?.join(','),
+    senderInfo?.coins_name?.join(','),
+    receiverInfo?.currency,
+    receiverInfo?.notes_name?.join(','),
+    receiverInfo?.coins_name?.join(','),
+    loginUser,
+  ]);
 
   const senderDenomRowsRef = useRef([]);
   const receiverDenomRowsRef = useRef([]);
@@ -262,20 +356,9 @@ export const ReceiverForm = ({
     return null;
   });
 
-  const focusAmountField = React.useCallback(() => {
-    setTimeout(() => {
-      const input = document.getElementById('input-sendAmount') || document.querySelector('#field-sendAmount input');
-      input?.focus();
-    }, 50);
-  }, []);
-
   const handleResetAllFields = React.useCallback(() => {
     setCurrentCustomer(null);
-    focusAmountField();
-    // 1. Reset calculation / amounts
-    setSendAmount('');
-    setSendAmountError('');
-    if (useManualRate) setManualRate('');
+    // Do not clear the amount section when resetting customer fields
 
     // 2. Reset denomination counts & status
     if (senderDenomRowsRef.current) senderDenomRowsRef.current = [];
@@ -332,12 +415,68 @@ export const ReceiverForm = ({
       tf_form_reference: '',
     });
     methods.clearErrors();
-  }, [methods, setSendAmount, setSendAmountError, useManualRate, setManualRate]);
+  }, [methods]);
+
+  const applyCustomerTransactionPrefill = React.useCallback(async (cust, activeExchangeType) => {
+    if (!cust) return;
+
+    // Explicitly reset travel and transaction-specific fields so no residual data persists
+    const txFieldsToReset = [
+      'destination', 'airwaysName', 'flightNumber', 'pnrNumber', 'travelDate',
+      'ticket', 'pastReceiver', 'rbf_purpose', 'source_of_funds', 'nationality',
+      'residency_status', 'passport_endorsed', 'tf_form_reference', 'remarks'
+    ];
+    txFieldsToReset.forEach((field) => {
+      const defaultVal =
+        field === 'passport_endorsed'
+          ? false
+          : field === 'pastReceiver'
+          ? 'New Receiver'
+          : field === 'ticket'
+          ? null
+          : '';
+      methods.setValue(field, defaultVal, { shouldDirty: true });
+    });
+
+    try {
+      const res = await fetchCustomerLastTransaction(cust, 'Currency Exchange', activeExchangeType);
+      const lastTx = res?.data;
+      if (lastTx) {
+        const prefill = extractExchangePrefill(lastTx);
+        Object.entries(prefill).forEach(([k, v]) => {
+          if (v !== undefined && v !== null && v !== '') {
+            // Never autofill transaction or exchange type (preserve user's active session/tab)
+            if (
+              k === 'exchangeType' ||
+              k === 'exchange_type' ||
+              k === 'transfer_type' ||
+              k === 'transaction_type'
+            ) {
+              return;
+            }
+            if (k === 'documents') {
+              const curDocs = methods.getValues('documents');
+              if (!curDocs || curDocs.length === 0) {
+                methods.setValue('documents', v, { shouldValidate: true, shouldDirty: true });
+              }
+            } else if (k === 'docFile') {
+              const curDocFile = methods.getValues('docFile');
+              if (!curDocFile) {
+                methods.setValue('docFile', v, { shouldValidate: true, shouldDirty: true });
+              }
+            } else {
+              methods.setValue(k, v, { shouldValidate: true, shouldDirty: true });
+            }
+          }
+        });
+      }
+    } catch (err) {
+      console.warn('Error applying last transaction prefill in ReceiverForm:', err);
+    }
+  }, [methods]);
 
   const handleCustomerStateChange = React.useCallback(async (custState) => {
     if (custState?.customer) {
-      focusAmountField();
-      setSendAmount('');
       setCurrentCustomer(custState.customer);
       const cust = custState.customer;
       const doc = cust.custom_government_document || cust.image;
@@ -347,64 +486,37 @@ export const ReceiverForm = ({
         const curDocs = methods.getValues('documents');
         if (!curDocs || curDocs.length === 0) {
           methods.setValue('documents', [{
+            document_category: 'Proof of Identity',
             document_type: cust.custom_government_id || cust.government_id_type || 'Passport',
             document_number: cust.custom_passport_number || cust.custom_drivers_licence_number || cust.custom_tin_number || cust.custom_voter_id_number || cust.government_id_number || '',
             issue_date: cust.custom_id_issue_date || cust.id_issue_date || '',
             expiry_date: cust.custom_id_expiry_date || cust.id_expiry_date || '',
             issue_country: cust.custom_id_issue_country || cust.id_issue_country || '',
             attachment: docUrl,
+            file_name: typeof docUrl === 'string' ? docUrl.split('/').pop() : 'document.pdf',
             notes: '',
+            isAutoFilled: true,
           }], { shouldValidate: true, shouldDirty: true });
         }
       }
 
-      // If last transaction data exists or can be fetched, auto fill form
-      try {
-        let lastTx = cust.lastTransaction;
-        if (!lastTx) {
-          const res = await fetchCustomerLastTransaction(cust, 'Currency Exchange');
-          if (res?.data) {
-            lastTx = res.data;
-            cust.lastTransaction = lastTx;
-          }
-        }
-        if (lastTx) {
-          const prefill = extractExchangePrefill(lastTx);
-          Object.entries(prefill).forEach(([k, v]) => {
-            if (v !== undefined && v !== null && v !== '') {
-              // Never autofill transaction or exchange type (preserve user's active session/tab)
-              if (
-                k === 'exchangeType' ||
-                k === 'exchange_type' ||
-                k === 'transfer_type' ||
-                k === 'transaction_type'
-              ) {
-                return;
-              }
-              if (k === 'documents') {
-                const curDocs = methods.getValues('documents');
-                if (!curDocs || curDocs.length === 0) {
-                  methods.setValue('documents', v, { shouldValidate: true, shouldDirty: true });
-                }
-              } else if (k === 'docFile') {
-                const curDocFile = methods.getValues('docFile');
-                if (!curDocFile) {
-                  methods.setValue('docFile', v, { shouldValidate: true, shouldDirty: true });
-                }
-              } else {
-                methods.setValue(k, v, { shouldValidate: true, shouldDirty: true });
-              }
-            }
-          });
-        }
-      } catch (err) {
-        console.warn('Error applying last transaction prefill in ReceiverForm:', err);
-      }
+      const activeExchangeType = methods.getValues('exchangeType') || exchangeType || 'BUY';
+      await applyCustomerTransactionPrefill(cust, activeExchangeType);
     } else if (custState?.customerFound === false) {
       setCurrentCustomer(null);
     }
     onCustomerChange?.(custState);
-  }, [onCustomerChange, methods, setSendAmount, focusAmountField]);
+  }, [onCustomerChange, methods, exchangeType, applyCustomerTransactionPrefill]);
+
+  const prevExchangeTypeRef = React.useRef(exchangeType);
+  React.useEffect(() => {
+    if (prevExchangeTypeRef.current !== exchangeType) {
+      prevExchangeTypeRef.current = exchangeType;
+      if (currentCustomer) {
+        applyCustomerTransactionPrefill(currentCustomer, exchangeType);
+      }
+    }
+  }, [exchangeType, currentCustomer, applyCustomerTransactionPrefill]);
 
 
   const idExpiryVal = methods.watch('id_expiry_date');
@@ -1041,6 +1153,8 @@ export const ReceiverForm = ({
               initialReceiverRows={initialData?.rawReceiverDenomRows || initialData?.receiverDenominationRows}
               onSenderStatusChange={s => { senderDenomStatusRef.current = s; }}
               onReceiverStatusChange={s => { receiverDenomStatusRef.current = s; }}
+              senderAvailabilityByDenomination={senderAvailability}
+              receiverAvailabilityByDenomination={receiverAvailability}
             />
           </SectionCard>
 

@@ -469,7 +469,7 @@ export default function SettingsPanelNew() {
                       Account credentials and workstation teller details
                     </span>
                   </div>
-                  {!editing ? (
+                  {/* !editing ? (
                     <button
                       type="button"
                       onClick={() => {
@@ -503,7 +503,7 @@ export default function SettingsPanelNew() {
                         Cancel
                       </button>
                     </div>
-                  )}
+                  ) */}
                 </div>
 
                 <div className="g2">
@@ -737,10 +737,10 @@ export default function SettingsPanelNew() {
                   <label className="lbl">Base Document Font Scaling</label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {[
-                      { key: "small", label: "Small", px: "14px" },
-                      { key: "normal", label: "Normal", px: "16px (Default)" },
-                      { key: "large", label: "Large", px: "18px" },
-                      { key: "larger", label: "Larger", px: "20px" },
+                      { key: "small", label: "Small", px: "" },
+                      { key: "normal", label: "Normal", px: "(Default)" },
+                      { key: "large", label: "Large", px: "" },
+                      { key: "larger", label: "Larger", px: "" },
                     ].map((opt) => (
                       <div
                         key={opt.key}
@@ -858,7 +858,7 @@ export default function SettingsPanelNew() {
                   </div>
                   <div className="row">
                     <span>Base Font Scale</span>
-                    <span>{FONT_SIZE_MAP[fontSize] || 16}px</span>
+                    <span>{FONT_SIZE_TO_KEY[FONT_SIZE_MAP[fontSize] || 16]}</span>
                   </div>
                   <div className="row">
                     <span>Workstation Status</span>

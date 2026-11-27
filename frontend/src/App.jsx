@@ -69,26 +69,26 @@ function App() {
           }
         />
 
-        <Route
+        {/* <Route
           path="/money-transfer"
           element={
             <ProtectedRoute>
               <PosRouteGuard><MoneyTransfer /></PosRouteGuard>
             </ProtectedRoute>
           }
-        />
+        />*/}
 
-        <Route
+        {/* <Route
           path="/exchange"
           element={
             <ProtectedRoute>
               <PosRouteGuard><MoneyExchange /></PosRouteGuard>
             </ProtectedRoute>
           }
-        />
+        />*/}
 
         <Route
-          path="/money-transfer-new"
+          path="/money-transfer"
           element={
             <ProtectedRoute>
               <PosRouteGuard><MoneyTransferNew /></PosRouteGuard>
@@ -97,7 +97,7 @@ function App() {
         />
 
         <Route
-          path="/exchange-new"
+          path="/exchange"
           element={
             <ProtectedRoute>
               <PosRouteGuard><MoneyExchangeNew /></PosRouteGuard>
@@ -170,16 +170,16 @@ function App() {
             </ProtectedRoute>
           }
         /> */}
-        <Route
+        {/* <Route
           path="/settings"
           element={
             <ProtectedRoute>
               <SettingsPanel />
             </ProtectedRoute>
           }
-        />
+        />*/}
         <Route
-          path="/settings-new"
+          path="/settings"
           element={
             <ProtectedRoute>
               <SettingsPanelNew />

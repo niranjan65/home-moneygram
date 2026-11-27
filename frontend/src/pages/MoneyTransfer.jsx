@@ -1473,8 +1473,6 @@ const MoneyTransfer = () => {
     if (key === "full_name") {
       selectedFromDropdownRef.current = false;
       setCustomerFound(false);
-      setCustomerImageUrl("");
-      setCustomerImageFile(null);
       setForm((prev) => ({
         ...prev,
         customer: "",
@@ -1775,9 +1773,6 @@ const MoneyTransfer = () => {
     if (existingImg) {
       setCustomerImageUrl(existingImg);
       setCustomerImageFile(null);
-    } else {
-      setCustomerImageUrl("");
-      setCustomerImageFile(null);
     }
 
     const existingDoc = c.custom_government_document || c.document_upload || "";
@@ -1855,8 +1850,8 @@ const MoneyTransfer = () => {
         const resolvedId = customer.custom_customer_id || customer.customer_id || customer.name || custId;
 
         // Fetch existing customer photo if present
-        const existingImg = customer.image || customer.custom_image || c.image || c.custom_image || "";
-        setCustomerImageUrl(existingImg || "");
+        const existingImg = customer.image || customer.custom_image || "";
+        setCustomerImageUrl(existingImg || c.image || c.custom_image || "");
         setCustomerImageFile(null);
 
         setForm((prev) => {
@@ -2124,7 +2119,7 @@ const MoneyTransfer = () => {
 
           // Fetch existing customer photo if present
           const existingImg = customer.image || customer.custom_image || "";
-          setCustomerImageUrl(existingImg || "");
+          setCustomerImageUrl(existingImg);
           setCustomerImageFile(null);
 
           setForm((prev) => ({
@@ -3474,8 +3469,6 @@ const MoneyTransfer = () => {
                   ) {
                     setSelectedCustomer(null);
                     setCustomerFound(false);
-                    setCustomerImageUrl("");
-                    setCustomerImageFile(null);
                     setForm((prev) => ({ ...prev, customer: "" }));
                   }
                 }}
@@ -3568,8 +3561,6 @@ const MoneyTransfer = () => {
                   } else if (selectedCustomer && val !== (selectedCustomer.custom_full_name || selectedCustomer.customer_name || selectedCustomer.full_name)) {
                     setSelectedCustomer(null);
                     setCustomerFound(false);
-                    setCustomerImageUrl("");
-                    setCustomerImageFile(null);
                     setForm((prev) => ({ ...prev, customer: "" }));
                   }
                 }}
@@ -3598,8 +3589,6 @@ const MoneyTransfer = () => {
                   } else if (selectedCustomer && val !== (selectedCustomer.phone_number || selectedCustomer.mobile_no || selectedCustomer.phone)) {
                     setSelectedCustomer(null);
                     setCustomerFound(false);
-                    setCustomerImageUrl("");
-                    setCustomerImageFile(null);
                     setForm((prev) => ({ ...prev, customer: "" }));
                   }
                 }}

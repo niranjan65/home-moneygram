@@ -146,13 +146,13 @@ export default function TransactionTabBar({
     setTransferDropdownOpen(false);
     setDealerDropdownOpen(false);
     setOperationalDropdownOpen(false);
-    if (location.pathname.includes("/exchange-new")) {
+    if (location.pathname.includes("/exchange")) {
       if (onTabChange) {
         onTabChange("BUY");
       }
-      navigate("/exchange-new?type=BUY", { replace: true });
+      navigate("/exchange?type=BUY", { replace: true });
     } else {
-      navigate("/exchange-new?type=BUY");
+      navigate("/exchange?type=BUY");
     }
   };
 
@@ -162,13 +162,13 @@ export default function TransactionTabBar({
     setTransferDropdownOpen(false);
     setDealerDropdownOpen(false);
     setOperationalDropdownOpen(false);
-    if (location.pathname.includes("/exchange-new")) {
+    if (location.pathname.includes("/exchange")) {
       if (onTabChange) {
         onTabChange("SELL");
       }
-      navigate("/exchange-new?type=SELL", { replace: true });
+      navigate("/exchange?type=SELL", { replace: true });
     } else {
-      navigate("/exchange-new?type=SELL");
+      navigate("/exchange?type=SELL");
     }
   };
 
@@ -177,13 +177,13 @@ export default function TransactionTabBar({
     setTransferDropdownOpen(false);
     setDealerDropdownOpen(false);
     setOperationalDropdownOpen(false);
-    if (location.pathname.includes("/money-transfer-new")) {
+    if (location.pathname.includes("/money-transfer")) {
       if (onTabChange) {
         onTabChange(type);
       }
-      navigate(`/money-transfer-new?type=${type}`, { replace: true });
+      navigate(`/money-transfer?type=${type}`, { replace: true });
     } else {
-      navigate(`/money-transfer-new?type=${type}`);
+      navigate(`/money-transfer?type=${type}`);
     }
   };
 
@@ -285,7 +285,7 @@ export default function TransactionTabBar({
         }}
       >
         <Link
-          to="/exchange-new?type=BUY"
+          to="/exchange?type=BUY"
           className={`tab ${resolvedActiveTab === "BUY" ? "on" : ""}`}
           onClick={handleBuyClick}
         >
@@ -293,7 +293,7 @@ export default function TransactionTabBar({
         </Link>
 
         <Link
-          to="/exchange-new?type=SELL"
+          to="/exchange?type=SELL"
           className={`tab ${resolvedActiveTab === "SELL" ? "on" : ""}`}
           onClick={handleSellClick}
         >

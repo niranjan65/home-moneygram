@@ -89,7 +89,7 @@ export const useCustomer = ({ autoFillDocument = true } = {}) => {
       setValue('risk_level', fetchedRisk, { shouldValidate: true, shouldDirty: true });
       console.log('Customer found...', customer);
 
-      const docImg = customer.custom_government_document || customer.image;
+      const docImg = customer.custom_government_document || '';
       if (docImg) {
         const url = docImg.startsWith('http') 
           ? docImg 

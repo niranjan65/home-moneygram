@@ -11,11 +11,12 @@ export const personalInfoFields = [
     placeholder: "optional",
     rules: { minLength: { value: 2, message: 'Too short' } },
   },
-   {
+  {
     name: "email",
     label: "Email Address",
     placeholder: "e.g. user@example.com",
-    rules: { required: 'Email is required', pattern: { value: /^\S+@\S+\.\S+$/, message: 'Invalid email address' } },
+    rules: { pattern: { value: /^\S+@\S+\.\S+$/, message: 'Invalid email address' } },
+    type: 'email'
   },
   {
     name: "lastName",
@@ -29,13 +30,13 @@ export const personalInfoFields = [
     placeholder: "optional",
     rules: { minLength: { value: 2, message: 'Too short' } },
   },
-  {
-    name: "purposeOfTransaction",
-    label: "Purpose of Transaction",
-    placeholder: "eg: Gift, Travel, Education, Medical",
-    rules: { minLength: { value: 2, message: 'Too short' } },
-  },
-   
+  // {
+  //   name: "purposeOfTransaction",
+  //   label: "Purpose of Transaction",
+  //   placeholder: "eg: Gift, Travel, Education, Medical",
+  //   rules: { minLength: { value: 2, message: 'Too short' } },
+  // },
+
 ];
 
 export const locationFields = [

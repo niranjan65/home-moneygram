@@ -47,9 +47,11 @@ export const useERPFileUpload = () => {
       const formData = new FormData();
       formData.append("file", safeFile);
       formData.append("is_private", isPrivate);
-      if (doctype) formData.append("doctype", doctype);
-      if (docname) formData.append("docname", docname);
-      if (fieldname) formData.append("fieldname", fieldname);
+      if (doctype && docname) {
+        formData.append("doctype", doctype);
+        formData.append("docname", docname);
+        if (fieldname) formData.append("fieldname", fieldname);
+      }
 
       const headers = {};
       const csrfToken =

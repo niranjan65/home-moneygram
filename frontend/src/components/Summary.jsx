@@ -25,7 +25,7 @@
 //   return (
 //     <div className="sticky top-24 flex flex-col gap-5">
 //       <div className="rounded-2xl border border-gray-200 bg-white shadow-xl shadow-primary/5 overflow-hidden">
-        
+
 //         <div className="bg-primary/5 p-5 border-b border-primary/10">
 //           <h4 className="text-gray-900 font-extrabold text-lg">
 //             Summary
@@ -163,7 +163,7 @@
 
 //         {/* Header band */}
 //         <div className="relative overflow-hidden px-6 pt-6 pb-5" style={{ background: gradHero }}>
-          
+
 
 //           <div className="relative flex items-center gap-3 mb-4">
 //             <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -174,7 +174,7 @@
 //               <p className="text-white font-black text-base tracking-tight">Transaction Summary</p>
 //               <p className="text-red-200 text-[11px] font-medium mt-0.5">Live calculation</p>
 //             </div>
-            
+
 //           </div>
 
 //           {/* Exchange type badge */}
@@ -207,7 +207,7 @@
 //               </span>
 //             </div>
 
-            
+
 
 //           </div>
 
@@ -231,7 +231,7 @@
 //           {/* Final amount hero card */}
 //           <div className="relative overflow-hidden rounded-2xl px-5 py-5"
 //             style={{ background: gradBtn, boxShadow: `0 8px 32px ${R.primary}44` }}>
-            
+
 
 //             <div className="relative">
 //               <div className="flex items-center gap-1.5 mb-2">
@@ -289,9 +289,9 @@ export const Summary = ({ transferPayload, isDealer = false, hideSecurityBadge =
     gstRate,
     exchangeType,
   } = useExchange();
-  
 
-  console.log('Summary render', transferPayload);
+
+  // console.log('Summary render', transferPayload);
 
   const roundToNearestFiveCents = (amount) => {
     if (!amount) return 0;

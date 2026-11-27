@@ -289,20 +289,6 @@ export default function DocumentUploadTable({
   };
 
   const handleRemoveRow = (index) => {
-    const targetRow = (rows || [])[index];
-    const isAutoFilled = Boolean(
-      targetRow?.isAutoFilled === true ||
-      targetRow?.is_autofilled === true ||
-      targetRow?.isAutofilled === true ||
-      targetRow?.autofilled === true ||
-      (targetRow?.isAutoFilled !== false &&
-        typeof targetRow?.attachment === 'string' &&
-        targetRow?.attachment.trim() &&
-        !targetRow?.attachment.startsWith('blob:') &&
-        !targetRow?.isNewUpload)
-    );
-    if (isAutoFilled) return;
-
     if (typeof onChange === 'function') {
       const nextRows = (rows || []).filter((_, i) => i !== index);
       onChange(nextRows);
@@ -552,7 +538,7 @@ export default function DocumentUploadTable({
 
                         {isAutoFilledDoc && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-caption font-semibold bg-info-bg text-info-fg border border-info-border">
-                            ID on Record
+                            Autofilled
                           </span>
                         )}
 
@@ -648,22 +634,20 @@ export default function DocumentUploadTable({
                       </button>
                     )}
 
-                    {/* Delete button - only available for newly added documents, not saved documents from backend */}
-                    {!isAutoFilledDoc && (
-                      <button
-                        type="button"
-                        disabled={disabled}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleRemoveRow(index);
-                        }}
-                        className="p-2 rounded-lg border border-line text-muted hover:text-danger-fg hover:border-danger-border hover:bg-danger-bg transition-colors cursor-pointer shadow-2xs"
-                        title="Remove Document"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    )}
+                    {/* Delete button - always available to delete and add a new one */}
+                    <button
+                      type="button"
+                      disabled={disabled}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleRemoveRow(index);
+                      }}
+                      className="p-2 rounded-lg border border-line text-muted hover:text-danger-fg hover:border-danger-border hover:bg-danger-bg transition-colors cursor-pointer shadow-2xs"
+                      title={isAutoFilledDoc ? "Remove autofilled document to add new" : "Remove Document"}
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
                 </div>
               );

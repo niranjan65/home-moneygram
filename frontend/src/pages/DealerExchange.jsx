@@ -177,7 +177,7 @@ const DealerExchange = () => {
     let uploadedFileUrl = data.docFile;
     try {
       if (data.docFile instanceof File) {
-        uploadedFileUrl = await uploadFile(data.docFile, { isPrivate: 0, doctype: 'Customer' });
+        uploadedFileUrl = await uploadFile(data.docFile, { isPrivate: 0 });
       }
 
       const rawFullName = (data.fullName || '').trim();
@@ -329,7 +329,7 @@ const DealerExchange = () => {
 
     if (transferPayload.exchangeType === "BUY") {
 
-      denominationData =
+      receiverData =
         transferPayload.receiverDenominationRows?.map(row => {
           const { denomination_value, denomination_type } = row;
           let itemName = denomination_value;
@@ -363,7 +363,7 @@ const DealerExchange = () => {
           };
         }) || [];
 
-      receiverData =
+      denominationData =
         transferPayload.senderDenominationRows?.map(row => {
           const { denomination_value, denomination_type } = row;
           let itemName = denomination_value;

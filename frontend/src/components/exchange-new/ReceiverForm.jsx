@@ -490,7 +490,7 @@ export const ReceiverForm = ({
     if (custState?.customer) {
       setCurrentCustomer(custState.customer);
       const cust = custState.customer;
-      const doc = cust.custom_government_document || cust.image;
+      const doc = cust.custom_government_document || '';
       if (doc) {
         const docUrl = doc.startsWith('http') ? doc : `/${doc.replace(/^\/+/, '')}`;
         methods.setValue('docFile', docUrl, { shouldValidate: true, shouldDirty: true });
@@ -557,11 +557,7 @@ export const ReceiverForm = ({
 
     if (exchangeType === 'SELL') {
       fields.push(
-        { fieldname: 'travelDate', label: 'Travel Date', isFilled: Boolean(watchedValues.travelDate) },
-        { fieldname: 'destination', label: 'Destination', isFilled: Boolean(watchedValues.destination?.trim?.()) },
-        { fieldname: 'airwaysName', label: 'Airways Name', isFilled: Boolean(watchedValues.airwaysName?.trim?.()) },
-        { fieldname: 'flightNumber', label: 'Flight Number', isFilled: Boolean(watchedValues.flightNumber?.trim?.()) },
-        { fieldname: 'pnrNumber', label: 'PNR Number', isFilled: Boolean(watchedValues.pnrNumber?.trim?.()) }
+        { fieldname: 'flightNumber', label: 'Ticket Number', isFilled: Boolean(watchedValues.flightNumber?.trim?.()) },
       );
     }
 

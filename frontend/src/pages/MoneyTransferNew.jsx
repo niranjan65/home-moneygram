@@ -44,32 +44,7 @@ import { buildApiUrl, getFetchOptions } from "../features/exchange/config/erpCon
 import { useSettings } from "../context/SettingsContext";
 import { validateStockAvailability } from "../hooks/useStockValidation";
 import { useLocation, Link, useNavigate } from "react-router-dom";
-
-// ── Initial Compliance Fields (RBF Compliance Review) ─────────────────────────
-export const INITIAL_COMPLIANCE_FIELDS = {
-  rbf_purpose: "",
-  rbf_documents: [],
-  rbf_source_of_funds: "",
-  source_of_funds: "",
-  rbf_nationality_type: "",
-  nationality_type: "",
-  rbf_nationality: "",
-  nationality: "",
-  rbf_other_nationality: "",
-  other_nationality: "",
-  rbf_residency_status: "",
-  residency_status: "",
-  rbf_beneficiary_reference: "",
-  rbf_student_reference: "",
-  rbf_family_reference: "",
-  rbf_invoice_reference: "",
-  rbf_approval: "",
-  tf_form_reference: "",
-  imported_funds_available_fjd: "",
-  passport_endorsement_completed: 0,
-  passport_endorsed: 0,
-  sanctions_acknowledged_references: "",
-};
+import { sanitizeCustomerInput, isAllowedCustomerChar } from "../utils/sanitizeInput";
 
 // ── ID Expiry Calculation Helper ──────────────────────────────────────────────
 export const getIdExpiryStatus = (rawDate) => {
@@ -168,7 +143,7 @@ function CustomerAutocompleteInput({
   hasError = false,
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [query, setQuery] = useState(value || "");
+  const [query, setQuery] = useState(sanitizeCustomerInput(value || ""));
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -178,8 +153,12 @@ function CustomerAutocompleteInput({
 
   // Sync internal query when value prop changes externally
   useEffect(() => {
-    setQuery(value || "");
-  }, [value]);
+    setQuery(
+      searchField === "phone"
+        ? (value || "").replace(/\D/g, "")
+        : sanitizeCustomerInput(value || "")
+    );
+  }, [value, searchField]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -424,20 +403,55 @@ function CustomerAutocompleteInput({
     searchCustomers("");
   }, [searchCustomers]);
 
+  // Prevent typing of any disallowed special characters before input is inserted
+  const handleBeforeInput = (e) => {
+    if (searchField === "phone") {
+      if (e.data && !/^\d+$/.test(e.data)) {
+        e.preventDefault();
+      }
+      return;
+    }
+    if (e.data && !isAllowedCustomerChar(e.data)) {
+      e.preventDefault();
+    }
+  };
+
+  // Sanitize text pasted into the input
+  const handlePaste = (e) => {
+    const pasted = e.clipboardData?.getData("text") || "";
+    const sanitized =
+      searchField === "phone"
+        ? pasted.replace(/\D/g, "")
+        : sanitizeCustomerInput(pasted);
+    if (sanitized !== pasted) {
+      e.preventDefault();
+      const input = e.target;
+      const start = input.selectionStart ?? 0;
+      const end = input.selectionEnd ?? 0;
+      const current = input.value || "";
+      const updated = current.slice(0, start) + sanitized + current.slice(end);
+      handleQueryChange(updated);
+    }
+  };
+
   // Handle typing in input with debounced remote search
   const handleQueryChange = (val) => {
-    setQuery(val);
-    onChange(val);
+    const sanitizedVal =
+      searchField === "phone"
+        ? val.replace(/\D/g, "")
+        : sanitizeCustomerInput(val);
+    setQuery(sanitizedVal);
+    onChange(sanitizedVal);
     setIsOpen(true);
     setHighlightedIndex(-1);
 
-    if (searchField === "phone") {
-      console.log(`⌨️ [Phone Input] Typed Phone Number: "${val}"`);
-    }
+    // if (searchField === "phone") {
+    //   console.log(`⌨️ [Phone Input] Typed Phone Number: "${sanitizedVal}"`);
+    // }
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      searchCustomers(val);
+      searchCustomers(sanitizedVal);
     }, 250);
   };
 
@@ -569,7 +583,8 @@ function CustomerAutocompleteInput({
         : searchField === "id"
           ? (c.custom_customer_id || c.customer_id || c.name || "")
           : (c.custom_full_name || c.customer_name || c.name || "");
-    setQuery(chosenVal);
+    const sanitizedChosen = sanitizeCustomerInput(chosenVal);
+    setQuery(sanitizedChosen);
     setIsOpen(false);
     onSelectCustomer(c);
   };
@@ -605,6 +620,8 @@ function CustomerAutocompleteInput({
         type="text"
         name={`search_customer_${searchField}_field`}
         id={`search_customer_${searchField}_input`}
+        inputMode={searchField === "phone" ? "numeric" : undefined}
+        pattern={searchField === "phone" ? "[0-9]*" : undefined}
         className={
           inputStyle
             ? `${inputStyle} pr-10`
@@ -627,6 +644,8 @@ function CustomerAutocompleteInput({
             searchCustomers("");
           }
         }}
+        onBeforeInput={handleBeforeInput}
+        onPaste={handlePaste}
         onChange={(e) => handleQueryChange(e.target.value)}
         onKeyDown={handleKeyDown}
       />
@@ -805,6 +824,19 @@ const MoneyTransferNew = () => {
     return complianceAssessment?.missing_documents || [];
   }, [complianceAssessment]);
   const hasMissingComplianceDocs = missingComplianceDocs.length > 0;
+  const isComplianceEmpty = useMemo(() => {
+    const hasPurpose = Boolean(form.rbf_purpose && String(form.rbf_purpose).trim());
+    const hasSource = Boolean(
+      (form.rbf_source_of_funds && String(form.rbf_source_of_funds).trim()) ||
+      (form.source_of_funds && String(form.source_of_funds).trim())
+    );
+    const hasDocs = Boolean(
+      Array.isArray(form.rbf_documents) &&
+      form.rbf_documents.length > 0 &&
+      form.rbf_documents.some((d) => d.document_type || d.attachment)
+    );
+    return !hasPurpose && !hasSource && !hasDocs;
+  }, [form.rbf_purpose, form.rbf_source_of_funds, form.source_of_funds, form.rbf_documents]);
   const { data: baseCurrencyData, loading: baseDenomLoading, error: baseDenomError } = useBaseCurrency();
   const { countries: hookCountries, loading: hookCountriesLoading } = useCountries();
   const [linkOptionsMap, setLinkOptionsMap] = useState({});
@@ -1023,7 +1055,6 @@ const MoneyTransferNew = () => {
       risk_level: "",
       oet_code: "18",
       documents: [],
-      ...INITIAL_COMPLIANCE_FIELDS,
       ...(preserveAmount && prev?.amount ? { amount: prev.amount } : {}),
     }));
     setSelectedCustomer(null);
@@ -1592,17 +1623,97 @@ const MoneyTransferNew = () => {
     return d.toISOString().split("T")[0];
   };
 
+  const maxDobDate = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return formatLocalDate(d);
+  }, []);
+
   const isFutureDate = (dateVal) => {
     if (!dateVal) return false;
-    let str = "";
+    let y = 0, m = 0, d = 0;
     if (dateVal instanceof Date) {
       if (isNaN(dateVal.getTime())) return false;
-      str = formatLocalDate(dateVal);
+      y = dateVal.getFullYear();
+      m = dateVal.getMonth() + 1;
+      d = dateVal.getDate();
     } else if (typeof dateVal === "string") {
-      str = dateVal.trim().split("T")[0].split(" ")[0];
+      const trimmed = dateVal.trim();
+      if (!trimmed) return false;
+      const isoMatch = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+      if (isoMatch) {
+        y = parseInt(isoMatch[1], 10);
+        m = parseInt(isoMatch[2], 10);
+        d = parseInt(isoMatch[3], 10);
+      } else {
+        const dmyMatch = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+        if (dmyMatch) {
+          d = parseInt(dmyMatch[1], 10);
+          m = parseInt(dmyMatch[2], 10);
+          y = parseInt(dmyMatch[3], 10);
+        } else {
+          const parsed = new Date(trimmed);
+          if (isNaN(parsed.getTime())) return false;
+          y = parsed.getFullYear();
+          m = parsed.getMonth() + 1;
+          d = parsed.getDate();
+        }
+      }
+    } else {
+      return false;
     }
-    const todayStr = formatLocalDate(new Date());
-    return Boolean(str && str > todayStr);
+
+    const isoStr = `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const today = new Date();
+    const todayStr = formatLocalDate(today);
+    return isoStr >= todayStr;
+  };
+
+  const handleDobInput = (e) => {
+    const val = e.target.value;
+    handleChange("dob", val);
+    if (e.target.validity?.rangeOverflow || (val && isFutureDate(val))) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        dob: "Date of birth must be a past date.",
+      }));
+    }
+  };
+
+  const handleNumberBeforeInput = (e) => {
+    if (e.data && !/^\d+$/.test(e.data)) {
+      e.preventDefault();
+    }
+  };
+
+  const handleNumberInput = (field, e, onCustomChange) => {
+    const raw = e.target.value;
+    const digits = raw.replace(/\D/g, "");
+    if (raw !== digits) {
+      e.target.value = digits;
+    }
+    handleChange(field, digits);
+    if (onCustomChange) onCustomChange(digits);
+  };
+
+  const handleNumberPaste = (field, e, onCustomChange) => {
+    const pasted = e.clipboardData?.getData("text") || "";
+    const digits = pasted.replace(/\D/g, "");
+    if (digits !== pasted) {
+      e.preventDefault();
+      const input = e.target;
+      const start = input.selectionStart ?? 0;
+      const end = input.selectionEnd ?? 0;
+      const current = input.value || "";
+      const updated = (current.slice(0, start) + digits + current.slice(end)).replace(/\D/g, "");
+      input.value = updated;
+      setTimeout(() => {
+        const nextPos = start + digits.length;
+        input.setSelectionRange?.(nextPos, nextPos);
+      }, 0);
+      handleChange(field, updated);
+      if (onCustomChange) onCustomChange(updated);
+    }
   };
 
   const handleChange = (key, value) => {
@@ -1618,22 +1729,22 @@ const MoneyTransferNew = () => {
       if (isFutureDate(value)) {
         setFieldErrors((prev) => ({
           ...prev,
-          dob: "Date of birth must be today or any past date.",
+          dob: "Date of birth must be a past date.",
         }));
       }
+    }
+
+    if (key === "phone_number" || key === "tin_number") {
+      value = typeof value === "string" ? value.replace(/\D/g, "") : value;
     }
 
     if (key === "full_name") {
       selectedFromDropdownRef.current = false;
       setCustomerFound(false);
-      setCustomerImageUrl("");
-      setCustomerImageFile(null);
-      setComplianceAssessment(null);
       setForm((prev) => ({
         ...prev,
         customer: "",
         [key]: value,
-        ...INITIAL_COMPLIANCE_FIELDS,
       }));
     } else {
       setForm((prev) => ({
@@ -1904,12 +2015,8 @@ const MoneyTransferNew = () => {
     setSelectedCustomer(c);
     setCustomerFound(true);
     setCustomerLookupDone(true);
-    setComplianceAssessment(null);
     if (existingImg) {
       setCustomerImageUrl(existingImg);
-      setCustomerImageFile(null);
-    } else {
-      setCustomerImageUrl("");
       setCustomerImageFile(null);
     }
 
@@ -1918,13 +2025,12 @@ const MoneyTransferNew = () => {
     // Immediately populate all fields from selected customer into form (preserving amount section)
     setForm((prev) => ({
       ...prev,
-      ...INITIAL_COMPLIANCE_FIELDS,
       full_name: nameVal,
       custom_full_name: nameVal,
       customer: c.name,
       customer_id: custId,
-      phone_number: phoneVal,
-      contact_number: phoneVal,
+      phone_number: phoneVal ? String(phoneVal).replace(/\D/g, "") : "",
+      contact_number: phoneVal ? String(phoneVal).replace(/\D/g, "") : "",
       dob: c.custom_date_of_birth || c.dob || "",
       custom_date_of_birth: c.custom_date_of_birth || c.dob || "",
       passport_number: c.custom_passport_number || "",
@@ -1951,7 +2057,7 @@ const MoneyTransferNew = () => {
       stateprovince: c.custom_id_issue_stateprovince || c.custom_state_province || "",
       email: c.email_id || c.custom_email || "",
       occupation: c.custom_occupation || "",
-      tin_number: c.custom_tin_number || "",
+      tin_number: c.custom_tin_number ? String(c.custom_tin_number).replace(/\D/g, "") : "",
       id_issue_date: c.custom_id_issue_date || "",
       id_expiry_date: c.custom_id_expiry_date || "",
       id_issue_country: c.custom_id_issue_country || "",
@@ -1965,6 +2071,18 @@ const MoneyTransferNew = () => {
       receiver_postal_code: "",
       receiver_country: "",
       destination_country: "",
+      rbf_purpose: "",
+      rbf_source_of_funds: "",
+      rbf_nationality_type: "",
+      rbf_nationality: "",
+      rbf_other_nationality: "",
+      rbf_residency_status: "",
+      rbf_beneficiary_reference: "",
+      rbf_student_reference: "",
+      rbf_family_reference: "",
+      rbf_invoice_reference: "",
+      tf_form_reference: "",
+      passport_endorsement_completed: 0,
     }));
 
     try {
@@ -1977,8 +2095,8 @@ const MoneyTransferNew = () => {
         const resolvedId = customer.custom_customer_id || customer.customer_id || customer.name || custId;
 
         // Fetch existing customer photo if present
-        const existingImg = customer.image || customer.custom_image || c.image || c.custom_image || "";
-        setCustomerImageUrl(existingImg || "");
+        const existingImg = customer.image || customer.custom_image || "";
+        setCustomerImageUrl(existingImg || c.image || c.custom_image || "");
         setCustomerImageFile(null);
 
         setForm((prev) => {
@@ -2082,17 +2200,17 @@ const MoneyTransferNew = () => {
               customer.occupation ||
               "",
             phone_number:
-              customer.mobile_no ||
+              (customer.mobile_no ||
               customer.phone_number ||
               customer.phone ||
               customer.custom_contact_number ||
               customer.contact_number ||
               phoneVal ||
-              "",
+              "").replace(/\D/g, ""),
             tin_number:
-              customer.custom_tin_number ||
+              (customer.custom_tin_number ||
               customer.tin_number ||
-              "",
+              "").replace(/\D/g, ""),
             id_issue_date:
               customer.custom_id_issue_date ||
               customer.id_issue_date ||
@@ -2191,7 +2309,7 @@ const MoneyTransferNew = () => {
         return;
       }
 
-      if (!form.full_name || !form.dob) {
+      if (!form.full_name || !form.dob || isFutureDate(form.dob)) {
         if (form.customer && form.full_name) {
           return;
         }
@@ -2242,16 +2360,14 @@ const MoneyTransferNew = () => {
 
           setCustomerFound(true);
           setCustomerLookupDone(true);
-          setComplianceAssessment(null);
 
           // Fetch existing customer photo if present
           const existingImg = customer.image || customer.custom_image || "";
-          setCustomerImageUrl(existingImg || "");
+          setCustomerImageUrl(existingImg);
           setCustomerImageFile(null);
 
           setForm((prev) => ({
             ...prev,
-            ...INITIAL_COMPLIANCE_FIELDS,
             full_name:
               customer.custom_full_name ||
               customer.full_name ||
@@ -2328,19 +2444,19 @@ const MoneyTransferNew = () => {
             customer: customer.name,
 
             phone_number:
-              customer.phone_number ||
+              (customer.phone_number ||
               customer.custom_contact_number ||
               customer.contact_number ||
               customer.mobile_no ||
               customer.phone ||
               prev.phone_number ||
-              "",
+              "").replace(/\D/g, ""),
 
             tin_number:
-              customer.custom_tin_number ||
+              (customer.custom_tin_number ||
               customer.tin_number ||
               prev.tin_number ||
-              "",
+              "").replace(/\D/g, ""),
 
             occupation:
               customer.custom_occupation ||
@@ -2399,26 +2515,6 @@ const MoneyTransferNew = () => {
 
           }));
 
-          try {
-            const activeTransferType = form.transfer_type || "Send";
-            const lastTxResult = await fetchCustomerLastTransaction(customer, "Money Transfer", activeTransferType);
-            if (lastTxResult?.data) {
-              const prefill = extractMoneyTransferPrefill(lastTxResult.data);
-              setForm((prev) => ({
-                ...prev,
-                ...prefill,
-                amount: prev.amount,
-                transfer_type: prev.transfer_type,
-                documents:
-                  prefill.documents && prefill.documents.length > 0
-                    ? prefill.documents
-                    : (prev.documents && prev.documents.length > 0 ? prev.documents : []),
-              }));
-            }
-          } catch (txErr) {
-            console.warn("Could not prefill last transaction in fetchCustomer:", txErr);
-          }
-
           return;
         }
 
@@ -2431,12 +2527,11 @@ const MoneyTransferNew = () => {
         if (!customerImageFile) {
           setCustomerImageUrl("");
         }
-        setComplianceAssessment(null);
 
         setForm((prev) => ({
           ...prev,
+
           customer: "",
-          ...INITIAL_COMPLIANCE_FIELDS,
         }));
 
         setCustomerLookupDone(true);
@@ -2449,8 +2544,7 @@ const MoneyTransferNew = () => {
          * returning null, treat that as a new customer.
          */
         setCustomerFound(false);
-        setComplianceAssessment(null);
-        setForm((prev) => ({ ...prev, customer: "", ...INITIAL_COMPLIANCE_FIELDS }));
+        setForm((prev) => ({ ...prev, customer: "" }));
         setCustomerLookupDone(true);
       }
     };
@@ -2760,7 +2854,6 @@ const MoneyTransferNew = () => {
         currency,
         transfer: transferWithDetails,
         message: `Your transfer of ${currency} ${formattedAmount} has been securely processed. Your transaction ${transfer.name} is confirmed.`,
-        contact_mobile: form.phone_number
       });
 
       resetForm();
@@ -2991,7 +3084,6 @@ const MoneyTransferNew = () => {
     setCustomerLookupDone(false);
     setCustomerImageFile(null);
     setCustomerImageUrl("");
-    setComplianceAssessment(null);
     const transferField = metaFields.find((f) => f.fieldname === "transfer_type");
     const defaultType =
       transferField?.options
@@ -3038,7 +3130,6 @@ const MoneyTransferNew = () => {
       id_issue_state: "",
       risk_level: "",
       documents: [],
-      ...INITIAL_COMPLIANCE_FIELDS,
     }));
   };
 
@@ -3370,7 +3461,7 @@ const MoneyTransferNew = () => {
         if (!formatDate(value)) {
           errors[field.fieldname] = `${field.label || "Date"} is required.`;
         } else if (field.fieldname === "dob" && isFutureDate(value)) {
-          errors[field.fieldname] = "Date of birth must be today or any past date.";
+          errors[field.fieldname] = "Date of birth must be a past date.";
         }
       }
     });
@@ -3378,13 +3469,17 @@ const MoneyTransferNew = () => {
     if (!form.dob || !String(form.dob).trim()) {
       errors.dob = "Date of birth is required.";
     } else if (isFutureDate(form.dob)) {
-      errors.dob = "Date of birth must be today or any past date.";
+      errors.dob = "Date of birth must be a past date.";
     }
     if (!form.phone_number || !String(form.phone_number).trim()) {
       errors.phone_number = "Phone number is required.";
+    } else if (!/^\d+$/.test(String(form.phone_number).trim())) {
+      errors.phone_number = "Phone number must contain numbers only.";
     }
     if (!form.tin_number || !String(form.tin_number).trim()) {
       errors.tin_number = "TIN number is required.";
+    } else if (!/^\d+$/.test(String(form.tin_number).trim())) {
+      errors.tin_number = "TIN number must contain numbers only.";
     }
 
     // Check government ID expiry date validity
@@ -3616,6 +3711,29 @@ const MoneyTransferNew = () => {
         const isAmount = field.fieldname === "amount";
         const isFullName = field.fieldname === "full_name";
         const isPhoneNumber = field.fieldname === "phone_number";
+        const isTinNumber = field.fieldname === "tin_number";
+
+        if (isTinNumber) {
+          return (
+            <div key={field.fieldname} id={`field-${field.fieldname}`} data-fieldname={field.fieldname} className="min-w-0">
+              {renderLabel(field)}
+              <input
+                {...commonProps}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                onChange={(e) => handleNumberInput(field.fieldname, e)}
+                onBeforeInput={handleNumberBeforeInput}
+                onPaste={(e) => handleNumberPaste(field.fieldname, e)}
+                autoComplete="one-time-code"
+                data-lpignore="true"
+                data-1p-ignore="true"
+                data-form-type="other"
+              />
+              {renderFieldError(field.fieldname)}
+            </div>
+          );
+        }
 
         if (isFullName) {
           return (
@@ -3630,10 +3748,7 @@ const MoneyTransferNew = () => {
                   } else if (selectedCustomer && val !== (selectedCustomer.custom_full_name || selectedCustomer.customer_name || selectedCustomer.full_name)) {
                     setSelectedCustomer(null);
                     setCustomerFound(false);
-                    setCustomerImageUrl("");
-                    setCustomerImageFile(null);
-                    setComplianceAssessment(null);
-                    setForm((prev) => ({ ...prev, customer: "", ...INITIAL_COMPLIANCE_FIELDS }));
+                    setForm((prev) => ({ ...prev, customer: "" }));
                   }
                 }}
                 onSelectCustomer={handleSelectCustomer}
@@ -3661,10 +3776,7 @@ const MoneyTransferNew = () => {
                   } else if (selectedCustomer && val !== (selectedCustomer.phone_number || selectedCustomer.mobile_no || selectedCustomer.phone)) {
                     setSelectedCustomer(null);
                     setCustomerFound(false);
-                    setCustomerImageUrl("");
-                    setCustomerImageFile(null);
-                    setComplianceAssessment(null);
-                    setForm((prev) => ({ ...prev, customer: "", ...INITIAL_COMPLIANCE_FIELDS }));
+                    setForm((prev) => ({ ...prev, customer: "" }));
                   }
                 }}
                 onSelectCustomer={handleSelectCustomer}
@@ -3793,9 +3905,16 @@ const MoneyTransferNew = () => {
             <div className="w-full min-w-0">
               <DatePicker
                 selected={selectedDate}
-                onChange={(date) =>
-                  handleChange(field.fieldname, formatLocalDate(date))
-                }
+                onChange={(date) => {
+                  const formatted = formatLocalDate(date);
+                  handleChange(field.fieldname, formatted);
+                  if (isDob && isFutureDate(formatted)) {
+                    setFieldErrors((prev) => ({
+                      ...prev,
+                      dob: "Date of birth must be a past date.",
+                    }));
+                  }
+                }}
                 wrapperClassName="w-full block"
                 className={`${getInputStyle(field.fieldname)} w-full min-w-0 ${isExpiry && fieldExpiryStatus.isExpired
                   ? "border-danger bg-red-50/30 text-danger font-semibold ring-2 ring-red-200"
@@ -3807,7 +3926,7 @@ const MoneyTransferNew = () => {
                 dropdownMode="select"
                 {...(isDob
                   ? {
-                    maxDate: new Date(),
+                    maxDate: new Date(new Date().setDate(new Date().getDate() - 1)),
                     yearDropdownItemNumber: 100,
                     scrollableYearDropdown: true,
                     openToDate: new Date(2000, 0, 1),
@@ -4076,6 +4195,10 @@ const MoneyTransferNew = () => {
         .money-transfer-new .warn {
           background-color: var(--color-warning-bg);
           color: var(--color-warning-fg);
+        }
+        .money-transfer-new .info {
+          background-color: var(--color-info-bg);
+          color: var(--color-info-fg);
         }
         .money-transfer-new .opt {
           border: 1.5px solid var(--color-line-strong);
@@ -4399,10 +4522,7 @@ const MoneyTransferNew = () => {
                           ) {
                             setSelectedCustomer(null);
                             setCustomerFound(false);
-                            setCustomerImageUrl("");
-                            setCustomerImageFile(null);
-                            setComplianceAssessment(null);
-                            setForm((prev) => ({ ...prev, customer: "", full_name: val, ...INITIAL_COMPLIANCE_FIELDS }));
+                            setForm((prev) => ({ ...prev, customer: "", full_name: val }));
                           }
                         }}
                         onSelectCustomer={handleSelectCustomer}
@@ -4424,19 +4544,38 @@ const MoneyTransferNew = () => {
                         className="inp"
                         value={form.phone_number || ""}
                         onChange={(e) => {
-                          const val = e.target.value;
-                          handleChange("phone_number", val);
-                          if (
-                            selectedCustomer &&
-                            val !== (selectedCustomer.phone_number || selectedCustomer.mobile_no || selectedCustomer.phone)
-                          ) {
-                            setSelectedCustomer(null);
-                            setCustomerFound(false);
-                            setComplianceAssessment(null);
-                            setForm((prev) => ({ ...prev, customer: "", ...INITIAL_COMPLIANCE_FIELDS }));
-                          }
+                          handleNumberInput("phone_number", e, (val) => {
+                            const custPhoneClean = (
+                              selectedCustomer?.phone_number ||
+                              selectedCustomer?.mobile_no ||
+                              selectedCustomer?.phone ||
+                              ""
+                            ).replace(/\D/g, "");
+                            if (selectedCustomer && val !== custPhoneClean) {
+                              setSelectedCustomer(null);
+                              setCustomerFound(false);
+                            }
+                          });
                         }}
-                        placeholder="+679 992 7399"
+                        onBeforeInput={handleNumberBeforeInput}
+                        onPaste={(e) => {
+                          handleNumberPaste("phone_number", e, (val) => {
+                            const custPhoneClean = (
+                              selectedCustomer?.phone_number ||
+                              selectedCustomer?.mobile_no ||
+                              selectedCustomer?.phone ||
+                              ""
+                            ).replace(/\D/g, "");
+                            if (selectedCustomer && val !== custPhoneClean) {
+                              setSelectedCustomer(null);
+                              setCustomerFound(false);
+                            }
+                          });
+                        }}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        placeholder="e.g. 9927399"
                       />
                       {renderFieldError("phone_number")}
                     </div>
@@ -4451,8 +4590,10 @@ const MoneyTransferNew = () => {
                         type="date"
                         className={`inp ${fieldErrors?.dob ? "!border-danger ring-1 ring-danger" : ""}`}
                         value={form.dob ? String(form.dob).split("T")[0].split(" ")[0] : ""}
-                        max={formatLocalDate(new Date())}
-                        onChange={(e) => handleChange("dob", e.target.value)}
+                        max={maxDobDate}
+                        onChange={handleDobInput}
+                        onInput={handleDobInput}
+                        onBlur={handleDobInput}
                       />
                       {renderFieldError("dob")}
                     </label>
@@ -4464,7 +4605,12 @@ const MoneyTransferNew = () => {
                       <input
                         className="inp"
                         value={form.tin_number || ""}
-                        onChange={(e) => handleChange("tin_number", e.target.value)}
+                        onChange={(e) => handleNumberInput("tin_number", e)}
+                        onBeforeInput={handleNumberBeforeInput}
+                        onPaste={(e) => handleNumberPaste("tin_number", e)}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         placeholder="Tax Identification Number"
                       />
                       {renderFieldError("tin_number")}
@@ -4616,7 +4762,12 @@ const MoneyTransferNew = () => {
                 <div id="field-documents" className="sec">
                   <h2 className="h"><span className="n">3</span>Compliance review</h2>
 
-                  {hasMissingComplianceDocs ? (
+                  {isComplianceEmpty ? (
+                    <div className="info" style={{ padding: "16px", borderRadius: "10px", fontSize: "14px", lineHeight: 1.5 }}>
+                      <strong>Compliance details required.</strong><br />
+                      Please select a purpose and complete compliance requirements below.
+                    </div>
+                  ) : hasMissingComplianceDocs ? (
                     <div className="warn" style={{ padding: "16px", borderRadius: "10px", fontSize: "14px", lineHeight: 1.5 }}>
                       <strong>Needs review before submitting.</strong><br />
                       This purpose is not approved for the MoneyGram channel. Missing documents: {missingComplianceDocs.join(", ")}.
@@ -4631,12 +4782,11 @@ const MoneyTransferNew = () => {
                   {/* Supporting Compliance Documents Component */}
                   <div style={{ marginTop: "16px" }}>
                     <RbfComplianceSection
-                      key={`rbf-${form.customer || (customerFound ? form.customer_id : "") || form.full_name || "new"}`}
                       transactionType="MONEY_TRANSFER"
                       fjdAmount={Number(form.amount || 0)}
                       exchangeType={form.transfer_type || "Send"}
                       currency="FJD"
-                      customerId={form.customer || (customerFound ? form.customer_id : "")}
+                      customerId={form.customer_id || form.customer}
                       recipientName={form.receiver_name}
                       value={form}
                       onChange={setForm}
@@ -4650,7 +4800,7 @@ const MoneyTransferNew = () => {
                 </div>
 
                 {/* ── SECTION 4: CASH DENOMINATION (SETTLEMENT) ── */}
-                <div className="sec">
+                <div className={`sec ${form.transfer_type == 'Send' ? 'hidden' : ''}`}>
                   <h2 className="h"><span className="n">4</span>Cash Denomination</h2>
                   <label className="chk" style={{ cursor: "pointer", userSelect: "none" }}>
                     <input
@@ -4737,7 +4887,6 @@ const MoneyTransferNew = () => {
                 }}
                 disabled={isFormLocked}
                 customerFound={Boolean(customerLookupDone && customerFound && form.customer)}
-                isSavedPhoto={Boolean(customerImageUrl && !customerImageFile && (form.customer || customerFound))}
               />
 
               {/* CARD 2: SUMMARY */}
@@ -4764,6 +4913,8 @@ const MoneyTransferNew = () => {
                     <span className="chip warn">Compliance review</span>
                   ) : idExpiryStatus.isExpired ? (
                     <span className="chip warn">⚠️ ID Expired</span>
+                  ) : isComplianceEmpty ? (
+                    <span className="chip info">Pending compliance</span>
                   ) : (
                     <span className="chip ok">✓ Verified</span>
                   )}
@@ -4825,8 +4976,8 @@ const MoneyTransferNew = () => {
                   onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && scrollToErrorField('documents')}
                   title="Jump to Compliance documents"
                 >
-                  <span className={`dot ${hasMissingComplianceDocs ? "o" : ""}`}>
-                    {!hasMissingComplianceDocs ? "✓" : ""}
+                  <span className={`dot ${hasMissingComplianceDocs || isComplianceEmpty ? "o" : ""}`}>
+                    {!hasMissingComplianceDocs && !isComplianceEmpty ? "✓" : ""}
                   </span>
                   <span className="group-hover:text-[#0B7A44] transition-colors font-medium">Compliance documents</span>
                 </div>

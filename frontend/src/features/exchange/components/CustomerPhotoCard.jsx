@@ -89,7 +89,6 @@ export const CustomerPhotoCard = ({
   onImageRemove,
   disabled = false,
   customerFound = false,
-  isSavedPhoto,
 }) => {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
@@ -240,7 +239,7 @@ export const CustomerPhotoCard = ({
   const handleDrag = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (disabled || isSavedFromBackend) return;
+    if (disabled) return;
     if (e.type === "dragenter" || e.type === "dragover") {
       setDragActive(true);
     } else if (e.type === "dragleave") {
@@ -252,7 +251,7 @@ export const CustomerPhotoCard = ({
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    if (disabled || isSavedFromBackend) return;
+    if (disabled) return;
 
     const file = e.dataTransfer.files?.[0];
     if (file && file.type.startsWith("image/")) {
@@ -272,11 +271,6 @@ export const CustomerPhotoCard = ({
 
   const hasPhoto = Boolean(customerImageUrl);
   const isPendingUpload = Boolean(customerImageFile);
-  const isSavedFromBackend = Boolean(
-    isSavedPhoto !== undefined
-      ? isSavedPhoto
-      : customerImageUrl && !customerImageFile && customerFound
-  );
 
   return (
     <div className="rounded-3xl border border-gray-100 bg-white shadow-[0_10px_40px_rgba(0,0,0,0.06)] p-6 sm:p-7 flex flex-col gap-4">
@@ -297,14 +291,12 @@ export const CustomerPhotoCard = ({
         {hasPhoto ? (
           <span
             className={`px-2.5 py-0.5 rounded-full text-overline font-semibold uppercase tracking-wider border ${
-              isSavedFromBackend
-                ? "bg-green-50 text-green-700 border-green-200"
-                : isPendingUpload
+              isPendingUpload
                 ? "bg-amber-50 text-amber-700 border-amber-200"
                 : "bg-green-50 text-green-700 border-green-200"
             }`}
           >
-            {isSavedFromBackend ? "Photo on Record" : isPendingUpload ? "New Photo" : "Photo Attached"}
+            {isPendingUpload ? "New Photo" : "Existing Photo"}
           </span>
         ) : (
           <span className="px-2.5 py-0.5 rounded-full text-overline font-semibold uppercase tracking-wider bg-gray-100 text-gray-500 border border-gray-200">
@@ -430,7 +422,7 @@ export const CustomerPhotoCard = ({
               >
                 <Eye size={15} />
               </a>
-              {!disabled && !isSavedFromBackend && (
+              {!disabled && (
                 <button
                   type="button"
                   onClick={onImageRemove}
@@ -444,7 +436,7 @@ export const CustomerPhotoCard = ({
           </div>
 
           {/* Action Buttons */}
-          {!disabled && !isSavedFromBackend && (
+          {!disabled && (
             <div className="grid grid-cols-2 gap-2 pt-1">
               <button
                 type="button"
@@ -461,12 +453,6 @@ export const CustomerPhotoCard = ({
               >
                 <Upload size={13} className="text-gray-500" /> Upload New
               </button>
-            </div>
-          )}
-
-          {isSavedFromBackend && (
-            <div className="text-xs text-gray-500 text-center pt-1 font-medium">
-              Customer photo on record
             </div>
           )}
         </div>

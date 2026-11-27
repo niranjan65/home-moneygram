@@ -19,7 +19,6 @@ export function RbfComplianceSection({
   hideCardHeader = false,
   onAssessmentChange,
   onConfigChange,
-  disablePrefill = false,
 }) {
   const formContext = useFormContext();
   const { uploadFile } = useERPFileUpload();
@@ -159,7 +158,7 @@ export function RbfComplianceSection({
   }, [transactionType, direction]);
 
   useEffect(() => {
-    if (disablePrefill || !customerId || !direction) return;
+    if (!customerId || !direction) return;
     const query = new URLSearchParams({ customer_id: customerId, transaction_type: transactionType, transaction_direction: direction });
     fetch(`/api/method/moneygram.moneygram.api.rbf_compliance.get_last_transaction_prefill?${query}`, { credentials: 'include' })
       .then(response => response.ok ? response.json() : Promise.reject(new Error('Unable to load previous RBF values.')))
@@ -177,7 +176,7 @@ export function RbfComplianceSection({
         if (Object.keys(updates).length) setFields(updates);
       })
       .catch(() => { });
-  }, [customerId, transactionType, direction, disablePrefill]);
+  }, [customerId, transactionType, direction]);
 
   useEffect(() => {
     if (!purpose || !fjdAmount) {

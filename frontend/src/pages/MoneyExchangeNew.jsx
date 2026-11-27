@@ -106,8 +106,15 @@ const MoneyExchangeNew = () => {
 
   const handleCustomerChange = useCallback((custState) => {
     if (custState.customerFound !== undefined) setCustomerFound(custState.customerFound);
+    // If teller has explicitly uploaded / captured a customer photo file, do not overwrite it
+    if (customerImageFileRef.current instanceof File) {
+      return;
+    }
     if (custState.imageUrl !== undefined) {
-      setCustomerImageUrl(custState.imageUrl);
+      const docUrl = custState.customer?.custom_government_document;
+      const isDoc = docUrl && custState.imageUrl === docUrl;
+      const nextUrl = isDoc ? '' : (custState.imageUrl || '');
+      setCustomerImageUrl(nextUrl);
       setCustomerImageFile(null);
       customerImageFileRef.current = null;
     }
@@ -195,9 +202,9 @@ const MoneyExchangeNew = () => {
   const loginUser = useUser();
 
   const [senderInfo] = useState({
-    name: 'Niranjan Singh',
-    email: 'niranjan.ks@anantdv.com',
-    phone: '+91 1234567890',
+    name: '',
+    email: '',
+    phone: '',
   });
 
   const { selectedWarehouse } = useSettings();
@@ -404,6 +411,7 @@ const MoneyExchangeNew = () => {
     try {
       const uploadedDocuments = [];
       for (const row of transferPayload.documents || []) {
+        console.log('uploading document:', row)
         const attachment = row.attachment instanceof File
           ? await uploadFile(row.attachment, { isPrivate: 1 })
           : row.attachment;
@@ -414,16 +422,29 @@ const MoneyExchangeNew = () => {
       const uploadedFileUrl = documentUrl(transferPayload.government_id || (transferPayload.idType === 'PASSPORT' ? 'Passport' : 'Government ID')) || uploadedDocuments[0]?.attachment || null;
       const ticketDocUrl = documentUrl('Ticket');
 
+      // Collect all government document attachment URLs to ensure customer photo is NEVER a government document
+      const docAttachmentUrls = new Set(uploadedDocuments.map(d => d.attachment).filter(Boolean));
+      if (uploadedFileUrl) docAttachmentUrls.add(uploadedFileUrl);
+
       let customerPhotoUrl = null;
       const custPhoto = customerImageFileRef.current || (transferPayload.customerImageFile instanceof File ? transferPayload.customerImageFile : null);
       if (custPhoto instanceof File) {
         customerPhotoUrl = await uploadFile(custPhoto, {
           isPrivate: 0,
-          doctype: "Customer",
         });
-      } else if (typeof customerImageUrl === "string" && customerImageUrl) {
+      } else if (
+        typeof customerImageUrl === "string" &&
+        customerImageUrl &&
+        !customerImageUrl.startsWith("blob:") &&
+        !docAttachmentUrls.has(customerImageUrl)
+      ) {
         customerPhotoUrl = customerImageUrl;
-      } else if (typeof transferPayload.customerImageUrl === "string" && transferPayload.customerImageUrl) {
+      } else if (
+        typeof transferPayload.customerImageUrl === "string" &&
+        transferPayload.customerImageUrl &&
+        !transferPayload.customerImageUrl.startsWith("blob:") &&
+        !docAttachmentUrls.has(transferPayload.customerImageUrl)
+      ) {
         customerPhotoUrl = transferPayload.customerImageUrl;
       }
       // Decide which field to use
@@ -445,7 +466,7 @@ const MoneyExchangeNew = () => {
 
       if (transferPayload.exchangeType === "BUY") {
 
-        denominationData =
+        receiverData =
           transferPayload.receiverDenominationRows?.map(row => {
             const { denomination_value, denomination_type } = row;
             let itemName = denomination_value;
@@ -479,7 +500,7 @@ const MoneyExchangeNew = () => {
             };
           }) || [];
 
-        receiverData =
+        denominationData =
           transferPayload.senderDenominationRows?.map(row => {
             const { denomination_value, denomination_type } = row;
             let itemName = denomination_value;
@@ -515,7 +536,7 @@ const MoneyExchangeNew = () => {
 
       } else {
 
-        denominationData =
+        receiverData =
           transferPayload.senderDenominationRows?.map(row => {
             const { denomination_value, denomination_type } = row;
             let itemName = denomination_value;
@@ -549,7 +570,7 @@ const MoneyExchangeNew = () => {
             };
           }) || [];
 
-        receiverData =
+        denominationData =
           transferPayload.receiverDenominationRows?.map(row => {
             const { denomination_value, denomination_type } = row;
             let itemName = denomination_value;
@@ -702,7 +723,7 @@ const MoneyExchangeNew = () => {
         } else if (result?.exc) {
           errorMsg = "Server processing error. Please verify input data.";
         }
-        alert(errorMsg);
+        alert("backend error:", errorMsg);
         return;
       }
 

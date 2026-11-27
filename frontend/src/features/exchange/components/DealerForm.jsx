@@ -302,7 +302,7 @@ export const DealerForm = ({
         custom_last_name: initialData.lastName,
         custom_date_of_birth: initialData.dateOfBirth,
         custom_government_document: initialData.docFile,
-        image: initialData.image || initialData.customer_image || "",
+        image: initialData.docFile,
       };
     }
     return null;

@@ -360,7 +360,11 @@ export const createCustomer = async (
       custom_government_document:
         documentUrl || form.document_upload || form.docFile || "",
 
-      image: customerImageUrl || form.customer_image || form.image || "",
+      image: (() => {
+        const doc = (documentUrl || form.document_upload || form.docFile || "").trim();
+        const img = (customerImageUrl || form.customer_image || form.image || "").trim();
+        return img && img !== doc ? img : "";
+      })(),
 
       mobile_no: (form.phone_number || form.mobile_no || form.phone || "").trim(),
       custom_risk_level: form.risk_level || form.custom_risk_level || "Low",

@@ -66,13 +66,6 @@ export const GovernmentIdSection = ({
 
   const idExpiryStatus = useMemo(() => getIdExpiryStatus(idExpiryDateVal), [idExpiryDateVal]);
 
-  const isSavedIdFromBackend = Boolean(
-    previewUrl &&
-    typeof previewUrl === 'string' &&
-    !previewUrl.startsWith('blob:') &&
-    !previewFile
-  );
-
   const expiryBadge = idExpiryStatus.isExpired ? (
     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-caption font-semibold bg-red-600 text-white shadow-xs animate-pulse">
       <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
@@ -748,7 +741,9 @@ export const GovernmentIdSection = ({
     const chosenName = c.custom_full_name || c.customer_name || c.name || '';
     const chosenId = c.custom_customer_id || c.customer_id || c.name || '';
     const chosenPhone = c.mobile_no || c.phone_number || c.phone || '';
-    const chosenImg = c.image || c.custom_image || '';
+    const custGovDoc = c.custom_government_document || '';
+    const rawImg = c.image || c.custom_image || '';
+    const chosenImg = (rawImg && rawImg !== custGovDoc) ? rawImg : '';
     const idNum = c.custom_passport_number || c.custom_drivers_licence_number || c.custom_tin_number || c.custom_voter_id_number || c.id_number || '';
 
     setNameQuery(chosenName);
@@ -789,13 +784,16 @@ export const GovernmentIdSection = ({
       if (fullCustomer) {
         const fullName = fullCustomer.custom_full_name || fullCustomer.customer_name || chosenName;
         const fullPhone = fullCustomer.mobile_no || fullCustomer.phone_number || fullCustomer.phone || chosenPhone;
+        const fullGovDoc = fullCustomer.custom_government_document || custGovDoc;
+        const fullRawImg = fullCustomer.image || fullCustomer.custom_image || chosenImg;
+        const resolvedImg = (fullRawImg && fullRawImg !== fullGovDoc) ? fullRawImg : '';
         setSelectedCustomer(fullCustomer);
         setNameQuery(fullName);
         setPhoneQuery(fullPhone);
         onCustomerChange?.({
           customerFound: true,
           customer: fullCustomer,
-          imageUrl: fullCustomer.image || fullCustomer.custom_image || chosenImg,
+          imageUrl: resolvedImg,
         });
       }
     } catch (err) {
@@ -1594,16 +1592,14 @@ export const GovernmentIdSection = ({
             <FieldLabel required icon={Upload}>
               {governmentId === 'Passport' ? 'Passport Photo / Scan' : 'Government ID Photo / Scan'}
             </FieldLabel>
-            {!isSavedIdFromBackend && (
-              <button
-                type="button"
-                onClick={() => setIsSelfieModalOpen(true)}
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#E00000] hover:text-[#c00000] bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg transition"
-              >
-                <Camera size={13} />
-                <span>Take Live Photo</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setIsSelfieModalOpen(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-[#E00000] hover:text-[#c00000] bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg transition"
+            >
+              <Camera size={13} />
+              <span>Take Live Photo</span>
+            </button>
           </div>
           <div className="mt-1">
             {previewUrl ? (
@@ -1617,24 +1613,20 @@ export const GovernmentIdSection = ({
                       <p className="font-medium text-gray-800 text-sm truncate">{previewFile.name}</p>
                       <p className="text-xs text-gray-400">{(previewFile.size / 1024).toFixed(1)} KB · PDF</p>
                     </div>
-                    {!isSavedIdFromBackend && (
-                      <button type="button" onClick={removeFile}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#E00000] hover:bg-[#E00000]/5 transition-colors">
-                        <X size={14} />
-                      </button>
-                    )}
+                    <button type="button" onClick={removeFile}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-[#E00000] hover:bg-[#E00000]/5 transition-colors">
+                      <X size={14} />
+                    </button>
                   </div>
                 ) : (
                   <div className="relative">
                     <img src={previewUrl} alt="ID" className="w-full max-h-48 object-contain p-3 bg-gray-50" />
-                    {!isSavedIdFromBackend && (
-                      <button type="button" onClick={removeFile}
-                        className="absolute top-2 right-2 w-7 h-7 bg-white border border-gray-200 rounded-lg shadow-sm flex items-center justify-center text-gray-400 hover:text-[#E00000] transition-colors">
-                        <X size={13} />
-                      </button>
-                    )}
+                    <button type="button" onClick={removeFile}
+                      className="absolute top-2 right-2 w-7 h-7 bg-white border border-gray-200 rounded-lg shadow-sm flex items-center justify-center text-gray-400 hover:text-[#E00000] transition-colors">
+                      <X size={13} />
+                    </button>
                     <div className="flex items-center gap-1.5 px-4 py-2 bg-green-50 border-t border-green-100 text-xs font-medium text-green-700">
-                      <CheckCircle2 size={11} strokeWidth={2.5} /> {isSavedIdFromBackend ? 'ID document on record' : 'Document uploaded'}
+                      <CheckCircle2 size={11} strokeWidth={2.5} /> Document uploaded
                     </div>
                   </div>
                 )}

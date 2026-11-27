@@ -386,10 +386,10 @@ The application serves as the primary Point of Sale (POS), Forex Dealing, and Re
 
 ---
 
-## 15. User & Workstation Settings (`/settings` and `/settings-new`)
+## 15. User & Workstation Settings (`/settings`)
 
 - **Component File:** `apps/home/frontend/src/components/SettingspanelNew.jsx` (with legacy fallback `apps/home/frontend/src/components/Settingspanel.jsx`)
-- **Route Paths:** `/home/settings` and `/home/settings-new` (legacy `/home/test`)
+- **Route Paths:** `/home/settings`
 - **Access:** Protected Route
 - **Design & Layout Architecture:**
   - Modernized 2-column card and sidebar layout aligned visually and functionally with `MoneyExchangeNew` and `MoneyTransferNew`.

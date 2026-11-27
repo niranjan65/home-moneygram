@@ -128,7 +128,6 @@ export const TransferSuccessNew = ({
     ...(invoiceData || {}),
     customer_name: data?.selectedCustomer?.custom_full_name || (data?.firstName + data?.lastName) || ""
   };
-  console.info('cusotmer full name: ', data)
 
   const exchangeType = (
     finalData?.exchangeType ||

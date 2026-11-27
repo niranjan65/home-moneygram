@@ -68,8 +68,15 @@ const MoneyExchange = () => {
 
   const handleCustomerChange = useCallback((custState) => {
     if (custState.customerFound !== undefined) setCustomerFound(custState.customerFound);
+    // If teller has explicitly uploaded / captured a customer photo file, do not overwrite it
+    if (customerImageFileRef.current instanceof File) {
+      return;
+    }
     if (custState.imageUrl !== undefined) {
-      setCustomerImageUrl(custState.imageUrl);
+      const docUrl = custState.customer?.custom_government_document;
+      const isDoc = docUrl && custState.imageUrl === docUrl;
+      const nextUrl = isDoc ? '' : (custState.imageUrl || '');
+      setCustomerImageUrl(nextUrl);
       setCustomerImageFile(null);
       customerImageFileRef.current = null;
     }
@@ -85,9 +92,9 @@ const MoneyExchange = () => {
   const loginUser = useUser();
 
   const [senderInfo] = useState({
-    name: 'Niranjan Singh',
-    email: 'niranjan.ks@anantdv.com',
-    phone: '+91 1234567890',
+    name: '',
+    email: '',
+    phone: '',
   });
 
   const { selectedWarehouse } = useSettings();
@@ -171,7 +178,7 @@ const MoneyExchange = () => {
       fee: incoming.receiverGets * 0.02,
       receiverCurrency: incoming.receiverCurrency,
       exchangeType: incoming.exchangeType,
-      
+
     }));
 
     setHandleSumamryChange(incoming)
@@ -279,10 +286,10 @@ const MoneyExchange = () => {
   const handleConfirm = useCallback(async () => {
     if (!transferPayload) return;
 
-     if (!selectedWarehouse?.warehouse) {
-    setShowLocationModal(true);
-    return;
-  }
+    if (!selectedWarehouse?.warehouse) {
+      setShowLocationModal(true);
+      return;
+    }
 
     try {
       const uploadedDocuments = [];
@@ -297,18 +304,31 @@ const MoneyExchange = () => {
       const uploadedFileUrl = documentUrl(transferPayload.government_id || (transferPayload.idType === 'PASSPORT' ? 'Passport' : 'Government ID')) || uploadedDocuments[0]?.attachment || null;
       const ticketDocUrl = documentUrl('Ticket');
 
-    let customerPhotoUrl = null;
-    const custPhoto = customerImageFileRef.current || (transferPayload.customerImageFile instanceof File ? transferPayload.customerImageFile : null);
-    if (custPhoto instanceof File) {
-      customerPhotoUrl = await uploadFile(custPhoto, {
-        isPrivate: 0,
-        doctype: "Customer",
-      });
-    } else if (typeof customerImageUrl === "string" && customerImageUrl) {
-      customerPhotoUrl = customerImageUrl;
-    } else if (typeof transferPayload.customerImageUrl === "string" && transferPayload.customerImageUrl) {
-      customerPhotoUrl = transferPayload.customerImageUrl;
-    }
+      // Collect all government document attachment URLs to ensure customer photo is NEVER a government document
+      const docAttachmentUrls = new Set(uploadedDocuments.map(d => d.attachment).filter(Boolean));
+      if (uploadedFileUrl) docAttachmentUrls.add(uploadedFileUrl);
+
+      let customerPhotoUrl = null;
+      const custPhoto = customerImageFileRef.current || (transferPayload.customerImageFile instanceof File ? transferPayload.customerImageFile : null);
+      if (custPhoto instanceof File) {
+        customerPhotoUrl = await uploadFile(custPhoto, {
+          isPrivate: 0,
+        });
+      } else if (
+        typeof customerImageUrl === "string" &&
+        customerImageUrl &&
+        !customerImageUrl.startsWith("blob:") &&
+        !docAttachmentUrls.has(customerImageUrl)
+      ) {
+        customerPhotoUrl = customerImageUrl;
+      } else if (
+        typeof transferPayload.customerImageUrl === "string" &&
+        transferPayload.customerImageUrl &&
+        !transferPayload.customerImageUrl.startsWith("blob:") &&
+        !docAttachmentUrls.has(transferPayload.customerImageUrl)
+      ) {
+        customerPhotoUrl = transferPayload.customerImageUrl;
+      }
       // Decide which field to use
       let idDocumentField = {};
 
@@ -594,7 +614,7 @@ const MoneyExchange = () => {
 
       const targetCustId = createdDoc?.customer_id || transferPayload?.customer_id || transferPayload?.full_name;
       if (targetCustId && transferPayload?.risk_level) {
-        updateCustomerRiskLevel(targetCustId, transferPayload.risk_level, loginUser).catch(() => {});
+        updateCustomerRiskLevel(targetCustId, transferPayload.risk_level, loginUser).catch(() => { });
       }
 
       const txId = createdDoc?.name || `#TRX-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -785,29 +805,29 @@ const MoneyExchange = () => {
 
 
       {/* Location required modal */}
-{showLocationModal && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-    <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 flex flex-col items-center gap-5">
-      <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center">
-        <svg className="w-7 h-7 text-[#E00000]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-        </svg>
-      </div>
-      <div className="text-center">
-        <h2 className="text-gray-900 text-xl font-bold mb-2">No Location Selected</h2>
-        <p className="text-gray-500 text-sm leading-relaxed">
-          Please select a <span className="font-semibold text-gray-700">Location</span> before confirming the transaction. You can change it from the settings.
-        </p>
-      </div>
-      <button
-        onClick={() => setShowLocationModal(false)}
-        className="w-full py-3 rounded-xl bg-[#E00000] text-white font-bold text-sm tracking-wide hover:bg-red-700 transition-colors"
-      >
-        Got it
-      </button>
-    </div>
-  </div>
-)}
+      {showLocationModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 flex flex-col items-center gap-5">
+            <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center">
+              <svg className="w-7 h-7 text-[#E00000]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+            </div>
+            <div className="text-center">
+              <h2 className="text-gray-900 text-xl font-bold mb-2">No Location Selected</h2>
+              <p className="text-gray-500 text-sm leading-relaxed">
+                Please select a <span className="font-semibold text-gray-700">Location</span> before confirming the transaction. You can change it from the settings.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowLocationModal(false)}
+              className="w-full py-3 rounded-xl bg-[#E00000] text-white font-bold text-sm tracking-wide hover:bg-red-700 transition-colors"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

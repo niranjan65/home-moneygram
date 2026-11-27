@@ -89,7 +89,6 @@ export const CustomerPhotoCard = ({
   onImageRemove,
   disabled = false,
   customerFound = false,
-  isSavedPhoto,
 }) => {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
@@ -240,7 +239,7 @@ export const CustomerPhotoCard = ({
   const handleDrag = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (disabled || isSavedFromBackend) return;
+    if (disabled) return;
     if (e.type === "dragenter" || e.type === "dragover") {
       setDragActive(true);
     } else if (e.type === "dragleave") {
@@ -252,7 +251,7 @@ export const CustomerPhotoCard = ({
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    if (disabled || isSavedFromBackend) return;
+    if (disabled) return;
 
     const file = e.dataTransfer.files?.[0];
     if (file && file.type.startsWith("image/")) {
@@ -272,11 +271,6 @@ export const CustomerPhotoCard = ({
 
   const hasPhoto = Boolean(customerImageUrl);
   const isPendingUpload = Boolean(customerImageFile);
-  const isSavedFromBackend = Boolean(
-    isSavedPhoto !== undefined
-      ? isSavedPhoto
-      : customerImageUrl && !customerImageFile && customerFound
-  );
 
   return (
     <div className="card p-6 flex flex-col gap-3">
@@ -285,7 +279,7 @@ export const CustomerPhotoCard = ({
         <span className="lbl" style={{ marginBottom: 0 }}>Customer photo</span>
         {hasPhoto ? (
           <span className="chip ok text-overline font-semibold" style={{ height: "24px", padding: "0 10px" }}>
-            {isSavedFromBackend ? "Photo on Record" : isPendingUpload ? "New Photo" : "Photo Attached"}
+            {isPendingUpload ? "New Photo" : "Photo Attached"}
           </span>
         ) : (
           <span className="chip text-overline font-semibold" style={{ height: "24px", padding: "0 10px" }}>
@@ -411,7 +405,7 @@ export const CustomerPhotoCard = ({
               >
                 <Eye size={15} />
               </a>
-              {!disabled && !isSavedFromBackend && (
+              {!disabled && (
                 <button
                   type="button"
                   onClick={onImageRemove}
@@ -425,7 +419,7 @@ export const CustomerPhotoCard = ({
           </div>
 
           {/* Action Buttons */}
-          {!disabled && !isSavedFromBackend && (
+          {!disabled && (
             <div className="g2 pt-1">
               <button
                 type="button"
@@ -444,12 +438,6 @@ export const CustomerPhotoCard = ({
               >
                 <Upload size={14} /> Upload file
               </button>
-            </div>
-          )}
-
-          {isSavedFromBackend && (
-            <div className="text-xs text-muted text-center pt-1 font-medium">
-              Customer photo on record
             </div>
           )}
         </div>

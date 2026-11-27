@@ -479,7 +479,7 @@ export const ReceiverForm = ({
     if (custState?.customer) {
       setCurrentCustomer(custState.customer);
       const cust = custState.customer;
-      const doc = cust.custom_government_document || cust.image;
+      const doc = cust.custom_government_document || '';
       if (doc) {
         const docUrl = doc.startsWith('http') ? doc : `/${doc.replace(/^\/+/, '')}`;
         methods.setValue('docFile', docUrl, { shouldValidate: true, shouldDirty: true });

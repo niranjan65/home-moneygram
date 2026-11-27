@@ -9,6 +9,7 @@ import { useAppConfiguration } from '../../../../hooks/useAppConfiguration';
 import { useUser } from '../../../../context/UserContext';
 import { sessionAxios as axios } from '../../../../api/sessionClient.js';
 import { fetchNewCustomerId } from '../../api/customer';
+import { sanitizeCustomerInput, isAllowedCustomerChar } from '../../../../utils/sanitizeInput';
 
 export const DealerPersonalInfoSection = ({
   hideCardWrapper = false,
@@ -28,7 +29,7 @@ export const DealerPersonalInfoSection = ({
   const [dealersLoading, setDealersLoading] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [nameQuery, setNameQuery] = useState(() => {
-    return controlledDealer?.custom_full_name || controlledDealer?.customer_name || watch('fullName') || '';
+    return sanitizeCustomerInput(controlledDealer?.custom_full_name || controlledDealer?.customer_name || watch('fullName') || '');
   });
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const [selectedDealer, setSelectedDealer] = useState(controlledDealer || null);
@@ -38,7 +39,7 @@ export const DealerPersonalInfoSection = ({
       setSelectedDealer(null);
     } else if (controlledDealer && (!selectedDealer || selectedDealer.name !== controlledDealer.name)) {
       setSelectedDealer(controlledDealer);
-      const dName = controlledDealer.custom_full_name || controlledDealer.customer_name || controlledDealer.name || '';
+      const dName = sanitizeCustomerInput(controlledDealer.custom_full_name || controlledDealer.customer_name || controlledDealer.name || '');
       if (dName) setNameQuery(dName);
     }
   }, [controlledDealer]);
@@ -239,16 +240,39 @@ export const DealerPersonalInfoSection = ({
     return scored.map((item) => item.c).slice(0, 20);
   }, [dealers, nameQuery]);
 
+  // Prevent typing of any disallowed special characters before input is inserted
+  const handleBeforeInput = (e) => {
+    if (e.data && !isAllowedCustomerChar(e.data)) {
+      e.preventDefault();
+    }
+  };
+
+  // Sanitize text pasted into the dealer name input
+  const handlePaste = (e) => {
+    const pasted = e.clipboardData?.getData('text') || '';
+    const sanitized = sanitizeCustomerInput(pasted);
+    if (sanitized !== pasted) {
+      e.preventDefault();
+      const input = e.target;
+      const start = input.selectionStart ?? 0;
+      const end = input.selectionEnd ?? 0;
+      const current = input.value || '';
+      const updated = current.slice(0, start) + sanitized + current.slice(end);
+      handleNameQueryChange(updated);
+    }
+  };
+
   // Handle typing in combobox
   const handleNameQueryChange = (val) => {
-    const isCleared = !val || !val.trim();
+    const sanitizedVal = sanitizeCustomerInput(val);
+    const isCleared = !sanitizedVal || !sanitizedVal.trim();
     const hadSelectedDealer = Boolean(
       selectedDealer && (selectedDealer.name || selectedDealer.customer_id || selectedDealer.custom_customer_id)
     );
     const prevName = selectedDealer?.custom_full_name || selectedDealer?.customer_name || selectedDealer?.name || '';
 
-    setNameQuery(val);
-    setValue('fullName', val, { shouldValidate: true, shouldDirty: true });
+    setNameQuery(sanitizedVal);
+    setValue('fullName', sanitizedVal, { shouldValidate: true, shouldDirty: true });
 
     if (isCleared) {
       if (hadSelectedDealer) {
@@ -261,13 +285,13 @@ export const DealerPersonalInfoSection = ({
       return;
     }
 
-    if (hadSelectedDealer && val !== prevName) {
-      setValue('fullName', val, { shouldValidate: true, shouldDirty: true });
-      setNameQuery(val);
+    if (hadSelectedDealer && sanitizedVal !== prevName) {
+      setValue('fullName', sanitizedVal, { shouldValidate: true, shouldDirty: true });
+      setNameQuery(sanitizedVal);
     }
 
-    if (!selectedDealer && val) {
-      const parts = val.trim().split(/\s+/).filter(Boolean);
+    if (!selectedDealer && sanitizedVal) {
+      const parts = sanitizedVal.trim().split(/\s+/).filter(Boolean);
       if (parts.length === 1) {
         setValue('firstName', parts[0], { shouldValidate: true });
         setValue('middleName', '', { shouldValidate: true });
@@ -288,7 +312,7 @@ export const DealerPersonalInfoSection = ({
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      searchDealers(val);
+      searchDealers(sanitizedVal);
     }, 250);
   };
 
@@ -355,7 +379,7 @@ export const DealerPersonalInfoSection = ({
     setSelectedDealer(c);
     onDealerChange?.(c);
 
-    const chosenFullName = c.custom_full_name || c.customer_name || c.name || '';
+    const chosenFullName = sanitizeCustomerInput(c.custom_full_name || c.customer_name || c.name || '');
     const chosenFirstName = c.custom_first_name || chosenFullName.split(' ')[0] || '';
     const chosenMiddleName = c.custom_middle_name || '';
     const chosenLastName = c.custom_last_name || chosenFullName.split(' ').slice(1).join(' ') || '';
@@ -489,6 +513,8 @@ export const DealerPersonalInfoSection = ({
                   searchDealers('');
                 }
               }}
+              onBeforeInput={handleBeforeInput}
+              onPaste={handlePaste}
               onChange={(e) => handleNameQueryChange(e.target.value)}
               onKeyDown={handleKeyDown}
               className={`${fieldCls(errors.fullName)} pr-10 bg-surface`}
